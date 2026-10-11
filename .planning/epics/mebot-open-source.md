@@ -29,7 +29,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 
 | # | Feature | Status | Spec | Plan | Depends On | Effort |
 |---|---------|--------|------|------|------------|--------|
-| 1 | Foundation: repo restructure, config, multi-tenant schema, migrations | todo | — | — | — | M |
+| 1 | Foundation: repo restructure, config, multi-tenant schema, migrations | building | [spec](../specs/foundation.md) | — | — | M |
 | 2 | First-run setup + admin auth | todo | — | — | #1 | M |
 | 3 | LLM provider layer (BYO key, encrypted) | todo | — | — | #1, #2 | M |
 | 4 | Structured profile data + admin data pages | todo | — | — | #2 | L |
