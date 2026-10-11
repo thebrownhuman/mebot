@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ../mebot-app/backend
+    environment:
+      # reach Ollama running on the HOST machine (not in a container)
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    volumes:
+      # persist the sqlite db on the host so data survives container restarts
+      - ./data:/app/data
+    extra_hosts:
+      # makes host.docker.internal work on Linux (built-in on Mac/Windows)
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+
+  frontend:
+    build: ../mebot-react
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

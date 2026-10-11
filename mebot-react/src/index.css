@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: #07090d;
+  color: #c8d6c5;
+  font-family: "SF Mono", ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  overflow: hidden;
+}
+.scanlines {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.18) 2px 3px);
+  mix-blend-mode: multiply; opacity: .5;
+}
