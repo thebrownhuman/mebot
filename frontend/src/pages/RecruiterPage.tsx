@@ -16,7 +16,7 @@ export default function RecruiterPage() {
     <>
       {!entered && <WelcomeGate onEnter={enter} />}
       <ChatScreen
-        title="talking about Shivansh — ask me anything"
+        title="talking about the candidate — ask me anything"
         conn={chat.conn}
         lines={chat.lines}
         busy={chat.busy}
