@@ -1,65 +1,53 @@
-# me-bot — candidate terminal
+# mebot backend
 
-A full-stack "digital you" recruiters can chat with. Terminal-style frontend with
-a reactive 3D orb; FastAPI backend that streams from your local Ollama and stores
-everything in SQLite.
+FastAPI app that streams answers from a local Ollama model and stores profile,
+sessions, messages and an access log in a SQL database (SQLite by default).
 
 ```
-frontend/index.html      ← open in browser (the UI + Three.js orb)
-backend/app.py           ← FastAPI server (proxy + db + sessions + logging)
-backend/requirements.txt
-backend/data/mebot.db    ← created on first run (profile, sessions, messages, log)
-../deploy/ollama/Modelfile.example         ← optional, only for `ollama run me-bot`
-```
-
-## Run it (three terminals)
-
-**1 — Ollama** (you already have this):
-```
-ollama serve
-```
-
-**2 — Backend:**
-```
-cd backend
-pip install -r requirements.txt
-uvicorn app:app --reload --port 8000
+mebot/
+  main.py        create_app() factory; `uvicorn mebot.main:app`
+  config.py      Settings from env / .env (see ../.env.example)
+  db.py          engine, sessions, get_db, programmatic Alembic upgrade
+  models.py      tables: bots, profiles, sessions, messages, access_log
+  deps.py        get_current_bot (single mode: the `default` bot)
+  repos/         data access; every query is scoped by bot_id
+  routes/        /api/health, profile, session(s), chat, log
+  llm/ollama.py  Ollama model discovery + streaming
+  prompt.py      persona system prompt + default profile template
+  legacy.py      import of prototype data (used by migration 0002)
+migrations/      Alembic (0001 schema, 0002 legacy import)
+tests/           pytest
 ```
 
-**3 — Frontend:** just open `frontend/index.html` in your browser
-(double-click, or serve it — opening the file directly works because the JS calls
-the backend at `http://localhost:8000`).
+## Run
 
-On first load it runs a boot sequence, checks the backend + model, then starts a
-session. Click **profile**, paste your real details, hit **save** — the bot answers
-only from that. Then type as the recruiter.
+    python -m venv .venv
+    .venv/Scripts/activate            # or: source .venv/bin/activate
+    pip install -r requirements-dev.txt
+    uvicorn mebot.main:app --reload --port 8000
 
-## What the orb does
-Idles with a slow breathe (teal). Turns amber and spins up while the model is
-thinking. Goes bright green and pulses on each streamed token as it "talks", then
-settles back to idle. Respects `prefers-reduced-motion`.
+Migrations run on startup. To run them by hand: `alembic upgrade head`
+(uses `DATABASE_URL`).
 
-## The db
-SQLite at `backend/data/mebot.db`. Tables: `profile` (single row), `sessions`,
-`messages` (full history), `access_log` (every question + connection, with IP).
-Inspect it anytime:
-```
-sqlite3 backend/data/mebot.db "SELECT event, detail, datetime(ts,'unixepoch','localtime') FROM access_log ORDER BY id DESC LIMIT 20;"
-```
-Past sessions are browsable in the UI under **sessions**.
+## Test / lint
 
-## The one hard rule that carried over from Anya
-The backend sends `"think": false` to Ollama on every call. Gemma 4's thinking
-mode, if on, dumps internal reasoning into the reply — which a recruiter would
-see. It can't be baked into the model (Ollama limitation), so the backend does it
-per request. If you ever swap the call path, keep `think:false`.
+    pytest
+    ruff check . && ruff format --check .
 
-## Optional: named CLI model
-```
-ollama create me-bot -f ../deploy/ollama/Modelfile.example
-ollama run me-bot --think=false
-```
-The app auto-uses `me-bot` if it exists, else falls back to `gemma4:e2b-it-qat`.
-The profile still comes from the db either way.
-```
-```
+## Data model
+
+All timestamps are stored in UTC. API responses keep the prototype's epoch-float
+`started_at` / `ts` fields so the frontend is unchanged. Tables have no foreign keys;
+integrity is enforced in `repos/`. `bots.deleted_at` is the soft-delete marker.
+
+Inspect the db:
+
+    sqlite3 data/mebot.db "SELECT event, detail, created_at FROM access_log ORDER BY created_at DESC LIMIT 20;"
+
+## Ollama
+
+The backend sends `"think": false` on every call; Gemma 4's thinking mode would
+otherwise leak reasoning into replies. It uses `OLLAMA_MODEL` (default `me-bot`)
+if installed, else falls back to `gemma4:e2b-it-qat`. Optional named CLI model:
+
+    ollama create me-bot -f ../deploy/ollama/Modelfile.example

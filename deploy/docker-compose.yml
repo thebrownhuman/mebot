@@ -1,9 +1,13 @@
 services:
   backend:
     build: ../backend
+    env_file:
+      - path: ../.env
+        required: false
     environment:
       # reach Ollama running on the HOST machine (not in a container)
       - OLLAMA_HOST=http://host.docker.internal:11434
+      - CORS_ORIGINS=http://localhost:8080
     volumes:
       # persist the sqlite db on the host so data survives container restarts
       - ./data:/app/data
