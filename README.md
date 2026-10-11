@@ -2,9 +2,9 @@
 
 Three parts, side by side:
 
-  mebot-app/      Python FastAPI backend + SQLite (the brain + storage)
-  mebot-react/    React + Vite + TypeScript frontend with 3D reactive orb
-  mebot-stack/    docker-compose to run both together
+  backend/       Python FastAPI backend + SQLite (the brain + storage)
+  frontend/    React + Vite + TypeScript frontend with 3D reactive orb
+  deploy/    docker-compose to run both together
 
 Keep these three folders as siblings — docker-compose.yml references the other
 two by relative path.
@@ -15,12 +15,12 @@ two by relative path.
   ollama serve
 
   # terminal 2
-  cd mebot-app/backend
+  cd backend
   pip install -r requirements.txt
   uvicorn app:app --reload --port 8000
 
   # terminal 3
-  cd mebot-react
+  cd frontend
   npm install
   npm run typecheck     # run once to confirm it compiles
   npm run dev
@@ -29,7 +29,7 @@ two by relative path.
 ## Run with Docker (one command)
 
   ollama serve          # keep Ollama on the host for GPU
-  cd mebot-stack
+  cd deploy
   docker compose up --build
   # open http://localhost:8080
 
@@ -40,7 +40,7 @@ green as it answers. "admin" shows the access log + session stats from the db.
 "sessions" reopens past conversations.
 
 ## Notes
-- think:false lives in the backend (mebot-app/backend/app.py). The frontend never
+- think:false lives in the backend (backend/app.py). The frontend never
   talks to Ollama directly, so the reasoning-leak can't come back through the UI.
 - The data/ folders hold the SQLite db. Empty on first download (just .gitkeep);
   the db file is created on first run.

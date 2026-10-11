@@ -9,7 +9,7 @@ frontend/index.html      ← open in browser (the UI + Three.js orb)
 backend/app.py           ← FastAPI server (proxy + db + sessions + logging)
 backend/requirements.txt
 backend/data/mebot.db    ← created on first run (profile, sessions, messages, log)
-Modelfile.me-bot         ← optional, only for `ollama run me-bot`
+../deploy/ollama/Modelfile.example         ← optional, only for `ollama run me-bot`
 ```
 
 ## Run it (three terminals)
@@ -56,7 +56,7 @@ per request. If you ever swap the call path, keep `think:false`.
 
 ## Optional: named CLI model
 ```
-ollama create me-bot -f Modelfile.me-bot
+ollama create me-bot -f ../deploy/ollama/Modelfile.example
 ollama run me-bot --think=false
 ```
 The app auto-uses `me-bot` if it exists, else falls back to `gemma4:e2b-it-qat`.

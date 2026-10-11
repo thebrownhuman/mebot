@@ -1,6 +1,6 @@
 services:
   backend:
-    build: ../mebot-app/backend
+    build: ../backend
     environment:
       # reach Ollama running on the HOST machine (not in a container)
       - OLLAMA_HOST=http://host.docker.internal:11434
@@ -14,7 +14,7 @@ services:
       - "8000"
 
   frontend:
-    build: ../mebot-react
+    build: ../frontend
     ports:
       - "8080:80"
     depends_on:
