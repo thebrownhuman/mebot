@@ -7,7 +7,7 @@ Two portals, one app:
 ## Run
   ollama serve
   # backend (separate folder):
-  cd ../mebot-app/backend && pip install -r requirements.txt
+  cd ../backend && pip install -r requirements.txt
   set OLLAMA_HOST=http://127.0.0.1:11434   (Windows; avoids IPv6 localhost issue)
   uvicorn app:app --reload --port 8000
   # frontend:
