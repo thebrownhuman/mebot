@@ -5,10 +5,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
+COPY alembic.ini .
+COPY migrations ./migrations
+COPY mebot ./mebot
 
-# data/ holds the sqlite db; mounted as a volume in compose so it persists
+# data/ holds the sqlite db + generated secret.key; mounted as a volume in compose
 RUN mkdir -p data
+ENV TZ=UTC
 
 EXPOSE 8000
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "mebot.main:app", "--host", "0.0.0.0", "--port", "8000"]
