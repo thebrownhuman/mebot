@@ -1,0 +1,21 @@
+# deps / build
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.venv/
+
+# runtime data (never commit — holds profile, chats, keys)
+*.db
+*.db-journal
+data/*
+!data/.gitkeep
+mebot-app/backend/data/*
+!mebot-app/backend/data/.gitkeep
+mebot-stack/data/*
+!mebot-stack/data/.gitkeep
+
+# secrets
+.env
+.env.*
+!.env.example
