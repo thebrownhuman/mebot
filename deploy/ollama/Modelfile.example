@@ -1,3 +1,5 @@
+# Example Modelfile — copy, rename, and adjust. Placeholder persona only; your real
+# profile lives in the app database, never here.
 FROM gemma4:e2b-it-qat
 
 # OPTIONAL. The backend already sends this exact persona as a system prompt on

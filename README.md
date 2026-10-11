@@ -1,47 +1,61 @@
-# mebot — candidate terminal (full project)
+# mebot — candidate terminal
 
-Three parts, side by side:
+A chat bot recruiters can talk to about a candidate. It answers only from a profile
+you write, streaming from a local Ollama model.
 
-  backend/       Python FastAPI backend + SQLite (the brain + storage)
-  frontend/    React + Vite + TypeScript frontend with 3D reactive orb
-  deploy/    docker-compose to run both together
+```
+backend/    FastAPI + SQLAlchemy + Alembic (SQLite by default)
+frontend/   React + Vite + TypeScript, 3D reactive orb
+deploy/     docker-compose, example Ollama Modelfile
+```
 
-Keep these three folders as siblings — docker-compose.yml references the other
-two by relative path.
+## Configure
 
-## Run bare-metal (best for development, hot-reload)
+All configuration is via environment variables. Copy `.env.example` to `.env` and
+edit; you never need to change source code. Key settings: `MODE`, `SECRET_KEY`,
+`DATABASE_URL`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `CORS_ORIGINS`.
 
-  # terminal 1
-  ollama serve
+## Run bare-metal (development)
 
-  # terminal 2
-  cd backend
-  pip install -r requirements.txt
-  uvicorn app:app --reload --port 8000
+    # terminal 1
+    ollama serve
 
-  # terminal 3
-  cd frontend
-  npm install
-  npm run typecheck     # run once to confirm it compiles
-  npm run dev
-  # open the URL Vite prints (http://localhost:5173)
+    # terminal 2
+    cd backend
+    python -m venv .venv && .venv/Scripts/activate   # Windows; use bin/activate elsewhere
+    pip install -r requirements-dev.txt
+    uvicorn mebot.main:app --reload --port 8000
 
-## Run with Docker (one command)
+    # terminal 3
+    cd frontend
+    npm install
+    npm run dev
+    # open http://localhost:5173  (admin: http://localhost:5173/admin)
 
-  ollama serve          # keep Ollama on the host for GPU
-  cd deploy
-  docker compose up --build
-  # open http://localhost:8080
+Database migrations run automatically on startup.
 
-## Using it
-Open the app, click "profile", paste your real details, save, then chat as the
-recruiter. The orb idles teal, goes amber+spinning while thinking, and pulses
-green as it answers. "admin" shows the access log + session stats from the db.
-"sessions" reopens past conversations.
+## Run with Docker
+
+    ollama serve          # keep Ollama on the host for GPU
+    cd deploy
+    docker compose up --build
+    # open http://localhost:8080
+
+## Tests
+
+    cd backend  && pytest
+    cd frontend && npm run typecheck && npm run build && npm test
+
+## Upgrading from the prototype
+
+If `backend/data/mebot.db` was created by the old single-file `app.py`, the first
+start renames its tables to `legacy_*` (kept, not dropped) and copies the profile,
+sessions, messages and access log into the new schema under a `default` bot.
+Back up the file first if you want a pristine copy.
 
 ## Notes
-- think:false lives in the backend (backend/app.py). The frontend never
-  talks to Ollama directly, so the reasoning-leak can't come back through the UI.
-- The data/ folders hold the SQLite db. Empty on first download (just .gitkeep);
-  the db file is created on first run.
-- node_modules/ and dist/ are not included — npm install regenerates them.
+- `think: false` is sent to Ollama by the backend on every call; the frontend never
+  talks to Ollama directly, so model reasoning cannot leak into the UI.
+- `/admin` has only a client-side passphrase (`VITE_ADMIN_PASS`, default `admin`).
+  It is not real security; backend auth is planned.
+- `data/` folders hold the SQLite db and the generated `secret.key`; never commit them.
