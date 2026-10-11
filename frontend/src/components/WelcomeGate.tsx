@@ -12,12 +12,13 @@ export default function WelcomeGate({ onEnter }: Props) {
       <div className="w-full max-w-md border border-term-line2 bg-term-panel rounded-xl p-6">
         <div className="text-term-bright text-lg mb-1">Hi, I'm Anya 👋</div>
         <p className="text-term-fg text-sm leading-relaxed mb-5">
-          I'm here on Shivansh's behalf. Ask me anything about his background,
+          I'm here on the candidate's behalf. Ask me anything about their background,
           experience, and projects — I'll answer in real time.
         </p>
 
-        <label className="block text-xs text-term-dim mb-1">your name</label>
+        <label htmlFor="welcome-name" className="block text-xs text-term-dim mb-1">your name</label>
         <input
+          id="welcome-name"
           value={name}
           autoFocus
           onChange={(e) => setName(e.target.value)}

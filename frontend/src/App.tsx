@@ -5,10 +5,10 @@ import AdminPage from "./pages/AdminPage";
 export default function App() {
   return (
     <Routes>
-      <Route path="/talkaboutshivansh" element={<RecruiterPage />} />
-      <Route path="/talkaboutshivansh/aaddmmiinn" element={<AdminPage />} />
-      {/* anything else -> recruiter portal */}
-      <Route path="*" element={<Navigate to="/talkaboutshivansh" replace />} />
+      <Route path="/" element={<RecruiterPage />} />
+      <Route path="/admin" element={<AdminPage />} />
+      {/* anything else -> public chat */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -7,8 +7,8 @@ import { useChat } from "../hooks/useChat";
 
 // Light client-side gate. This obscures the panel from casual visitors who guess
 // the URL; it is NOT real security (the check runs in the browser). For a public
-// deployment, move auth to the backend. Change the passphrase here.
-const ADMIN_PASS = "shivansh";
+// deployment, move auth to the backend (planned). Set VITE_ADMIN_PASS at build time.
+const ADMIN_PASS: string = import.meta.env.VITE_ADMIN_PASS ?? "admin";
 
 export default function AdminPage() {
   const chat = useChat();
@@ -83,7 +83,7 @@ export default function AdminPage() {
 
   return (
     <ChatScreen
-      title="admin — Shivansh's panel"
+      title="admin panel"
       conn={chat.conn}
       lines={chat.lines}
       busy={chat.busy}
