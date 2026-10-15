@@ -94,9 +94,9 @@ async def _start(ctx: TgContext, inc: Incoming, arg: str) -> None:
 
 def _handlers() -> tuple[list, list]:
     """Linked-chat handlers, tried in order; each returns True when it handled it."""
-    from mebot.telegram import replies  # late import: they build on this module
+    from mebot.telegram import commands, replies  # late import: they build on this module
 
-    return list(replies.MESSAGE_HANDLERS), list(replies.CALLBACK_HANDLERS)
+    return [commands.on_command, *replies.MESSAGE_HANDLERS], list(replies.CALLBACK_HANDLERS)
 
 
 async def handle_update(ctx: TgContext, bot_id: str, update: dict) -> None:
