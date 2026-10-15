@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from mebot import guard
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
@@ -84,16 +85,28 @@ async def chat(
     # Only the last N stored turns go to the LLM: cheaper, and long-conversation
     # jailbreaks lose their run-up. The system prompt is always sent.
     stored = sessions.messages(db, bot_id, req.session_id)
-    history = [{"role": m.role, "content": m.content} for m in stored[-limits.history_turns :]]
+    history = [
+        {
+            "role": m.role,
+            "content": guard.wrap_visitor(m.content) if m.role == "user" else m.content,
+        }
+        for m in stored[-limits.history_turns :]
+    ]
     profile = render_profile(load_profile(db, bot_id))
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
     db.commit()
 
+    suspicious = guard.looks_like_injection(req.message)
+    if suspicious:  # logged, not blocked: innocent questions trip this too
+        logs.add(db, bot_id, req.session_id, "INJECTION_SUSPECTED", detail=req.message[:200])
+        db.commit()
+    canary = guard.canary_for(request.app.state.secret_key, bot_id)
+    system = build_system_prompt(profile, canary=canary, reminder=suspicious)
     messages = [
-        {"role": "system", "content": build_system_prompt(profile)},
+        {"role": "system", "content": system},
         *history,
-        {"role": "user", "content": req.message},
+        {"role": "user", "content": guard.wrap_visitor(req.message)},
     ]
     client = cfg.client()
     session_factory = request.app.state.session_factory
@@ -103,31 +116,42 @@ async def chat(
         error: Exception | None = None
         # Strips the model's [[UNANSWERED]] marker, even when split across chunks.
         marker = MarkerFilter()
+        # Cuts the reply if the canary or a verbatim slice of the rules shows up.
+        leak = guard.LeakGuard(canary, system)
+        produced = 0  # model output chars, for the token estimate
         try:
             async for chunk in client.stream_chat(
                 messages, model=cfg.model, temperature=cfg.temperature, max_tokens=cfg.max_tokens
             ):
-                shown = marker.feed(chunk)
+                produced += len(chunk)
+                shown = leak.feed(marker.feed(chunk))
+                if leak.tripped:
+                    break
                 if shown:
                     acc.append(shown)
                     yield shown
-            tail = marker.finish()
-            if tail:
-                acc.append(tail)
-                yield tail
+            if not leak.tripped:
+                tail = leak.feed(marker.finish())
+                tail += "" if leak.tripped else leak.finish()
+                if tail:
+                    acc.append(tail)
+                    yield tail
+            if leak.tripped:
+                yield ("\n\n" if "".join(acc) else "") + guard.SAFE_REPLY
         except Exception as e:  # noqa: BLE001 - visitors get a fixed message
             error = e
-            tail = marker.finish()
-            acc.append(tail)
-            yield tail + ("\n\n" if "".join(acc) else "") + UNAVAILABLE
+            tail = "" if leak.tripped else leak.feed(marker.finish()) + leak.finish()
+            if not leak.tripped:
+                acc.append(tail)
+                yield tail + ("\n\n" if "".join(acc) else "") + UNAVAILABLE
         finally:
-            full = "".join(acc).strip()
+            full = guard.SAFE_REPLY if leak.tripped else "".join(acc).strip()
             usage = getattr(client, "usage", None)
             if usage is not None:
                 tokens, estimated = usage.total, False
             else:
                 prompt_chars = sum(len(m["content"]) for m in messages)
-                tokens = math.ceil(prompt_chars / 4) + math.ceil(len("".join(acc)) / 4)
+                tokens = math.ceil(prompt_chars / 4) + math.ceil(produced / 4)
                 estimated = True
             # Fresh DB session: the request-scoped one may be closed while we stream.
             with session_factory() as wdb:
@@ -136,6 +160,8 @@ async def chat(
                         wdb, bot_id, req.session_id, "assistant", full, unanswered=marker.found
                     )
                 limiter.record_tokens(wdb, bot_id, ip, tokens, estimated=estimated)
+                if leak.tripped:
+                    logs.add(wdb, bot_id, req.session_id, "LEAK_BLOCKED")
                 if marker.found:
                     logs.add(wdb, bot_id, req.session_id, "UNANSWERED", detail=req.message[:500])
                 if getattr(client, "leaked_thinking", False):

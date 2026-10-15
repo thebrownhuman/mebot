@@ -63,7 +63,10 @@ def test_chat_streams_and_persists(admin_client, fake_llm):
     assert call["model"] == "gpt-4o-mini"
     assert call["temperature"] == 0.4 and call["max_tokens"] == 600
     assert "NAME: Zed" in call["messages"][0]["content"]
-    assert call["messages"][-1] == {"role": "user", "content": "who are you?"}
+    assert call["messages"][-1] == {
+        "role": "user",
+        "content": "<visitor_message>\nwho are you?\n</visitor_message>",
+    }
     msgs = admin_client.get(f"/api/admin/sessions/{sid}/messages").json()
     assert [(m["role"], m["content"]) for m in msgs] == [
         ("user", "who are you?"),
