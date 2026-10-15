@@ -94,6 +94,8 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public details: FieldError[] = [],
+    // Seconds from the Retry-After header (rate limits), when present.
+    public retryAfter: number | null = null,
   ) {
     super(message);
   }
@@ -122,7 +124,14 @@ async function toApiError(r: Response): Promise<ApiError> {
   const detail = (body as { detail?: unknown })?.detail;
   const message =
     err?.message || (typeof detail === "string" ? detail : "") || `Request failed (${r.status})`;
-  return new ApiError(r.status, err?.code ?? "HTTP_ERROR", message, err?.details ?? []);
+  const retry = Number(r.headers.get("Retry-After"));
+  return new ApiError(
+    r.status,
+    err?.code ?? "HTTP_ERROR",
+    message,
+    err?.details ?? [],
+    Number.isFinite(retry) && retry > 0 ? retry : null,
+  );
 }
 
 interface ReqOpts {
@@ -175,11 +184,13 @@ export async function getHealth(): Promise<HealthResp> {
   }
 }
 
-export async function startSession(recruiterName?: string): Promise<string> {
-  const d = await json<{ session_id: string }>("/api/session", {
-    method: "POST",
-    body: { recruiter_name: recruiterName ?? null },
-  });
+export async function startSession(
+  recruiterName?: string,
+  turnstileToken?: string,
+): Promise<string> {
+  const body: Record<string, string | null> = { recruiter_name: recruiterName ?? null };
+  if (turnstileToken) body.turnstile_token = turnstileToken;
+  const d = await json<{ session_id: string }>("/api/session", { method: "POST", body });
   return d.session_id;
 }
 
