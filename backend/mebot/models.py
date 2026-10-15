@@ -280,3 +280,44 @@ class AvoidTopic(_ListRow, Base):
     topic: Mapped[str] = mapped_column(Text, nullable=False)
     reply: Mapped[str | None] = mapped_column(Text)
     __table_args__ = _bot_ix("avoid_topics")
+
+
+# --- chat limits (migration 0007) ----------------------------------------------------
+
+
+class BotLimits(Base):
+    __tablename__ = "bot_limits"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    per_ip_per_minute: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    per_ip_per_day: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    per_session_messages: Mapped[int] = mapped_column(Integer, default=40, nullable=False)
+    sessions_per_ip_per_hour: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    daily_message_cap: Mapped[int] = mapped_column(Integer, default=500, nullable=False)
+    daily_token_cap: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_message_chars: Mapped[int] = mapped_column(Integer, default=1000, nullable=False)
+    history_turns: Mapped[int] = mapped_column(Integer, default=12, nullable=False)
+    paused: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    paused_message: Mapped[str | None] = mapped_column(Text)
+    turnstile_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ux_bot_limits_bot_id", "bot_id", unique=True),)
+
+
+class UsageCounter(Base):
+    __tablename__ = "usage_counters"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    scope: Mapped[str] = mapped_column(Text, nullable=False)
+    key: Mapped[str] = mapped_column(Text, nullable=False)
+    window_start: Mapped[str] = mapped_column(Text, nullable=False)
+    messages: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    estimated_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (
+        Index("ux_usage_counters_window", "bot_id", "scope", "key", "window_start", unique=True),
+        Index("ix_usage_counters_updated_at", "updated_at"),
+    )

@@ -82,3 +82,50 @@ def test_0003_keeps_existing_bot_rows(tmp_path):
     with eng.connect() as c:
         row = c.execute(sa.text("SELECT registration_consent, setup_completed_at FROM bots")).one()
     assert not row.registration_consent and row.setup_completed_at is None
+
+
+def test_0007_limits_and_counters(tmp_path):
+    url = f"sqlite:///{(tmp_path / 'l.db').as_posix()}"
+    run_migrations(url)
+    insp = sa.inspect(sa.create_engine(url))
+    lim = {c["name"]: c for c in insp.get_columns("bot_limits")}
+    assert set(lim) >= {
+        "id",
+        "bot_id",
+        "per_ip_per_minute",
+        "per_ip_per_day",
+        "per_session_messages",
+        "sessions_per_ip_per_hour",
+        "daily_message_cap",
+        "daily_token_cap",
+        "max_message_chars",
+        "history_turns",
+        "paused",
+        "paused_message",
+        "turnstile_enabled",
+        "created_at",
+        "updated_at",
+    }
+    assert lim["daily_token_cap"]["nullable"] is True
+    assert any(
+        ix["unique"] and ix["column_names"] == ["bot_id"] for ix in insp.get_indexes("bot_limits")
+    )
+    cnt = {c["name"] for c in insp.get_columns("usage_counters")}
+    assert cnt >= {
+        "id",
+        "bot_id",
+        "scope",
+        "key",
+        "window_start",
+        "messages",
+        "tokens",
+        "estimated_tokens",
+        "created_at",
+        "updated_at",
+    }
+    assert any(
+        ix["unique"] and ix["column_names"] == ["bot_id", "scope", "key", "window_start"]
+        for ix in insp.get_indexes("usage_counters")
+    )
+    for t in ("bot_limits", "usage_counters"):
+        assert insp.get_foreign_keys(t) == []
