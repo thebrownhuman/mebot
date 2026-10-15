@@ -85,6 +85,32 @@ Lists can be reordered with the arrow buttons; the order is the order the bot se
 Deleting an item hides it (soft delete). Two tabs editing the same item: the last
 save wins.
 
+## How answers stay grounded
+
+- **Numbers come from the server, not the model.** mebot computes a FACTS block from
+  your dates (as of today, UTC) and puts it first in the prompt: total experience
+  (overlapping jobs merged, current jobs counted up to this month), current role,
+  time per company, years per skill (from the jobs and dated projects whose tech
+  lists it, with common aliases like JS/JavaScript and k8s/Kubernetes, or your own
+  "years" override), latest education and counts. The model is told to quote these
+  and never do date math. See them on Admin → Preview.
+- **Internships and freelance.** Identity has two toggles: count internships (off
+  by default) and count freelance/contract work (on by default) toward the total.
+- **"I don't know" is tracked.** When the profile can't answer, the bot says so
+  (offering your public contact if you set one) and ends with a hidden
+  `[[UNANSWERED]]` marker. The server strips it from the stream, flags the
+  message and logs the question. The dashboard lists the latest ones so you can
+  add the answer to your FAQ or profile.
+- **Limits.** This is prompt-level grounding: a model can still ignore its rules.
+  Run the golden evals against your provider and model to check:
+
+      cd backend
+      python -m mebot.evals --bot default
+
+  It uses `evals/sample_profile.yaml` and `evals/golden.yaml` (21 questions:
+  years, roles, projects, hobbies, unknowns, off-topic, avoid-topics, a prompt
+  injection) and makes real API calls with your key, so it costs a few cents.
+
 ## Add your API key
 
 mebot never ships, provides or shares an API key. During setup (step 2 of 3) you

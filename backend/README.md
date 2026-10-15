@@ -21,11 +21,15 @@ mebot/
                  service (validate/test/store config); keys encrypted via crypto.py
   crypto.py      Fernet encryption of stored API keys (HKDF from SECRET_KEY)
   prompt.py      persona system prompt
-  profile/       structured profile: schemas, section registry, loader, render_profile()
+  profile/       structured profile: schemas, section registry, loader,
+                 facts.py (computed facts), render.py (FACTS block + sections)
+  marker.py      [[UNANSWERED]] marker and the streaming filter that strips it
+  evals.py       python -m mebot.evals: golden questions vs a real provider
   profile_legacy.py  0005 copy of the old free-text profile into profile_notes
   legacy.py      import of prototype data (used by migration 0002)
 migrations/      Alembic (0001 schema, 0002 legacy import, 0003 admin auth,
-                 0004 llm configs, 0005 structured profile)
+                 0004 llm configs, 0005 structured profile, 0006 grounding)
+evals/           golden.yaml + sample_profile.yaml for mebot.evals
 tests/           pytest
 ```
 
