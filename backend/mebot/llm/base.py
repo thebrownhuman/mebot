@@ -27,6 +27,18 @@ class TestResult:
     latency_ms: int
 
 
+@dataclass(frozen=True)
+class Usage:
+    """Token usage as reported by the provider for one streamed reply."""
+
+    prompt_tokens: int
+    completion_tokens: int
+
+    @property
+    def total(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+
 class LLMError(Exception):
     """A provider call failed. ``message`` is safe to show the owner (key scrubbed)."""
 
@@ -104,6 +116,8 @@ class HttpAdapter:
         self.name = name
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key or None
+        # Set by stream_chat when the provider reports token usage; None otherwise.
+        self.usage: Usage | None = None
 
     def _headers(self) -> dict[str, str]:
         return {}

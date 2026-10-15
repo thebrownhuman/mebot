@@ -76,6 +76,7 @@ async def test_openai_stream_request_shape_and_sse():
         "stream": True,
         "temperature": 0.3,
         "max_tokens": 50,
+        "stream_options": {"include_usage": True},
     }
 
 
