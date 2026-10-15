@@ -10,6 +10,7 @@ from mebot.limits.service import LimitExceeded
 from mebot.models import Bot
 from mebot.repos import limits as limits_repo
 from mebot.repos import logs, sessions
+from mebot.telegram import events
 
 router = APIRouter(prefix="/api")
 
@@ -50,5 +51,6 @@ async def start_session(
             raise ApiError(403, "TURNSTILE_FAILED", TURNSTILE_FAILED)
     sid = sessions.create(db, bot.id, req.recruiter_name)
     logs.add(db, bot.id, sid, "session_start", detail=req.recruiter_name, ip=ip)
+    events.new_session(db, bot.id, sid, req.recruiter_name)
     db.commit()
     return {"session_id": sid}

@@ -15,6 +15,7 @@ from mebot.limits import counters
 from mebot.models import AccessLog, Bot, BotLimits
 from mebot.repos import limits as limits_repo
 from mebot.repos import logs
+from mebot.telegram import events
 
 router = APIRouter(
     prefix="/api/admin",
@@ -99,7 +100,10 @@ def put_limits(
             ],
         )
     row = limits_repo.get_or_create(db, bot.id)
+    was_paused = row.paused
     limits_repo.update(db, row, values)
+    if row.paused != was_paused:
+        events.paused(db, bot.id, row.paused)
     logs.add(db, bot.id, None, "limits_updated", detail=",".join(sorted(values)))
     db.commit()
     return _out(row, request)

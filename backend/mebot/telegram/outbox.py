@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from mebot.models import Notification, utcnow
+from mebot.models import Notification, new_id, utcnow
 from mebot.telegram import repo
 from mebot.telegram.client import TelegramError
 from mebot.telegram.updates import TgContext
@@ -34,9 +34,11 @@ def enqueue(
     *,
     session_id: str | None = None,
     ref_message_id: str | None = None,
+    nid: str | None = None,
 ) -> Notification:
     now = utcnow()
     n = Notification(
+        id=nid or new_id(),
         bot_id=bot_id,
         kind=kind,
         payload=json.dumps(payload, ensure_ascii=False),

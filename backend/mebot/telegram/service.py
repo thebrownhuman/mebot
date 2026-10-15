@@ -13,7 +13,7 @@ import os
 import uuid
 from collections.abc import Awaitable, Callable
 
-from mebot.telegram import outbox, repo
+from mebot.telegram import events, outbox, repo
 from mebot.telegram.poller import run_poller
 from mebot.telegram.updates import TgContext
 
@@ -24,6 +24,7 @@ SUPERVISE_EVERY = 30.0
 # (name, coroutine(ctx) doing one round, seconds between rounds); filled by modules.
 LOOPS: list[tuple[str, Callable[[TgContext], Awaitable[None]], float]] = [
     ("outbox", outbox.outbox_round, 2.0),
+    ("digest", events.digest_round, 60.0),
 ]
 
 
