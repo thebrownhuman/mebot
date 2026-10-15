@@ -1,5 +1,5 @@
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -52,6 +52,17 @@ def messages(db: Session, bot_id: str, session_id: str) -> list[Message]:
             .order_by(Message.created_at, Message.id)
         )
     )
+
+
+def owner_messages(
+    db: Session, bot_id: str, session_id: str, after: datetime | None
+) -> list[Message]:
+    q = select(Message).where(
+        Message.bot_id == bot_id, Message.session_id == session_id, Message.from_owner.is_(True)
+    )
+    if after is not None:
+        q = q.where(Message.created_at > after)
+    return list(db.scalars(q.order_by(Message.created_at)))
 
 
 def add_message(

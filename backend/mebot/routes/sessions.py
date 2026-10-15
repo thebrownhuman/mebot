@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,56 @@ TURNSTILE_DOWN = "Verification is unavailable right now. Please try again in a f
 class StartReq(BaseModel):
     recruiter_name: str | None = Field(default=None, max_length=120)
     turnstile_token: str | None = Field(default=None, max_length=4096)
+
+
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+@router.get("/session/{sid}/updates")
+def session_updates(
+    sid: str,
+    request: Request,
+    after: str | None = Query(None, max_length=40),
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+):
+    """Owner replies (from Telegram) the recruiter's open chat hasn't shown yet."""
+    ip = client_ip(request)
+    wait = request.app.state.updates_limiter.hit(request.app.state.chat_limiter.ip_key(ip))
+    if wait is not None:
+        raise ApiError(
+            429,
+            "RATE_LIMITED",
+            "Too many requests. Please wait a moment.",
+            headers={"Retry-After": str(wait)},
+        )
+    since = None
+    if after:
+        try:
+            since = datetime.fromisoformat(after.replace("Z", "+00:00"))
+        except ValueError:
+            raise ApiError(
+                422,
+                "VALIDATION_ERROR",
+                "Invalid request",
+                [{"field": "after", "message": "ISO time"}],
+            ) from None
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=UTC)
+    if sessions.get(db, bot.id, sid) is None:
+        raise ApiError(404, "NOT_FOUND", "Unknown session")
+    return {
+        "messages": [
+            {
+                "role": m.role,
+                "from_owner": True,
+                "content": m.content,
+                "created_at": _iso(m.created_at),
+            }
+            for m in sessions.owner_messages(db, bot.id, sid, since)
+        ]
+    }
 
 
 @router.post("/session")
