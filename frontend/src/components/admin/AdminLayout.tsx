@@ -36,6 +36,7 @@ const NAV: { to: string; label: string; end?: boolean; group?: string }[] = [
   { to: "/admin/profile/notes", label: "Notes" },
   { to: "/admin/profile/preview", label: "Preview" },
   { to: "/admin/llm", label: "AI Provider", group: "Settings" },
+  { to: "/admin/limits", label: "Limits" },
   { to: "/admin/account", label: "Account" },
 ];
 
