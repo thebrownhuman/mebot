@@ -1,6 +1,6 @@
 # mebot backend
 
-FastAPI app that streams answers from a local Ollama model and stores profile,
+FastAPI app that streams answers from the owner's chosen LLM provider and stores profile,
 sessions, messages and an access log in a SQL database (SQLite by default).
 
 ```
@@ -17,7 +17,9 @@ mebot/
   repos/         data access; every query is scoped by bot_id
   routes/        public: /api/health, session, chat, setup, auth
                  owner-only: /api/admin/* (profile, sessions, log)
-  llm/ollama.py  Ollama model discovery + streaming
+  llm/           provider adapters (openai_compat, anthropic, ollama), registry,
+                 service (validate/test/store config); keys encrypted via crypto.py
+  crypto.py      Fernet encryption of stored API keys (HKDF from SECRET_KEY)
   prompt.py      persona system prompt + default profile template
   legacy.py      import of prototype data (used by migration 0002)
 migrations/      Alembic (0001 schema, 0002 legacy import, 0003 admin auth)
@@ -49,10 +51,16 @@ Inspect the db:
 
     sqlite3 data/mebot.db "SELECT event, detail, created_at FROM access_log ORDER BY created_at DESC LIMIT 20;"
 
-## Ollama
+## LLM providers
 
-The backend sends `"think": false` on every call; Gemma 4's thinking mode would
-otherwise leak reasoning into replies. It uses `OLLAMA_MODEL` (default `me-bot`)
-if installed, else falls back to `gemma4:e2b-it-qat`. Optional named CLI model:
+There is no default provider or model: the owner configures one in setup and in
+Admin → AI Provider (`/api/admin/llm`). Every provider adapter implements
+`stream_chat`, a 1-token `test` and best-effort `list_models` (`mebot/llm/base.py`).
+Provider errors are mapped to typed `LLMError`s with the key scrubbed from any
+provider message. Tests never hit the network (respx / a fake client in conftest).
+
+For Ollama the backend sends `"think": false` on every call; Gemma's thinking mode
+would otherwise leak reasoning into replies. `OLLAMA_HOST` is only the default base
+URL offered for the Ollama provider. Optional named CLI model:
 
     ollama create me-bot -f ../deploy/ollama/Modelfile.example
