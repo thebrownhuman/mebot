@@ -16,4 +16,7 @@ def build_client(
     url = base_url or provider.default_base_url
     if not url:
         raise ValueError(f"{provider.name} needs a base URL")
-    return _ADAPTERS[provider.adapter](provider.name, url, api_key)
+    client = _ADAPTERS[provider.adapter](provider.name, url, api_key)
+    if provider.id == "openai_compatible":
+        client.include_usage = False
+    return client

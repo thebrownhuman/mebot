@@ -3,10 +3,13 @@
 import json
 from collections.abc import AsyncIterator
 
-from mebot.llm.base import HttpAdapter, TestResult
+from mebot.llm.base import HttpAdapter, TestResult, Usage
 
 
 class OpenAICompatClient(HttpAdapter):
+    # Ask for a final usage chunk. Off for custom servers, which may reject the field.
+    include_usage = True
+
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
 
@@ -20,6 +23,8 @@ class OpenAICompatClient(HttpAdapter):
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if self.include_usage:
+            payload["stream_options"] = {"include_usage": True}
         async for line in self._stream_lines("/chat/completions", payload):
             if not line.startswith("data:"):
                 continue
@@ -27,9 +32,15 @@ class OpenAICompatClient(HttpAdapter):
             if data == "[DONE]":
                 break
             try:
-                choices = json.loads(data).get("choices") or []
+                event = json.loads(data)
             except ValueError:
                 continue
+            usage = event.get("usage")
+            if isinstance(usage, dict):
+                self.usage = Usage(
+                    int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0)
+                )
+            choices = event.get("choices") or []
             chunk = (choices[0].get("delta") or {}).get("content") if choices else None
             if chunk:
                 yield chunk

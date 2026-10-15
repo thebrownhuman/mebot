@@ -4,7 +4,7 @@ leak into replies."""
 import json
 from collections.abc import AsyncIterator
 
-from mebot.llm.base import HttpAdapter, TestResult
+from mebot.llm.base import HttpAdapter, TestResult, Usage
 
 
 class OllamaClient(HttpAdapter):
@@ -28,9 +28,14 @@ class OllamaClient(HttpAdapter):
             if not line.strip():
                 continue
             try:
-                msg = json.loads(line).get("message") or {}
+                event = json.loads(line)
             except ValueError:
                 continue
+            if event.get("done") and "eval_count" in event:
+                self.usage = Usage(
+                    int(event.get("prompt_eval_count") or 0), int(event.get("eval_count") or 0)
+                )
+            msg = event.get("message") or {}
             if msg.get("thinking"):
                 self.leaked_thinking = True
             chunk = msg.get("content", "")

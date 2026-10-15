@@ -22,6 +22,7 @@ class FakeLLM:
         self.built: list[dict] = []
         self.tests: list[str] = []
         self.streams: list[dict] = []
+        self.usage = None  # Usage reported after the stream (None = provider silent)
 
     def build(self, provider_id, *, api_key=None, base_url=None):
         self.built.append({"provider": provider_id, "api_key": api_key, "base_url": base_url})
@@ -31,6 +32,7 @@ class FakeLLM:
 class _FakeClient:
     def __init__(self, ctl: FakeLLM):
         self.ctl = ctl
+        self.usage = None
 
     async def test(self, *, model):
         from mebot.llm.base import TestResult
@@ -54,6 +56,7 @@ class _FakeClient:
             raise err
         for c in self.ctl.chunks:
             yield c
+        self.usage = self.ctl.usage
         if self.ctl.fail_after:
             raise self.ctl.fail_after
 

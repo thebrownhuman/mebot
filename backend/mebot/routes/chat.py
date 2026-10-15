@@ -1,3 +1,5 @@
+import math
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -79,10 +81,10 @@ async def chat(
             db.commit()
         raise e.api_error() from None
 
-    history = [
-        {"role": m.role, "content": m.content}
-        for m in sessions.messages(db, bot_id, req.session_id)
-    ]
+    # Only the last N stored turns go to the LLM: cheaper, and long-conversation
+    # jailbreaks lose their run-up. The system prompt is always sent.
+    stored = sessions.messages(db, bot_id, req.session_id)
+    history = [{"role": m.role, "content": m.content} for m in stored[-limits.history_turns :]]
     profile = render_profile(load_profile(db, bot_id))
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
@@ -120,12 +122,20 @@ async def chat(
             yield tail + ("\n\n" if "".join(acc) else "") + UNAVAILABLE
         finally:
             full = "".join(acc).strip()
+            usage = getattr(client, "usage", None)
+            if usage is not None:
+                tokens, estimated = usage.total, False
+            else:
+                prompt_chars = sum(len(m["content"]) for m in messages)
+                tokens = math.ceil(prompt_chars / 4) + math.ceil(len("".join(acc)) / 4)
+                estimated = True
             # Fresh DB session: the request-scoped one may be closed while we stream.
             with session_factory() as wdb:
                 if full:
                     sessions.add_message(
                         wdb, bot_id, req.session_id, "assistant", full, unanswered=marker.found
                     )
+                limiter.record_tokens(wdb, bot_id, ip, tokens, estimated=estimated)
                 if marker.found:
                     logs.add(wdb, bot_id, req.session_id, "UNANSWERED", detail=req.message[:500])
                 if getattr(client, "leaked_thinking", False):
