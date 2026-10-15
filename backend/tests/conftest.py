@@ -6,6 +6,65 @@ from mebot.main import create_app
 
 ADMIN_EMAIL = "owner@example.com"
 ADMIN_PASSWORD = "correct horse battery"
+LLM_KEY = "sk-test-SECRET-KEY-wxyz9876"
+LLM = {"provider": "openai", "model": "gpt-4o-mini", "api_key": LLM_KEY}
+
+
+class FakeLLM:
+    """Stands in for every provider client (patched into mebot.llm.factory)."""
+
+    def __init__(self):
+        self.fail = None  # LLMError raised by test() and stream_chat()
+        self.stream_fail = None  # LLMError raised by stream_chat() only
+        self.chunks = ["Hel", "lo ", "there"]
+        self.models = ["gpt-4o-mini", "gpt-4o"]
+        self.built: list[dict] = []
+        self.tests: list[str] = []
+        self.streams: list[dict] = []
+
+    def build(self, provider_id, *, api_key=None, base_url=None):
+        self.built.append({"provider": provider_id, "api_key": api_key, "base_url": base_url})
+        return _FakeClient(self)
+
+
+class _FakeClient:
+    def __init__(self, ctl: FakeLLM):
+        self.ctl = ctl
+
+    async def test(self, *, model):
+        from mebot.llm.base import TestResult
+
+        self.ctl.tests.append(model)
+        if self.ctl.fail:
+            raise self.ctl.fail
+        return TestResult(ok=True, latency_ms=12)
+
+    async def stream_chat(self, messages, *, model, temperature, max_tokens):
+        self.ctl.streams.append(
+            {
+                "messages": messages,
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+        )
+        err = self.ctl.fail or self.ctl.stream_fail
+        if err:
+            raise err
+        for c in self.ctl.chunks:
+            yield c
+
+    async def list_models(self):
+        return list(self.ctl.models)
+
+
+@pytest.fixture(autouse=True)
+def fake_llm(monkeypatch):
+    from mebot.llm import factory
+
+    ctl = FakeLLM()
+    monkeypatch.setattr(factory, "build_client", ctl.build)
+    return ctl
 
 
 @pytest.fixture
@@ -45,6 +104,7 @@ def setup_body(**over) -> dict:
         "bot_name": "Shivansh",
         "bot_slug": "shivansh",
         "registration_consent": False,
+        "llm": dict(LLM),
     }
     body.update(over)
     return body
