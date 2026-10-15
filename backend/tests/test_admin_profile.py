@@ -262,3 +262,17 @@ def test_auth_required(admin_client, method, path):
 def test_csrf_required(admin_client, method, path):
     r = admin_client.request(method, path, json={})
     assert r.status_code == 403
+
+
+def test_identity_experience_toggles(admin_client):
+    c = admin_client
+    got = c.get(f"{BASE}/identity").json()
+    assert got["count_internships"] is False and got["count_freelance"] is True
+    r = c.put(
+        f"{BASE}/identity",
+        json={"full_name": "Jane", "count_internships": True, "count_freelance": False},
+        headers=csrf(c),
+    )
+    assert r.status_code == 200
+    got = c.get(f"{BASE}/identity").json()
+    assert got["count_internships"] is True and got["count_freelance"] is False

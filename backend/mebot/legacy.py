@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from mebot.models import AccessLog, Bot, ChatSession, Message, new_id, utcnow
+from mebot.models import Bot, new_id, utcnow
 
 DEFAULT_SLUG = "default"
 DEFAULT_NAME = "Default"
@@ -46,6 +46,37 @@ _PROFILES_0002 = sa.table(
     sa.column("content"),
     sa.column("created_at", Bot.__table__.c.created_at.type),
     sa.column("updated_at", Bot.__table__.c.updated_at.type),
+)
+
+
+_TS = Bot.__table__.c.created_at.type
+# The other tables as of 0002, for the same reason.
+_SESSIONS_0002 = sa.table(
+    "sessions",
+    sa.column("id"),
+    sa.column("bot_id"),
+    sa.column("recruiter_name"),
+    sa.column("started_at", _TS),
+    sa.column("created_at", _TS),
+)
+_MESSAGES_0002 = sa.table(
+    "messages",
+    sa.column("id"),
+    sa.column("bot_id"),
+    sa.column("session_id"),
+    sa.column("role"),
+    sa.column("content"),
+    sa.column("created_at", _TS),
+)
+_ACCESS_LOG_0002 = sa.table(
+    "access_log",
+    sa.column("id"),
+    sa.column("bot_id"),
+    sa.column("session_id"),
+    sa.column("event"),
+    sa.column("detail"),
+    sa.column("ip"),
+    sa.column("created_at", _TS),
 )
 
 
@@ -101,7 +132,7 @@ def import_legacy(conn: Connection) -> dict[str, int]:
             copied["profiles"] = 1
 
     if "sessions" in legacy:
-        t = ChatSession.__table__
+        t = _SESSIONS_0002
         seen = _existing_ids(conn, t)
         rows = [
             dict(
@@ -121,7 +152,7 @@ def import_legacy(conn: Connection) -> dict[str, int]:
         copied["sessions"] = len(rows)
 
     if "messages" in legacy:
-        t = Message.__table__
+        t = _MESSAGES_0002
         seen = _existing_ids(conn, t)
         rows = []
         for r in conn.execute(
@@ -144,7 +175,7 @@ def import_legacy(conn: Connection) -> dict[str, int]:
         copied["messages"] = len(rows)
 
     if "access_log" in legacy:
-        t = AccessLog.__table__
+        t = _ACCESS_LOG_0002
         seen = _existing_ids(conn, t)
         rows = []
         for r in conn.execute(
