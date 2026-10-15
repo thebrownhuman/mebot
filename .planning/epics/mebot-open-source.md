@@ -31,7 +31,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 |---|---------|--------|------|------|------------|--------|
 | 1 | Foundation: repo restructure, config, multi-tenant schema, migrations | review | [spec](../specs/foundation.md) | — | — | M |
 | 2 | First-run setup + admin auth | review | [spec](../specs/setup-auth.md) | — | #1 | M |
-| 3 | LLM provider layer (owner adds own key at setup, encrypted) | building | [spec](../specs/llm-provider.md) | — | #1, #2 | M |
+| 3 | LLM provider layer (owner adds own key at setup, encrypted) | review | [spec](../specs/llm-provider.md) | — | #1, #2 | M |
 | 4 | Structured profile data + admin data pages | todo | — | — | #2 | L |
 | 5 | Prompt builder: computed facts + grounded answers | todo | — | — | #3, #4 | M |
 | 6 | Public chat hardening: rate limits, daily cap, injection guard | todo | — | — | #3 | S |
@@ -44,6 +44,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 13 | Open-source packaging: single image, docs, CI, deploy buttons | todo | — | — | #1–#12 | M |
 | 14 | Retrieval (embeddings) for large profiles | todo | — | — | #5 | M |
 | 15 | Hosted mode (MODE=hosted, signups, per-user bots) | todo | — | — | #1–#13 | L |
+| 16 | **LAST** — Paid plans: plugin library (JS/CSS SDK) + monthly subscription | todo | — | — | #15 | L+ (split at spec) |
 
 Effort: S ≈ ≤1 day, M ≈ 1–3 days, L ≈ 3 days (split at spec time if larger).
 
@@ -94,7 +95,16 @@ Single Docker image (FastAPI serves built frontend) + compose file; no Ollama re
 Chunk + embed profile/project content (sqlite-vec), retrieve top-k per question, keep computed facts always in prompt. Only needed when profile exceeds context budget; gate behind size threshold.
 
 ### Feature 15: Hosted mode
-`MODE=hosted`: public signup, many users each with own bot + own encrypted key, subdomain/slug routing, per-tenant limits, admin-of-admins view, maintainer Telegram ping on signup. Billing explicitly out of scope until decided.
+`MODE=hosted`: public signup, many users each with own bot + own encrypted key, subdomain/slug routing, per-tenant limits, admin-of-admins view, maintainer Telegram ping on signup. Billing is Feature 16.
+
+### Feature 16: Paid plans — plugin library + monthly subscription (do LAST)
+Turn the hosted platform into a paid service. Customers don't host anything: they install a drop-in plugin (npm package + CDN `<script>`/CSS, React component, framework-agnostic web component) into their own site/UI, sign up on the hosted platform, add their own LLM API key, and connect the plugin to their bot with a public bot key. Connecting/serving requires an active monthly subscription.
+- Billing: Razorpay subscriptions (UPI AutoPay, cards; India) and/or Stripe (international). Webhook-driven subscription state; plugin/API returns "subscription inactive" when unpaid; grace period on failed renewal.
+- Plans: e.g. Free trial (N days / N messages) → Monthly. Plan limits enforced alongside #6 rate limits.
+- Customer dashboard: plan, invoices, cancel, usage. Maintainer Telegram ping on new subscription / cancellation.
+- Plugin: versioned SDK, theming via CSS variables, public bot key (not the LLM key), origin allow-list per bot.
+- Legal before launch: terms of service, privacy policy, refund policy, GST invoicing (India), DPDP/GDPR data handling.
+- Self-host stays free and open source; paid tier is convenience + hosting.
 
 ---
 
@@ -116,3 +126,4 @@ Chunk + embed profile/project content (sqlite-vec), retrieve top-k per question,
 - Self-host (MODE=single) is the priority; Features 1–13 ship that. 14–15 come after.
 - Existing 3D orb UI is kept as the public chat look.
 - Minimum viable release: Features 1–8 + 13.
+- Feature 16 (paid plans) is deliberately the very last item — only after hosted mode (#15) is stable.
