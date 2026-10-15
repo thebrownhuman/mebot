@@ -155,3 +155,30 @@ def test_get_current_bot_creates_default(client, app):
     client.post("/api/session", json={})
     with app.state.session_factory() as db:
         assert bots.get_by_slug(db, "default") is not None
+
+
+def test_chat_prompt_uses_structured_profile(admin_client, fake_llm):
+    c = admin_client
+    c.put(
+        "/api/admin/profile/identity",
+        json={"full_name": "Jane Doe", "headline": "Backend engineer"},
+        headers=csrf(c),
+    )
+    c.post(
+        "/api/admin/profile/projects",
+        json={"name": "mebot", "summary": "Portfolio chatbot", "backend": "FastAPI"},
+        headers=csrf(c),
+    )
+    c.post(
+        "/api/admin/profile/avoid-topics",
+        json={"topic": "Politics", "reply": "I keep politics out of work chats."},
+        headers=csrf(c),
+    )
+    sid = c.post("/api/session", json={}).json()["session_id"]
+    c.post("/api/chat", json={"session_id": sid, "message": "what is mebot built with?"})
+    system = fake_llm.streams[-1]["messages"][0]["content"]
+    assert "=== IDENTITY ===" in system and "Jane Doe" in system
+    assert "=== PROJECTS ===" in system and "Backend: FastAPI" in system
+    assert "=== AVOID ===" in system and "I keep politics out of work chats." in system
+    assert "AVOID" in system.split("PROFILE:")[0]  # the rule that explains AVOID
+    assert "[Your name]" not in system  # old template never leaks into the prompt
