@@ -1,28 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
+from mebot.limits.service import LimitExceeded
 from mebot.llm import service as llm
 from mebot.llm.base import LLMError
 from mebot.marker import MarkerFilter
 from mebot.models import Bot
 from mebot.profile.data import load_profile
 from mebot.prompt import build_system_prompt, render_profile
+from mebot.repos import limits as limits_repo
 from mebot.repos import llm_configs, logs, sessions
 
 router = APIRouter(prefix="/api")
 
 # Shown to visitors whenever the owner's provider fails; details go to access_log only.
 UNAVAILABLE = "Sorry, the assistant is unavailable right now. Please try again later."
+PAUSED = "The assistant is paused right now. Please try again later."
+# Body-size guard only; the owner's max_message_chars (100-4000) is checked in the route.
+HARD_MAX_CHARS = 20_000
 
 
 class ChatReq(BaseModel):
-    session_id: str
-    message: str
+    session_id: str = Field(max_length=64)
+    message: str = Field(max_length=HARD_MAX_CHARS)
 
     @field_validator("message")
     @classmethod
@@ -47,11 +52,32 @@ async def chat(
     bot: Bot = Depends(get_current_bot),
 ):
     bot_id = bot.id
-    if sessions.get(db, bot_id, req.session_id) is None:
-        raise HTTPException(404, "Unknown session")
+    ip = client_ip(request)
+    # Order matters (spec): paused -> configured -> length -> rate limits -> LLM.
+    limits = limits_repo.get_or_create(db, bot_id)
+    if limits.paused:
+        raise ApiError(503, "BOT_PAUSED", limits.paused_message or PAUSED)
     status, _, cfg = llm.load(db, bot_id, request.app.state.secret_key)
     if cfg is None:
         raise ApiError(503, "LLM_NOT_CONFIGURED", UNAVAILABLE)
+    if len(req.message) > limits.max_message_chars:
+        raise ApiError(
+            422,
+            "MESSAGE_TOO_LONG",
+            f"Please keep messages under {limits.max_message_chars} characters.",
+            details=[{"field": "message", "message": f"max {limits.max_message_chars} characters"}],
+        )
+    if sessions.get(db, bot_id, req.session_id) is None:
+        raise HTTPException(404, "Unknown session")
+    limiter = request.app.state.chat_limiter
+    try:
+        limiter.check_and_consume(db, bot_id, limits, ip, req.session_id)
+    except LimitExceeded as e:
+        db.rollback()
+        if limiter.should_log(e.scope, limiter.ip_key(ip)):
+            logs.add(db, bot_id, req.session_id, "RATE_LIMITED", detail=e.scope)
+            db.commit()
+        raise e.api_error() from None
 
     history = [
         {"role": m.role, "content": m.content}
@@ -59,9 +85,7 @@ async def chat(
     ]
     profile = render_profile(load_profile(db, bot_id))
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
-    logs.add(
-        db, bot_id, req.session_id, "question", detail=req.message[:200], ip=client_ip(request)
-    )
+    logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
     db.commit()
 
     messages = [
