@@ -35,7 +35,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 4 | Structured profile data + admin data pages | review | [spec](../specs/profile-pages.md) | — | #2 | L |
 | 5 | Prompt builder: computed facts + grounded answers | review | [spec](../specs/grounded-answers.md) | — | #3, #4 | M |
 | 6 | Public chat hardening: rate limits, daily cap, injection guard | review | [spec](../specs/chat-hardening.md) | — | #3 | S |
-| 7 | Telegram notifications + reply-back loop | todo | — | — | #5 | M |
+| 7 | Telegram notifications + reply-back loop | building | [spec](../specs/telegram.md) | — | #5 | M |
 | 8 | Embeddable widget + allowed origins + theming | todo | — | — | #6 | M |
 | 9 | Imports: resume PDF/DOCX + LinkedIn export ZIP | todo | — | — | #3, #4 | M |
 | 10 | Import: GitHub repo → project entry | todo | — | — | #9 | S |
