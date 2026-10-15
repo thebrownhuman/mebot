@@ -10,6 +10,7 @@ from mebot.routes import (
     public,
     sessions,
     setup,
+    telegram_webhook,
 )
 
 routers = [
@@ -23,5 +24,6 @@ routers = [
     admin_llm.router,
     admin_limits.router,
     admin_telegram.router,
+    telegram_webhook.router,
     admin_profile.router,
 ]

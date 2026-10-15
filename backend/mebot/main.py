@@ -1,6 +1,7 @@
 """App factory. Run with: uvicorn mebot.main:app --reload --port 8000"""
 
 import sys
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +16,8 @@ from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
 from mebot.limits.service import ChatLimiter
 from mebot.repos import admin_sessions
 from mebot.routes import routers
+from mebot.telegram.service import TelegramService
+from mebot.telegram.updates import TgContext
 
 
 def _validation_error(_, exc: RequestValidationError):
@@ -36,13 +39,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     secret_key = resolve_secret_key(settings)
     run_migrations(settings.database_url)
 
-    app = FastAPI(title="me-bot")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Poller / outbox / digest workers; off in tests unless a test turns them on.
+        if settings.telegram_workers:
+            await app.state.telegram.start()
+        try:
+            yield
+        finally:
+            await app.state.telegram.stop()
+
+    app = FastAPI(title="me-bot", lifespan=lifespan)
     app.state.settings = settings
     app.state.secret_key = secret_key
     app.state.session_factory = make_session_factory(settings.database_url)
     app.state.login_limiter = LoginLimiter()
     app.state.chat_limiter = ChatLimiter(secret_key)
     app.state.setup_limiter = SlidingWindowLimiter(limit=10, window_seconds=15 * 60)
+    app.state.telegram_ctx = TgContext(app.state.session_factory, secret_key, settings)
+    app.state.telegram = TelegramService(app.state.telegram_ctx)
     with app.state.session_factory() as db:
         admin_sessions.purge_expired(db)
         counters.purge(db)
