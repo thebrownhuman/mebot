@@ -4,6 +4,9 @@ import AdminPage from "./pages/AdminPage";
 import SetupPage from "./pages/SetupPage";
 import LoginPage from "./pages/LoginPage";
 import LlmPage from "./pages/LlmPage";
+import AccountPage from "./pages/admin/AccountPage";
+import ProfilePage from "./pages/admin/ProfilePages";
+import AdminLayout from "./components/admin/AdminLayout";
 import SetupGate from "./components/SetupGate";
 import RequireAdmin from "./components/RequireAdmin";
 
@@ -14,8 +17,15 @@ export default function App() {
         <Route path="/" element={<RecruiterPage />} />
         <Route path="/setup" element={<SetupPage />} />
         <Route path="/admin/login" element={<LoginPage />} />
-        <Route path="/admin/llm" element={<RequireAdmin>{() => <LlmPage />}</RequireAdmin>} />
-        <Route path="/admin" element={<RequireAdmin>{(me) => <AdminPage me={me} />}</RequireAdmin>} />
+        <Route
+          path="/admin"
+          element={<RequireAdmin>{(me) => <AdminLayout me={me} />}</RequireAdmin>}
+        >
+          <Route index element={<AdminPage />} />
+          <Route path="profile/:page" element={<ProfilePage />} />
+          <Route path="llm" element={<LlmPage />} />
+          <Route path="account" element={<AccountPage />} />
+        </Route>
         {/* anything else -> public chat */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
