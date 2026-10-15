@@ -1,4 +1,4 @@
-from mebot.routes import admin, auth, chat, health, sessions, setup
+from mebot.routes import admin, admin_llm, auth, chat, health, sessions, setup
 
 routers = [
     health.router,
@@ -7,4 +7,5 @@ routers = [
     sessions.router,
     chat.router,
     admin.router,
+    admin_llm.router,
 ]
