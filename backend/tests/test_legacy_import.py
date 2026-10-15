@@ -100,7 +100,7 @@ def test_imported_data_served_by_api(tmp_path):
     s = Settings(_env_file=None, data_dir=tmp_path, database_url=f"sqlite:///{path.as_posix()}")
     with TestClient(create_app(s)) as c:
         assert do_setup(c).status_code == 201
-        assert c.get("/api/admin/profile").json() == {"content": "NAME: Legacy Person"}
+        assert c.get("/api/admin/profile/notes").json() == {"content": "NAME: Legacy Person"}
         sessions = c.get("/api/admin/sessions").json()
         assert [x["id"] for x in sessions] == ["s2", "s1"]
         assert sessions[1] == {

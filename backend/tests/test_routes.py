@@ -4,7 +4,6 @@ from sqlalchemy import select
 
 from mebot.llm.base import LLMError
 from mebot.models import AccessLog, LLMConfig
-from mebot.prompt import DEFAULT_PROFILE
 from mebot.routes.chat import UNAVAILABLE
 from tests.conftest import LLM_KEY, csrf
 
@@ -27,14 +26,13 @@ def test_health_not_ready_after_failed_test(admin_client, app):
     assert body["ready"] is False and "message" in body
 
 
-def test_default_profile_then_save(admin_client):
-    assert admin_client.get("/api/admin/profile").json() == {"content": DEFAULT_PROFILE}
-    assert admin_client.put(
-        "/api/admin/profile", json={"content": "NAME: X"}, headers=csrf(admin_client)
-    ).json() == {"ok": True}
-    assert admin_client.get("/api/admin/profile").json() == {"content": "NAME: X"}
+def test_profile_change_is_logged(admin_client):
+    r = admin_client.put(
+        "/api/admin/profile/notes", json={"content": "NAME: X"}, headers=csrf(admin_client)
+    )
+    assert r.json() == {"content": "NAME: X"}
     log = admin_client.get("/api/admin/log").json()
-    assert log[0]["event"] == "profile_updated"
+    assert log[0]["event"] == "profile_updated" and log[0]["detail"] == "notes"
     assert set(log[0]) == {"event", "detail", "ip", "ts"}
     assert isinstance(log[0]["ts"], float)
 
@@ -54,7 +52,7 @@ def test_session_create_and_list(admin_client):
 
 def test_chat_streams_and_persists(admin_client, fake_llm):
     admin_client.put(
-        "/api/admin/profile", json={"content": "NAME: Zed"}, headers=csrf(admin_client)
+        "/api/admin/profile/notes", json={"content": "NAME: Zed"}, headers=csrf(admin_client)
     )
     sid = admin_client.post("/api/session", json={}).json()["session_id"]
     r = admin_client.post("/api/chat", json={"session_id": sid, "message": "who are you?"})
