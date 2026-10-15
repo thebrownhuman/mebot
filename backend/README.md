@@ -16,13 +16,16 @@ mebot/
   deps.py        get_current_bot, get_current_admin, require_setup_done
   repos/         data access; every query is scoped by bot_id
   routes/        public: /api/health, session, chat, setup, auth
-                 owner-only: /api/admin/* (profile, sessions, log)
+                 owner-only: /api/admin/* (profile/{section}, llm, sessions, log)
   llm/           provider adapters (openai_compat, anthropic, ollama), registry,
                  service (validate/test/store config); keys encrypted via crypto.py
   crypto.py      Fernet encryption of stored API keys (HKDF from SECRET_KEY)
-  prompt.py      persona system prompt + default profile template
+  prompt.py      persona system prompt
+  profile/       structured profile: schemas, section registry, loader, render_profile()
+  profile_legacy.py  0005 copy of the old free-text profile into profile_notes
   legacy.py      import of prototype data (used by migration 0002)
-migrations/      Alembic (0001 schema, 0002 legacy import, 0003 admin auth)
+migrations/      Alembic (0001 schema, 0002 legacy import, 0003 admin auth,
+                 0004 llm configs, 0005 structured profile)
 tests/           pytest
 ```
 
