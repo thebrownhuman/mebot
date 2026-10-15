@@ -20,12 +20,8 @@ export function useChat() {
 
   const connect = useCallback(async (recruiterName?: string) => {
     const h = await getHealth();
-    if (!h.ollama) {
-      setConn({ ok: false, text: "offline — model unreachable" });
-      return false;
-    }
-    if (!h.model) {
-      setConn({ ok: false, text: h.message ?? "no model" });
+    if (!h.ready || !h.model) {
+      setConn({ ok: false, text: h.message ?? "assistant unavailable" });
       return false;
     }
     setModel(h.model);
