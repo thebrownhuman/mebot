@@ -93,13 +93,15 @@ def test_imported_data_served_by_api(tmp_path):
 
     from mebot.config import Settings
     from mebot.main import create_app
+    from tests.conftest import do_setup
 
     path = tmp_path / "old.db"
     make_legacy_db(path)
     s = Settings(_env_file=None, data_dir=tmp_path, database_url=f"sqlite:///{path.as_posix()}")
     with TestClient(create_app(s)) as c:
-        assert c.get("/api/profile").json() == {"content": "NAME: Legacy Person"}
-        sessions = c.get("/api/sessions").json()
+        assert do_setup(c).status_code == 201
+        assert c.get("/api/admin/profile").json() == {"content": "NAME: Legacy Person"}
+        sessions = c.get("/api/admin/sessions").json()
         assert [x["id"] for x in sessions] == ["s2", "s1"]
         assert sessions[1] == {
             "id": "s1",
@@ -107,12 +109,12 @@ def test_imported_data_served_by_api(tmp_path):
             "started_at": 1760000000.0,
             "turns": 2,
         }
-        msgs = c.get("/api/session/s1/messages").json()
+        msgs = c.get("/api/admin/sessions/s1/messages").json()
         assert msgs == [
             {"role": "user", "content": "hi", "ts": 1760000001.0},
             {"role": "assistant", "content": "hello", "ts": 1760000002.0},
         ]
-        log = c.get("/api/log").json()
+        log = c.get("/api/admin/log").json()
         assert log == [
             {"event": "session_start", "detail": "Alice", "ip": "127.0.0.1", "ts": 1760000000.0}
         ]

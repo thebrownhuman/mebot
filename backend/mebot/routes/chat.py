@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from mebot.config import Settings
 from mebot.db import get_db
-from mebot.deps import client_ip, get_current_bot, get_settings
+from mebot.deps import client_ip, get_current_bot, get_settings, require_setup_done
 from mebot.llm import ollama
 from mebot.models import Bot
 from mebot.prompt import build_system_prompt
@@ -26,7 +26,7 @@ class ChatReq(BaseModel):
         return v
 
 
-@router.post("/chat")
+@router.post("/chat", dependencies=[Depends(require_setup_done)])
 async def chat(
     req: ChatReq,
     request: Request,
