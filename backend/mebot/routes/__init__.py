@@ -3,6 +3,7 @@ from mebot.routes import (
     admin_limits,
     admin_llm,
     admin_profile,
+    admin_telegram,
     auth,
     chat,
     health,
@@ -21,5 +22,6 @@ routers = [
     admin.router,
     admin_llm.router,
     admin_limits.router,
+    admin_telegram.router,
     admin_profile.router,
 ]
