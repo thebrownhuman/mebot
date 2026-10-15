@@ -2,6 +2,7 @@ import re
 import secrets
 
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -13,6 +14,8 @@ from mebot.config import Settings
 from mebot.db import get_db
 from mebot.deps import client_ip, get_settings
 from mebot.errors import ApiError
+from mebot.llm import service as llm
+from mebot.llm.providers import PROVIDERS
 from mebot.repos import admin_sessions, admins, bots
 
 router = APIRouter(prefix="/api/setup")
@@ -28,6 +31,7 @@ class SetupReq(BaseModel):
     bot_slug: str
     registration_consent: bool = False
     setup_token: str | None = None
+    llm: llm.LLMInput
 
     @field_validator("bot_name")
     @classmethod
@@ -47,8 +51,37 @@ class SetupReq(BaseModel):
         return v
 
 
+class LLMProbeReq(llm.LLMInput):
+    setup_token: str | None = None
+
+
 def _completed() -> ApiError:
     return ApiError(409, "SETUP_COMPLETED", "Setup has already been completed")
+
+
+def _check_setup_token(settings: Settings, given: str | None) -> None:
+    if settings.setup_token and not secrets.compare_digest(
+        (given or "").encode(), settings.setup_token.encode()
+    ):
+        raise ApiError(403, "SETUP_TOKEN_INVALID", "Invalid setup token")
+
+
+def _probe_guard(request: Request, db: Session, settings: Settings, token: str | None) -> None:
+    """Pre-setup LLM probes: only while setup is pending, token-gated, rate limited.
+
+    They make the server call an owner-supplied URL, so keep the window narrow.
+    """
+    _check_setup_token(settings, token)
+    if admins.exists(db):
+        raise _completed()
+    wait = request.app.state.llm_probe_limiter.hit(client_ip(request) or "?")
+    if wait is not None:
+        raise ApiError(
+            429,
+            "RATE_LIMITED",
+            "Too many test calls. Try again in a minute.",
+            headers={"Retry-After": str(wait)},
+        )
 
 
 @router.get("/status")
@@ -64,22 +97,53 @@ def status(
     return {"setup_required": not admins.exists(db)}
 
 
+@router.get("/llm-providers")
+def providers():
+    return {"providers": [p.public() for p in PROVIDERS]}
+
+
+@router.post("/llm-test", dependencies=[Depends(require_csrf)])
+async def llm_test(
+    req: LLMProbeReq,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    _probe_guard(request, db, settings, req.setup_token)
+    llm.validate(req)
+    result = await llm.run_test(llm.resolve_input(req, settings))
+    return {"ok": result.ok, "latency_ms": result.latency_ms}
+
+
+@router.post("/llm-models", dependencies=[Depends(require_csrf)])
+async def llm_models(
+    req: LLMProbeReq,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    _probe_guard(request, db, settings, req.setup_token)
+    return {"models": await llm.list_models(llm.resolve_input(req, settings))}
+
+
 @router.post("", status_code=201, dependencies=[Depends(require_csrf)])
-def setup(
+async def setup(
     req: SetupReq,
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    if settings.setup_token and not secrets.compare_digest(
-        (req.setup_token or "").encode(), settings.setup_token.encode()
-    ):
-        raise ApiError(403, "SETUP_TOKEN_INVALID", "Invalid setup token")
+    _check_setup_token(settings, req.setup_token)
     if admins.exists(db):
         raise _completed()
 
-    password_hash = passwords.hash_password(req.password)  # slow: do it before locking
+    llm.validate(req.llm, prefix="llm.")
+    llm_cfg = llm.resolve_input(req.llm, settings)
+    await llm.run_test(llm_cfg)  # raises 422 LLM_TEST_FAILED; nothing created yet
+
+    # Slow (argon2): keep it off the event loop and before taking the write lock.
+    password_hash = await run_in_threadpool(passwords.hash_password, req.password)
     bot = bots.get_or_create_default(db)
     try:
         if not bots.claim_setup(db, bot):
@@ -89,6 +153,7 @@ def setup(
         bot.slug = req.bot_slug
         bot.registration_consent = req.registration_consent
         admin = admins.create(db, req.email, password_hash)
+        llm.store(db, bot.id, llm_cfg, request.app.state.secret_key)
         token = admin_sessions.create(
             db, admin.id, ip=client_ip(request), user_agent=request.headers.get("user-agent")
         )

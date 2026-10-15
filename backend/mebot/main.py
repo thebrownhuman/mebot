@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from mebot.auth.ratelimit import InMemoryLoginLimiter
+from mebot.auth.ratelimit import InMemoryLoginLimiter, SlidingWindowLimiter
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
@@ -39,6 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.secret_key = secret_key
     app.state.session_factory = make_session_factory(settings.database_url)
     app.state.login_limiter = InMemoryLoginLimiter()
+    app.state.llm_probe_limiter = SlidingWindowLimiter(limit=10, window_seconds=60)
     with app.state.session_factory() as db:
         admin_sessions.purge_expired(db)
     install_error_handlers(app)
