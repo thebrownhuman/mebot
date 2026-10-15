@@ -30,8 +30,8 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | # | Feature | Status | Spec | Plan | Depends On | Effort |
 |---|---------|--------|------|------|------------|--------|
 | 1 | Foundation: repo restructure, config, multi-tenant schema, migrations | review | [spec](../specs/foundation.md) | — | — | M |
-| 2 | First-run setup + admin auth | building | [spec](../specs/setup-auth.md) | — | #1 | M |
-| 3 | LLM provider layer (BYO key, encrypted) | todo | — | — | #1, #2 | M |
+| 2 | First-run setup + admin auth | review | [spec](../specs/setup-auth.md) | — | #1 | M |
+| 3 | LLM provider layer (owner adds own key at setup, encrypted) | building | [spec](../specs/llm-provider.md) | — | #1, #2 | M |
 | 4 | Structured profile data + admin data pages | todo | — | — | #2 | L |
 | 5 | Prompt builder: computed facts + grounded answers | todo | — | — | #3, #4 | M |
 | 6 | Public chat hardening: rate limits, daily cap, injection guard | todo | — | — | #3 | S |
