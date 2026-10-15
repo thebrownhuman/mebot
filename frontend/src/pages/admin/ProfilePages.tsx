@@ -17,10 +17,12 @@ import { LINKS, sectionByRoute } from "../../components/admin/sections";
 import {
   getIdentity,
   getNotes,
+  getProfileFacts,
   getProfilePreview,
   saveIdentity,
   saveNotes,
   type ApiError,
+  type ProfileFacts,
   type ProfilePreview,
 } from "../../lib/api";
 
@@ -77,6 +79,18 @@ const IDENTITY_FIELDS: FieldDef[] = [
   { name: "salary_expectation", label: "Salary expectation", kind: "text", maxLength: 200 },
   { name: "work_authorization", label: "Work authorisation", kind: "text", maxLength: 200 },
   { name: "photo_url", label: "Photo URL", kind: "url", placeholder: "https://" },
+  {
+    name: "count_internships",
+    label: "Count internships in my total experience",
+    kind: "checkbox",
+    hint: "Off by default: recruiters usually mean full-time experience.",
+  },
+  {
+    name: "count_freelance",
+    label: "Count freelance and contract work in my total experience",
+    kind: "checkbox",
+    hint: "On by default.",
+  },
 ];
 // The backend stores the five main identity fields as "" rather than null.
 const NON_NULL = new Set(["full_name", "headline", "location", "open_to", "summary"]);
@@ -229,6 +243,91 @@ function NotesPage() {
   );
 }
 
+function FactsCard() {
+  const [facts, setFacts] = useState<ProfileFacts | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getProfileFacts()
+      .then(setFacts)
+      .catch((e: Error) => setError(e.message || "Could not compute facts."));
+  }, []);
+
+  const total = facts?.total_experience;
+  const skills = facts?.skills.filter((s) => s.text) ?? [];
+  const edu = facts?.education.latest;
+  return (
+    <section
+      aria-labelledby="facts-title"
+      className="border border-term-line2 bg-term-panel/80 rounded-lg p-4 mb-5"
+    >
+      <h2 id="facts-title" className="text-term-amber text-sm mb-1">
+        Computed facts
+      </h2>
+      <p className="text-term-dim text-xs mb-3">
+        Worked out by mebot from your dates{facts ? ` as of ${facts.as_of}` : ""}. The bot quotes
+        these numbers and never does its own date math.
+      </p>
+      {error && <p className="text-term-err text-xs">{error}</p>}
+      {!facts && !error && <p className="text-term-dim text-xs">computing…</p>}
+      {facts && (
+        <dl className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+          <dt className="text-term-dim">Total experience</dt>
+          <dd className="text-term-fg">
+            {!total
+              ? "no jobs added yet"
+              : total.months === 0
+                ? "no full-time experience yet"
+                : `${total.text} (${total.years.toFixed(1)} years), ${total.from} – ${total.to}`}
+            {total && (
+              <span className="text-term-dim">
+                {" "}
+                · internships {total.internships_counted ? "included" : "excluded"}
+                {facts.internship_months > 0 && !total.internships_counted
+                  ? ` (${facts.internship_months} months)`
+                  : ""}
+                {total.freelance_counted ? "" : " · freelance/contract excluded"}
+              </span>
+            )}
+          </dd>
+          <dt className="text-term-dim">Current role</dt>
+          <dd className="text-term-fg">
+            {facts.current_roles.length
+              ? facts.current_roles.map((r) => `${r.title} at ${r.company} (${r.text})`).join("; ")
+              : facts.last_role_end
+                ? `none — last role ended ${facts.last_role_end}`
+                : "—"}
+          </dd>
+          {skills.length > 0 && (
+            <>
+              <dt className="text-term-dim">Skills</dt>
+              <dd className="text-term-fg">
+                {skills
+                  .map((s) => `${s.name}: ${s.text}${s.source === "stated" ? " (stated)" : ""}`)
+                  .join(" · ")}
+              </dd>
+            </>
+          )}
+          {edu && (
+            <>
+              <dt className="text-term-dim">Education</dt>
+              <dd className="text-term-fg">
+                {edu.degree}
+                {edu.field ? ` in ${edu.field}` : ""}, {edu.institution}
+                {edu.in_progress ? " (in progress)" : edu.end_month ? ` (${edu.end_month})` : ""}
+              </dd>
+            </>
+          )}
+          <dt className="text-term-dim">Counts</dt>
+          <dd className="text-term-fg">
+            {facts.counts.projects} projects · {facts.counts.companies} companies
+          </dd>
+        </dl>
+      )}
+    </section>
+  );
+}
+
 function PreviewPage() {
   const [preview, setPreview] = useState<ProfilePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -244,6 +343,7 @@ function PreviewPage() {
       title="Preview"
       intro="Exactly what the bot knows about you: this text is added to every chat."
     >
+      <FactsCard />
       <FormError message={error} />
       {!preview && !error && <Loading />}
       {preview && (

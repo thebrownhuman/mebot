@@ -132,7 +132,10 @@ interface ReqOpts {
   notifyUnauthorized?: boolean;
 }
 
-async function send(path: string, { method = "GET", body, notifyUnauthorized = false }: ReqOpts = {}) {
+async function send(
+  path: string,
+  { method = "GET", body, notifyUnauthorized = false }: ReqOpts = {},
+) {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET" && method !== "HEAD") {
@@ -386,4 +389,62 @@ export async function saveNotes(content: string): Promise<string> {
 
 export async function getProfilePreview(): Promise<ProfilePreview> {
   return json(`${P}/preview`, admin);
+}
+
+// --- admin: computed facts & unanswered questions ---------------------------------------
+
+export interface FactsDuration {
+  months: number;
+  text: string;
+  years: number;
+}
+
+export interface ProfileFacts {
+  as_of: string;
+  total_experience:
+    | (FactsDuration & {
+        from: string | null;
+        to: string | null;
+        internships_counted: boolean;
+        freelance_counted: boolean;
+      })
+    | null;
+  internship_months: number;
+  current_roles: { company: string; title: string; since: string; months: number; text: string }[];
+  upcoming_roles: { company: string; title: string; starts: string }[];
+  last_role_end: string | null;
+  first_job_start: string | null;
+  skills: {
+    name: string;
+    months: number | null;
+    text: string | null;
+    years: number | null;
+    source: "computed" | "stated" | null;
+    evidence: string[];
+  }[];
+  education: {
+    latest: {
+      degree: string;
+      field: string | null;
+      institution: string;
+      end_month: string | null;
+      in_progress: boolean;
+    } | null;
+  };
+  counts: { projects: number; projects_by_status: Record<string, number>; companies: number };
+}
+
+export interface UnansweredItem {
+  session_id: string | null;
+  question: string | null;
+  created_at: string;
+}
+
+export async function getProfileFacts(): Promise<ProfileFacts> {
+  return json(`${P}/facts`, admin);
+}
+
+export async function getUnanswered(limit = 10): Promise<UnansweredItem[]> {
+  const d = await json<{ items: UnansweredItem[] }>(`/api/admin/unanswered?limit=${limit}`, admin);
+  return d?.items ?? [];
 }

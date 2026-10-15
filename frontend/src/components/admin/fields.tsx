@@ -4,7 +4,7 @@ import { useState } from "react";
 // aria-invalid + aria-describedby for errors, and the terminal theme.
 
 export type FieldKind =
-  "text" | "textarea" | "url" | "email" | "month" | "select" | "tags" | "number";
+  "text" | "textarea" | "url" | "email" | "month" | "select" | "tags" | "number" | "checkbox";
 
 export interface FieldDef {
   name: string;
@@ -167,6 +167,23 @@ export function FormField({
         </select>
       );
       break;
+    case "checkbox":
+      return (
+        <div className="mb-4">
+          <label className="flex items-start gap-2 text-sm text-term-fg">
+            <input
+              id={id}
+              type="checkbox"
+              checked={raw === true}
+              aria-describedby={db}
+              onChange={(e) => onChange(def.name, e.target.checked)}
+              className="mt-1 accent-term-bright"
+            />
+            <span>{def.label}</span>
+          </label>
+          <Help id={id} error={error} hint={def.hint} />
+        </div>
+      );
     case "tags":
       control = (
         <TagInput
@@ -229,6 +246,7 @@ export function toBody(defs: FieldDef[], values: FormValues): FormValues {
   for (const d of defs) {
     const v = values[d.name];
     if (d.kind === "tags") out[d.name] = Array.isArray(v) ? v : [];
+    else if (d.kind === "checkbox") out[d.name] = v === true;
     else if (d.kind === "number") out[d.name] = v === "" || v == null ? null : Number(v);
     else if (typeof v === "string") out[d.name] = v.trim() === "" ? null : v.trim();
     else out[d.name] = v ?? null;
@@ -240,7 +258,14 @@ export function fromItem(defs: FieldDef[], item: FormValues | null): FormValues 
   const out: FormValues = {};
   for (const d of defs) {
     const v = item?.[d.name];
-    out[d.name] = d.kind === "tags" ? (Array.isArray(v) ? v : []) : (v ?? "");
+    out[d.name] =
+      d.kind === "tags"
+        ? Array.isArray(v)
+          ? v
+          : []
+        : d.kind === "checkbox"
+          ? v === true
+          : (v ?? "");
     if (d.currentLabel) out[`__current_${d.name}`] = !!item && !v;
   }
   return out;
