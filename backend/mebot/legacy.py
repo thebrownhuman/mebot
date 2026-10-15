@@ -25,8 +25,21 @@ def _dt(epoch: float | None) -> datetime:
     return datetime.fromtimestamp(epoch, UTC) if epoch is not None else utcnow()
 
 
+# Columns of `bots` as of migration 0002. The ORM table has later columns (0003+), and
+# this runs inside 0002, so inserting through Bot.__table__ would name columns that
+# don't exist yet.
+_BOTS_0002 = sa.table(
+    "bots",
+    sa.column("id"),
+    sa.column("slug"),
+    sa.column("name"),
+    sa.column("created_at", Bot.__table__.c.created_at.type),
+    sa.column("updated_at", Bot.__table__.c.updated_at.type),
+)
+
+
 def ensure_default_bot(conn: Connection) -> str:
-    bots = Bot.__table__
+    bots = _BOTS_0002
     row = conn.execute(sa.select(bots.c.id).where(bots.c.slug == DEFAULT_SLUG)).first()
     if row:
         return row.id

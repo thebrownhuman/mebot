@@ -6,7 +6,7 @@ Every tenant-owned table carries ``bot_id``; repos always filter on it.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Index, Text, TypeDecorator
+from sqlalchemy import Boolean, DateTime, Index, Text, TypeDecorator, false
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -52,6 +52,10 @@ class Bot(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    registration_consent: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    setup_completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
 class Profile(Base):
@@ -98,3 +102,30 @@ class AccessLog(Base):
     ip: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     __table_args__ = (Index("ix_access_log_bot_id", "bot_id"),)
+
+
+class Admin(Base):
+    __tablename__ = "admins"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    email: Mapped[str] = mapped_column(Text, nullable=False)  # stored lowercased
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    bot_id: Mapped[str | None] = mapped_column(Text, nullable=True)  # hosted mode, later
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    __table_args__ = (Index("ux_admins_email", "email", unique=True),)
+
+
+class AdminSession(Base):
+    __tablename__ = "admin_sessions"
+    id: Mapped[str] = mapped_column(Text, primary_key=True)  # sha256(token) hex
+    admin_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    ip: Mapped[str | None] = mapped_column(Text)
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        Index("ix_admin_sessions_admin_id", "admin_id"),
+        Index("ix_admin_sessions_expires_at", "expires_at"),
+    )
