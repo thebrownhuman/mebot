@@ -1,59 +1,35 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ChatScreen from "../components/ChatScreen";
 import ProfileDrawer from "../components/ProfileDrawer";
 import SessionsDrawer from "../components/SessionsDrawer";
 import AdminDrawer from "../components/AdminDrawer";
 import { useChat } from "../hooks/useChat";
+import { logout, type Me } from "../lib/api";
 
-// Light client-side gate. This obscures the panel from casual visitors who guess
-// the URL; it is NOT real security (the check runs in the browser). For a public
-// deployment, move auth to the backend (planned). Set VITE_ADMIN_PASS at build time.
-const ADMIN_PASS: string = import.meta.env.VITE_ADMIN_PASS ?? "admin";
+interface Props {
+  me: Me;
+}
 
-export default function AdminPage() {
+export default function AdminPage({ me }: Props) {
   const chat = useChat();
-  const [authed, setAuthed] = useState(false);
-  const [pass, setPass] = useState("");
-  const [err, setErr] = useState(false);
+  const navigate = useNavigate();
   const [open, setOpen] = useState<"profile" | "sessions" | "admin" | null>("admin");
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (authed) void chat.connect("admin");
+    void chat.connect("admin");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed]);
+  }, []);
 
-  if (!authed) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black px-4">
-        <div className="w-full max-w-sm border border-term-line2 bg-term-panel rounded-xl p-6">
-          <div className="text-term-amber text-sm mb-4">// admin access</div>
-          <input
-            type="password"
-            value={pass}
-            autoFocus
-            onChange={(e) => {
-              setPass(e.target.value);
-              setErr(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                if (pass === ADMIN_PASS) setAuthed(true);
-                else setErr(true);
-              }
-            }}
-            placeholder="passphrase"
-            className="w-full bg-term-bg border border-term-line2 rounded text-term-fg font-mono text-sm px-3 py-2 outline-none focus:border-term-bright"
-          />
-          {err && <div className="text-term-err text-xs mt-2">nope.</div>}
-          <button
-            onClick={() => (pass === ADMIN_PASS ? setAuthed(true) : setErr(true))}
-            className="w-full mt-4 border border-term-bright text-term-bright font-mono text-sm py-2 rounded hover:bg-term-bright/10"
-          >
-            enter
-          </button>
-        </div>
-      </div>
-    );
+  async function doLogout() {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch {
+      // Cookie is cleared server-side on success; on failure still leave the panel.
+    }
+    navigate("/admin/login", { replace: true });
   }
 
   const toolbar = (
@@ -69,6 +45,12 @@ export default function AdminPage() {
       </Btn>
       <Btn active={false} onClick={() => chat.newSession("admin")}>
         new session
+      </Btn>
+      <span className="ml-auto self-center text-term-dim text-xs hidden sm:inline" title={me.email}>
+        {me.bot_name} · {me.email}
+      </span>
+      <Btn active={false} onClick={doLogout} disabled={loggingOut}>
+        {loggingOut ? "logging out…" : "log out"}
       </Btn>
     </div>
   );
@@ -101,14 +83,18 @@ function Btn({
   children,
   onClick,
   active,
+  disabled,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   active: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      disabled={disabled}
       className={
         "font-mono text-xs px-2.5 py-1.5 rounded border " +
         (active
