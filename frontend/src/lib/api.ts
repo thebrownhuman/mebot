@@ -257,15 +257,6 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 // --- admin -------------------------------------------------------------------
 
-export async function getProfile(): Promise<string> {
-  const d = await json<{ content: string }>("/api/admin/profile", admin);
-  return d.content;
-}
-
-export async function saveProfile(content: string): Promise<void> {
-  await send("/api/admin/profile", { method: "PUT", body: { content }, ...admin });
-}
-
 export async function listSessions(): Promise<SessionSummary[]> {
   return json("/api/admin/sessions", admin);
 }
@@ -317,4 +308,82 @@ export async function adminLlmModels(inp: LlmInput): Promise<string[]> {
     ...admin,
   });
   return d?.models ?? [];
+}
+
+// --- admin: structured profile -------------------------------------------------
+
+// API section slugs (see backend mebot/profile/sections.py).
+export type ProfileSection =
+  | "links"
+  | "experiences"
+  | "educations"
+  | "skills"
+  | "projects"
+  | "interests"
+  | "faqs"
+  | "avoid-topics";
+
+export type ProfileItem = { id: string; sort_order: number } & Record<string, unknown>;
+export type ProfileFields = Record<string, unknown>;
+
+export interface ProfilePreview {
+  text: string;
+  chars: number;
+  approx_tokens: number;
+}
+
+const P = "/api/admin/profile";
+
+export async function listProfileItems(section: ProfileSection): Promise<ProfileItem[]> {
+  const d = await json<{ items: ProfileItem[] }>(`${P}/${section}`, admin);
+  return d?.items ?? [];
+}
+
+export async function createProfileItem(
+  section: ProfileSection,
+  body: ProfileFields,
+): Promise<ProfileItem> {
+  return json(`${P}/${section}`, { method: "POST", body, ...admin });
+}
+
+export async function updateProfileItem(
+  section: ProfileSection,
+  id: string,
+  body: ProfileFields,
+): Promise<ProfileItem> {
+  return json(`${P}/${section}/${encodeURIComponent(id)}`, { method: "PUT", body, ...admin });
+}
+
+export async function deleteProfileItem(section: ProfileSection, id: string): Promise<void> {
+  await send(`${P}/${section}/${encodeURIComponent(id)}`, { method: "DELETE", ...admin });
+}
+
+export async function reorderProfileItems(section: ProfileSection, ids: string[]): Promise<void> {
+  await send(`${P}/${section}/order`, { method: "PUT", body: { ids }, ...admin });
+}
+
+export async function getIdentity(): Promise<ProfileFields> {
+  return json(`${P}/identity`, admin);
+}
+
+export async function saveIdentity(body: ProfileFields): Promise<ProfileFields> {
+  return json(`${P}/identity`, { method: "PUT", body, ...admin });
+}
+
+export async function getNotes(): Promise<string> {
+  const d = await json<{ content: string }>(`${P}/notes`, admin);
+  return d?.content ?? "";
+}
+
+export async function saveNotes(content: string): Promise<string> {
+  const d = await json<{ content: string }>(`${P}/notes`, {
+    method: "PUT",
+    body: { content },
+    ...admin,
+  });
+  return d?.content ?? "";
+}
+
+export async function getProfilePreview(): Promise<ProfilePreview> {
+  return json(`${P}/preview`, admin);
 }

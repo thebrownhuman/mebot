@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { CenteredCard, FormError } from "../components/AuthForm";
+import { FormError } from "../components/AuthForm";
+import { AdminSection } from "../components/admin/AdminLayout";
 import LlmForm, {
   emptyLlm,
   TestStatus,
@@ -104,10 +104,10 @@ export default function LlmPage() {
     : "Your own key. It is stored encrypted and never shown again.";
 
   return (
-    <CenteredCard title="// admin" heading="AI Provider">
-      <Link to="/admin" className="text-term-dim text-xs underline hover:text-term-fg">
-        ← back to admin
-      </Link>
+    <AdminSection
+      title="AI Provider"
+      intro="Your own AI account. mebot never provides or shares a key."
+    >
       <FormError message={loadError} />
       {cfg && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs my-4">
@@ -170,6 +170,6 @@ export default function LlmPage() {
           {saving ? "testing & saving…" : "save"}
         </button>
       </div>
-    </CenteredCard>
+    </AdminSection>
   );
 }
