@@ -1,7 +1,7 @@
 # mebot — candidate terminal
 
-A chat bot recruiters can talk to about a candidate. It answers only from a profile
-you write, streaming from the AI provider *you* choose (Gemini, OpenAI, Anthropic,
+A chat bot recruiters can talk to about a candidate. It answers only from the data
+you enter in the admin portal, streaming from the AI provider *you* choose (Gemini, OpenAI, Anthropic,
 OpenRouter, Groq, a local Ollama or any OpenAI-compatible server) using your own key.
 
 ```
@@ -62,6 +62,28 @@ https. If a reverse proxy terminates TLS and talks plain http to mebot, set
 `COOKIE_SECURE=true` (and `TRUST_PROXY=true` if mebot is only reachable via that
 proxy). Add the public site origin to `CORS_ORIGINS` if it differs from the host
 mebot sees.
+
+## Adding your data
+
+Everything the bot knows comes from the admin portal (`/admin`, sidebar on the
+left; a menu button on phones). One page per section:
+
+| Page | What goes there |
+|---|---|
+| Identity | Name, headline, location, what you're open to, summary, public contact, notice period, salary expectation, work authorisation, photo URL, plus your **links** (GitHub, LinkedIn…) |
+| Experience | Jobs with start/end months (tick "I currently work here" for the current one), description, highlights, tech |
+| Education | Degrees and courses with dates |
+| Skills | Name, category, level, optional years |
+| Projects | Summary, problem, your role, frontend / backend / infrastructure / data & AI, highlights, tech, repo and live URLs |
+| Interests & Hobbies | What you do outside work, so the bot can talk about you as a person |
+| FAQ | Exact answers to questions you get often ("Open to relocation?") |
+| Avoid topics | Things the bot must never discuss, with an optional polite reply |
+| Notes | Anything else. Text from the old single profile box was moved here on upgrade |
+| Preview | The exact text the bot receives, with a size estimate (it warns above ~6k tokens) |
+
+Lists can be reordered with the arrow buttons; the order is the order the bot sees.
+Deleting an item hides it (soft delete). Two tabs editing the same item: the last
+save wins.
 
 ## Add your API key
 
