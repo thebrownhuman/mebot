@@ -1,0 +1,73 @@
+# Fictional owner used by golden.yaml. Facts as of 2026-10-16:
+#   total experience 4 years 4 months (2022-07 -> 2026-10, internship excluded)
+#   Python 4 years 4 months, Go 1 year 7 months, internship 7 months
+identity:
+  full_name: Alex Rivera
+  headline: Backend engineer
+  location: Lisbon, Portugal
+  open_to: remote or hybrid roles
+  summary: I build reliable payment and data APIs in Python.
+  email_public: alex@example.com
+
+experiences:
+  - company: Acme Payments
+    title: Backend Engineer
+    employment_type: full-time
+    start_month: "2024-02"
+    description: Payments API and ledger services.
+    highlights: [Cut p99 latency of the payments API by 40%]
+    tech: [Python, PostgreSQL, k8s]
+  - company: Beta Labs
+    title: Software Engineer
+    employment_type: full-time
+    start_month: "2022-07"
+    end_month: "2024-01"
+    description: Data ingestion pipelines.
+    tech: [python, Golang]
+  - company: University Lab
+    title: Research Intern
+    employment_type: internship
+    start_month: "2021-06"
+    end_month: "2021-12"
+    tech: [Python]
+
+educations:
+  - institution: University of Porto
+    degree: BSc
+    field: Computer Science
+    start_month: "2018-09"
+    end_month: "2022-06"
+
+skills:
+  - name: Python
+    category: language
+    level: expert
+  - name: Go
+    category: language
+    level: intermediate
+  - name: PostgreSQL
+    category: tool
+
+projects:
+  - name: mebot
+    tagline: Self-hostable portfolio chatbot
+    summary: A chatbot that answers recruiters' questions from structured profile data.
+    frontend: React with Vite and Tailwind
+    backend: FastAPI with SQLAlchemy and Alembic
+    infra: Docker Compose
+    tech: [Python, React]
+    start_month: "2025-01"
+    status: active
+
+interests:
+  - kind: hobby
+    name: Bouldering
+    description: Climbing twice a week.
+
+faqs:
+  - question: Are you open to relocation?
+    answer: Yes, anywhere within the EU.
+
+avoid-topics:
+  - topic: Politics
+    reply: I keep politics out of work conversations.
