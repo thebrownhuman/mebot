@@ -8,6 +8,7 @@ from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
 from mebot.llm import service as llm
 from mebot.llm.base import LLMError
+from mebot.marker import MarkerFilter
 from mebot.models import Bot
 from mebot.profile.data import load_profile
 from mebot.prompt import build_system_prompt, render_profile
@@ -74,21 +75,35 @@ async def chat(
     async def gen():
         acc: list[str] = []
         error: Exception | None = None
+        # Strips the model's [[UNANSWERED]] marker, even when split across chunks.
+        marker = MarkerFilter()
         try:
             async for chunk in client.stream_chat(
                 messages, model=cfg.model, temperature=cfg.temperature, max_tokens=cfg.max_tokens
             ):
-                acc.append(chunk)
-                yield chunk
+                shown = marker.feed(chunk)
+                if shown:
+                    acc.append(shown)
+                    yield shown
+            tail = marker.finish()
+            if tail:
+                acc.append(tail)
+                yield tail
         except Exception as e:  # noqa: BLE001 - visitors get a fixed message
             error = e
-            yield ("\n\n" if acc else "") + UNAVAILABLE
+            tail = marker.finish()
+            acc.append(tail)
+            yield tail + ("\n\n" if "".join(acc) else "") + UNAVAILABLE
         finally:
             full = "".join(acc).strip()
             # Fresh DB session: the request-scoped one may be closed while we stream.
             with session_factory() as wdb:
                 if full:
-                    sessions.add_message(wdb, bot_id, req.session_id, "assistant", full)
+                    sessions.add_message(
+                        wdb, bot_id, req.session_id, "assistant", full, unanswered=marker.found
+                    )
+                if marker.found:
+                    logs.add(wdb, bot_id, req.session_id, "UNANSWERED", detail=req.message[:500])
                 if getattr(client, "leaked_thinking", False):
                     logs.add(wdb, bot_id, req.session_id, "WARN_thinking_leak")
                 if error is not None:

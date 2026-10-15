@@ -54,7 +54,14 @@ def messages(db: Session, bot_id: str, session_id: str) -> list[Message]:
     )
 
 
-def add_message(db: Session, bot_id: str, session_id: str, role: str, content: str) -> None:
+def add_message(
+    db: Session,
+    bot_id: str,
+    session_id: str,
+    role: str,
+    content: str,
+    unanswered: bool = False,
+) -> None:
     # Messages are ordered by created_at; two written within the clock's resolution
     # (a fast reply) would tie and fall back to random-uuid order. Keep them strictly
     # increasing per session.
@@ -67,6 +74,13 @@ def add_message(db: Session, bot_id: str, session_id: str, role: str, content: s
     if last is not None and now <= last:
         now = last + timedelta(microseconds=1)
     db.add(
-        Message(bot_id=bot_id, session_id=session_id, role=role, content=content, created_at=now)
+        Message(
+            bot_id=bot_id,
+            session_id=session_id,
+            role=role,
+            content=content,
+            created_at=now,
+            unanswered=unanswered,
+        )
     )
     db.flush()
