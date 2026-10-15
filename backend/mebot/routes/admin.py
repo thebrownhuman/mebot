@@ -33,6 +33,15 @@ def session_messages(sid: str, db: Session = Depends(get_db), bot: Bot = Depends
     ]
 
 
+@router.get("/unanswered")
+def read_unanswered(
+    limit: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+):
+    return {"items": logs.unanswered(db, bot.id, limit)}
+
+
 @router.get("/log")
 def read_log(
     limit: int = Query(100, ge=1, le=1000),
