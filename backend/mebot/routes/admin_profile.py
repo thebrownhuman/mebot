@@ -14,6 +14,7 @@ from mebot.errors import ApiError
 from mebot.models import Bot
 from mebot.profile import sections
 from mebot.profile.data import load_profile
+from mebot.profile.facts import compute_facts
 from mebot.profile.render import approx_tokens, render_profile
 from mebot.profile.schemas import IdentityIn, NotesIn, OrderIn
 from mebot.repos import logs
@@ -84,6 +85,12 @@ def write_notes(
     row = repo.put_notes(db, bot.id, _parse(NotesIn, payload))
     _changed(db, bot, "notes")
     return {"content": row.content}
+
+
+@router.get("/facts")
+def facts(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
+    """Server-computed facts (as of today, UTC) that head the chat prompt."""
+    return compute_facts(load_profile(db, bot.id))
 
 
 @router.get("/preview")
