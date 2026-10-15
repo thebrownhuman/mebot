@@ -53,6 +53,11 @@ export default function AdminPage() {
       orbState={chat.orbState}
       pulseRef={chat.pulseRef}
       onSend={chat.send}
+      maxChars={chat.config.max_message_chars}
+      cooldown={chat.cooldown}
+      turnstileKey={chat.turnstileKey}
+      onTurnstile={(t) => void chat.verify(t)}
+      onTurnstileError={(m) => chat.sysLine(m, true)}
       toolbar={toolbar}
       drawers={drawers}
     />

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import Orb from "./Orb";
 import Thinking from "./Thinking";
+import Turnstile from "./Turnstile";
 import { useAutoScroll, type Line } from "../hooks/useChat";
 import type { OrbState } from "./Orb";
 
@@ -15,6 +16,14 @@ interface Props {
   onSend: (text: string) => void;
   toolbar?: React.ReactNode;
   drawers?: React.ReactNode;
+  // Owner's max_message_chars (from /api/public/config).
+  maxChars?: number;
+  // Seconds until sending is allowed again after a rate limit.
+  cooldown?: number;
+  // When set, a Turnstile check must pass before the chat starts.
+  turnstileKey?: string | null;
+  onTurnstile?: (token: string) => void;
+  onTurnstileError?: (message: string) => void;
 }
 
 export default function ChatScreen({
@@ -28,13 +37,18 @@ export default function ChatScreen({
   onSend,
   toolbar,
   drawers,
+  maxChars = 1000,
+  cooldown = 0,
+  turnstileKey = null,
+  onTurnstile,
+  onTurnstileError,
 }: Props) {
   const [input, setInput] = useState("");
   const screenRef = useRef<HTMLDivElement>(null);
   useAutoScroll(screenRef, [lines]);
 
   function submit() {
-    if (!input.trim() || busy) return;
+    if (!input.trim() || busy || cooldown > 0) return;
     onSend(input);
     setInput("");
   }
@@ -72,12 +86,24 @@ export default function ChatScreen({
           {lines.map((l, i) => (
             <LineView key={i} line={l} />
           ))}
+          {turnstileKey && (
+            <div className="mb-3 text-term-amber text-xs">
+              // quick check that you're human…
+              <Turnstile
+                siteKey={turnstileKey}
+                onToken={(t) => onTurnstile?.(t)}
+                onError={(m) => onTurnstileError?.(m)}
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5 border border-term-line border-t-0 rounded-b-lg bg-term-panel/70 backdrop-blur-sm px-3.5 py-2.5">
           <span className="text-term-bright shrink-0">recruiter $</span>
           <input
+            aria-label="your question"
             value={input}
+            maxLength={maxChars}
             disabled={!ready}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -87,14 +113,25 @@ export default function ChatScreen({
               }
             }}
             placeholder="type a question and press enter…"
-            className="flex-1 bg-transparent border-0 text-term-fg font-mono text-sm outline-none placeholder:text-term-dim"
+            className="flex-1 min-w-0 bg-transparent border-0 text-term-fg font-mono text-sm outline-none placeholder:text-term-dim"
           />
+          {input.length > 0 && (
+            <span
+              aria-live="polite"
+              className={
+                "shrink-0 text-[11px] font-mono " +
+                (input.length >= maxChars ? "text-term-err" : "text-term-dim")
+              }
+            >
+              {input.length}/{maxChars}
+            </span>
+          )}
           <button
             onClick={submit}
-            disabled={busy || !ready}
+            disabled={busy || !ready || cooldown > 0}
             className="bg-transparent border border-term-line2 text-term-bright font-mono text-xs px-3 py-1.5 rounded disabled:opacity-40"
           >
-            send
+            {cooldown > 0 ? `wait ${cooldown}s` : "send"}
           </button>
         </div>
       </div>
