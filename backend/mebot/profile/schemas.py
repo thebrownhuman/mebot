@@ -96,6 +96,8 @@ class IdentityIn(_In):
     salary_expectation: OptShort = None
     work_authorization: OptShort = None
     photo_url: OptUrl = None
+    count_internships: bool = False
+    count_freelance: bool = True
 
     @field_validator("photo_url")
     @classmethod

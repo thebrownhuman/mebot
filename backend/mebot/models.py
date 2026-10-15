@@ -6,7 +6,7 @@ Every tenant-owned table carries ``bot_id``; repos always filter on it.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Index, Integer, Text, TypeDecorator, false
+from sqlalchemy import Boolean, DateTime, Float, Index, Integer, Text, TypeDecorator, false, true
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -76,6 +76,10 @@ class Message(Base):
     role: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    # The model said it couldn't answer from the profile ([[UNANSWERED]] marker).
+    unanswered: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
     __table_args__ = (
         Index("ix_messages_bot_id", "bot_id"),
         Index("ix_messages_session_id_created_at", "session_id", "created_at"),
@@ -176,6 +180,13 @@ class ProfileIdentity(_ProfileRow, Base):
     salary_expectation: Mapped[str | None] = mapped_column(Text)
     work_authorization: Mapped[str | None] = mapped_column(Text)
     photo_url: Mapped[str | None] = mapped_column(Text)
+    # Which experiences count toward total experience (see profile.facts).
+    count_internships: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    count_freelance: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true(), nullable=False
+    )
     __table_args__ = _bot_ix("profile_identity", unique=True)
 
 

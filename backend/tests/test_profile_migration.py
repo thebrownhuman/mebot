@@ -88,3 +88,19 @@ def test_legacy_copy_is_idempotent(tmp_path):
         assert c.execute(sa.text("SELECT COUNT(*) FROM profile_notes")).scalar_one() == 1
         assert c.execute(sa.text("SELECT COUNT(*) FROM profile_identity")).scalar_one() == 1
         assert c.execute(sa.text("SELECT content FROM profile_notes")).scalar_one() == "edited"
+
+
+def test_0006_columns(tmp_path):
+    url = f"sqlite:///{(tmp_path / 'g.db').as_posix()}"
+    eng = _seed_0004(url)
+    run_migrations(url)
+    insp = sa.inspect(eng)
+    ident = {c["name"]: c for c in insp.get_columns("profile_identity")}
+    msgs = {c["name"]: c for c in insp.get_columns("messages")}
+    for col in (ident["count_internships"], ident["count_freelance"], msgs["unanswered"]):
+        assert col["nullable"] is False
+    with eng.connect() as c:
+        row = c.execute(
+            sa.text("SELECT count_internships, count_freelance FROM profile_identity")
+        ).one()
+    assert (bool(row[0]), bool(row[1])) == (False, True)  # existing rows get defaults
