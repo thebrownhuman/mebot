@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     # Trust X-Forwarded-Proto / X-Forwarded-For from a reverse proxy.
     trust_proxy: bool = False
+    # Optional Cloudflare Turnstile on new chats (also needs the toggle in Admin -> Limits).
+    turnstile_site_key: str | None = None
+    turnstile_secret_key: str | None = None
 
     @model_validator(mode="after")
     def _default_db(self) -> "Settings":
