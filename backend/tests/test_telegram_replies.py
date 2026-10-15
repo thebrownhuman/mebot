@@ -15,9 +15,7 @@ async def unanswered_sent(admin_client, app, fake_llm, question="Expected CTC?")
     """A visitor's unanswered question, delivered to Telegram. Returns (bot, sid, note)."""
     bot_id = link(app)
     fake_llm.chunks = ["Not sure. [[UNANSWERED]]"]
-    sid = admin_client.post("/api/session", json={"recruiter_name": "Priya"}).json()[
-        "session_id"
-    ]
+    sid = admin_client.post("/api/session", json={"recruiter_name": "Priya"}).json()["session_id"]
     chat(admin_client, sid, question)
     c = ctx(app)
 
