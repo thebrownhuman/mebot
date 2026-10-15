@@ -10,8 +10,8 @@ from mebot.repos import admin_sessions
 from tests.conftest import ADMIN_EMAIL, ADMIN_PASSWORD, csrf, do_setup, setup_body
 
 ADMIN_ROUTES = [
-    ("GET", "/api/admin/profile"),
-    ("PUT", "/api/admin/profile"),
+    ("GET", "/api/admin/profile/notes"),
+    ("PUT", "/api/admin/profile/notes"),
     ("GET", "/api/admin/sessions"),
     ("GET", "/api/admin/sessions/abc/messages"),
     ("GET", "/api/admin/log"),
@@ -128,14 +128,15 @@ def test_setup_token_required_when_configured(settings):
 
 
 def test_existing_data_kept_after_setup(client, app):
-    from mebot.repos import bots, profiles
+    from mebot.profile.schemas import NotesIn
+    from mebot.repos import bots, profile_items
 
     with app.state.session_factory() as db:
         bot = bots.get_or_create_default(db)
-        profiles.save(db, bot.id, "NAME: Kept")
+        profile_items.put_notes(db, bot.id, NotesIn(content="NAME: Kept"))
         db.commit()
     do_setup(client)
-    assert client.get("/api/admin/profile").json() == {"content": "NAME: Kept"}
+    assert client.get("/api/admin/profile/notes").json() == {"content": "NAME: Kept"}
 
 
 # --- login / logout / me -----------------------------------------------------
@@ -309,10 +310,10 @@ def test_admin_routes_401_without_cookie(admin_client, method, path):
 
 
 def test_admin_put_requires_csrf(admin_client):
-    r = admin_client.put("/api/admin/profile", json={"content": "x"})
+    r = admin_client.put("/api/admin/profile/notes", json={"content": "x"})
     assert r.status_code == 403
     r = admin_client.put(
-        "/api/admin/profile", json={"content": "x"}, headers={"X-CSRF-Token": "wrong"}
+        "/api/admin/profile/notes", json={"content": "x"}, headers={"X-CSRF-Token": "wrong"}
     )
     assert r.status_code == 403
 

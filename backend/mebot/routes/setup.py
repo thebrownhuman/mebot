@@ -16,7 +16,9 @@ from mebot.deps import client_ip, get_settings
 from mebot.errors import ApiError
 from mebot.llm import service as llm
 from mebot.llm.providers import PROVIDERS
+from mebot.profile.schemas import IdentityIn
 from mebot.repos import admin_sessions, admins, bots
+from mebot.repos import profile_items as profile
 
 router = APIRouter(prefix="/api/setup")
 
@@ -154,6 +156,9 @@ async def setup(
         bot.registration_consent = req.registration_consent
         admin = admins.create(db, req.email, password_hash)
         llm.store(db, bot.id, llm_cfg, request.app.state.secret_key)
+        if profile.get_identity(db, bot.id) is None:
+            # The bot name is usually the owner's name: a starting point for Identity.
+            profile.put_identity(db, bot.id, IdentityIn(full_name=req.bot_name))
         token = admin_sessions.create(
             db, admin.id, ip=client_ip(request), user_agent=request.headers.get("user-agent")
         )
