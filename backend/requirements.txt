@@ -8,3 +8,5 @@ argon2-cffi>=23.1
 email-validator>=2.1
 cryptography>=42
 pyyaml>=6
+# IANA timezones for the Telegram daily digest (Windows has no system tz database)
+tzdata>=2024.1

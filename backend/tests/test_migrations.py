@@ -129,3 +129,79 @@ def test_0007_limits_and_counters(tmp_path):
     )
     for t in ("bot_limits", "usage_counters"):
         assert insp.get_foreign_keys(t) == []
+
+
+def test_0008_telegram_tables(tmp_path):
+    url = f"sqlite:///{(tmp_path / 't.db').as_posix()}"
+    run_migrations(url)
+    insp = sa.inspect(sa.create_engine(url))
+    tg = {c["name"]: c for c in insp.get_columns("telegram_configs")}
+    assert set(tg) >= {
+        "id",
+        "bot_id",
+        "bot_token_encrypted",
+        "bot_token_last4",
+        "bot_username",
+        "chat_id",
+        "link_code_hash",
+        "link_code_expires_at",
+        "enabled",
+        "mode",
+        "webhook_secret",
+        "last_update_id",
+        "notify_new_session",
+        "notify_every_question",
+        "notify_unanswered",
+        "notify_contact",
+        "notify_limits",
+        "daily_digest",
+        "digest_hour",
+        "timezone",
+        "last_digest_date",
+        "lease_owner",
+        "lease_expires_at",
+        "error",
+        "created_at",
+        "updated_at",
+    }
+    assert tg["chat_id"]["nullable"] is True
+    assert any(
+        ix["unique"] and ix["column_names"] == ["bot_id"]
+        for ix in insp.get_indexes("telegram_configs")
+    )
+    out = {c["name"] for c in insp.get_columns("notifications")}
+    assert out >= {
+        "id",
+        "bot_id",
+        "kind",
+        "payload",
+        "status",
+        "attempts",
+        "next_attempt_at",
+        "telegram_message_id",
+        "session_id",
+        "ref_message_id",
+        "last_error",
+        "created_at",
+        "updated_at",
+    }
+    assert ["status", "next_attempt_at"] in [
+        ix["column_names"] for ix in insp.get_indexes("notifications")
+    ]
+    contacts = {c["name"] for c in insp.get_columns("contacts")}
+    assert contacts >= {
+        "id",
+        "bot_id",
+        "session_id",
+        "name",
+        "email",
+        "company",
+        "role",
+        "note",
+        "created_at",
+        "deleted_at",
+    }
+    msg = {c["name"]: c for c in insp.get_columns("messages")}
+    assert msg["from_owner"]["nullable"] is False
+    for t in ("telegram_configs", "notifications", "contacts"):
+        assert insp.get_foreign_keys(t) == []

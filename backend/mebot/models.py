@@ -6,7 +6,18 @@ Every tenant-owned table carries ``bot_id``; repos always filter on it.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Index, Integer, Text, TypeDecorator, false, true
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    Text,
+    TypeDecorator,
+    false,
+    true,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -78,6 +89,10 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     # The model said it couldn't answer from the profile ([[UNANSWERED]] marker).
     unanswered: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    # Written by the owner (Telegram reply-back), not by the model.
+    from_owner: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False
     )
     __table_args__ = (
@@ -321,3 +336,76 @@ class UsageCounter(Base):
         Index("ux_usage_counters_window", "bot_id", "scope", "key", "window_start", unique=True),
         Index("ix_usage_counters_updated_at", "updated_at"),
     )
+
+
+# --- telegram (migration 0008) -------------------------------------------------------
+
+
+class TelegramConfig(Base):
+    __tablename__ = "telegram_configs"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    bot_token_encrypted: Mapped[str | None] = mapped_column(Text)  # never the plaintext
+    bot_token_last4: Mapped[str | None] = mapped_column(Text)
+    bot_username: Mapped[str | None] = mapped_column(Text)
+    chat_id: Mapped[str | None] = mapped_column(Text)
+    link_code_hash: Mapped[str | None] = mapped_column(Text)
+    link_code_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    mode: Mapped[str] = mapped_column(Text, default="polling", nullable=False)
+    webhook_secret: Mapped[str | None] = mapped_column(Text)
+    last_update_id: Mapped[int | None] = mapped_column(BigInteger)
+    notify_new_session: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notify_every_question: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notify_unanswered: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notify_contact: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notify_limits: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    daily_digest: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    digest_hour: Mapped[int] = mapped_column(Integer, default=21, nullable=False)
+    timezone: Mapped[str] = mapped_column(Text, default="UTC", nullable=False)
+    last_digest_date: Mapped[str | None] = mapped_column(Text)
+    last_cap_alert_date: Mapped[str | None] = mapped_column(Text)
+    last_leak_alert_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    lease_owner: Mapped[str | None] = mapped_column(Text)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ux_telegram_configs_bot_id", "bot_id", unique=True),)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="pending", nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    next_attempt_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    telegram_message_id: Mapped[int | None] = mapped_column(BigInteger)
+    session_id: Mapped[str | None] = mapped_column(Text)
+    ref_message_id: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (
+        Index("ix_notifications_status_next_attempt_at", "status", "next_attempt_at"),
+        Index("ix_notifications_bot_id", "bot_id"),
+        Index("ix_notifications_telegram_message_id", "telegram_message_id"),
+    )
+
+
+class Contact(Base):
+    __tablename__ = "contacts"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    session_id: Mapped[str | None] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    company: Mapped[str | None] = mapped_column(Text)
+    role: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    __table_args__ = (Index("ix_contacts_bot_id_deleted_at", "bot_id", "deleted_at"),)
