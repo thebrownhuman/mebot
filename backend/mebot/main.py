@@ -42,7 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = make_session_factory(settings.database_url)
     app.state.login_limiter = LoginLimiter()
     app.state.chat_limiter = ChatLimiter(secret_key)
-    app.state.llm_probe_limiter = SlidingWindowLimiter(limit=10, window_seconds=60)
+    app.state.setup_limiter = SlidingWindowLimiter(limit=10, window_seconds=15 * 60)
     with app.state.session_factory() as db:
         admin_sessions.purge_expired(db)
         counters.purge(db)

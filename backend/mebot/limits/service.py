@@ -11,6 +11,7 @@ from threading import Lock
 
 from sqlalchemy.orm import Session
 
+from mebot.errors import ApiError
 from mebot.limits import counters
 from mebot.limits.memory import SlidingWindowLimiter
 from mebot.models import BotLimits
@@ -34,6 +35,16 @@ class LimitExceeded(Exception):
         self.retry_after = retry_after
         self.code = _CODES.get(scope, "RATE_LIMITED")
         self.message = FRIENDLY[scope]
+
+    def api_error(self) -> ApiError:
+        headers = {"Retry-After": str(self.retry_after)} if self.retry_after else None
+        return ApiError(
+            429,
+            self.code,
+            self.message,
+            details=[{"field": "scope", "message": self.scope}],
+            headers=headers,
+        )
 
 
 def _utcnow() -> datetime:

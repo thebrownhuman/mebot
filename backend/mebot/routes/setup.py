@@ -61,10 +61,28 @@ def _completed() -> ApiError:
     return ApiError(409, "SETUP_COMPLETED", "Setup has already been completed")
 
 
-def _check_setup_token(settings: Settings, given: str | None) -> None:
+def _setup_limit(request: Request) -> None:
+    """10 attempts / 15 min per IP across setup and probes (bad tokens count too)."""
+    wait = request.app.state.setup_limiter.retry_after(client_ip(request) or "?")
+    if wait is not None:
+        raise ApiError(
+            429,
+            "RATE_LIMITED",
+            "Too many attempts. Try again in a few minutes.",
+            headers={"Retry-After": str(wait)},
+        )
+
+
+def _count_attempt(request: Request) -> None:
+    request.app.state.setup_limiter.record(client_ip(request) or "?")
+
+
+def _check_setup_token(request: Request, settings: Settings, given: str | None) -> None:
+    _setup_limit(request)
     if settings.setup_token and not secrets.compare_digest(
         (given or "").encode(), settings.setup_token.encode()
     ):
+        _count_attempt(request)
         raise ApiError(403, "SETUP_TOKEN_INVALID", "Invalid setup token")
 
 
@@ -73,17 +91,10 @@ def _probe_guard(request: Request, db: Session, settings: Settings, token: str |
 
     They make the server call an owner-supplied URL, so keep the window narrow.
     """
-    _check_setup_token(settings, token)
+    _check_setup_token(request, settings, token)
     if admins.exists(db):
         raise _completed()
-    wait = request.app.state.llm_probe_limiter.hit(client_ip(request) or "?")
-    if wait is not None:
-        raise ApiError(
-            429,
-            "RATE_LIMITED",
-            "Too many test calls. Try again in a minute.",
-            headers={"Retry-After": str(wait)},
-        )
+    _count_attempt(request)  # each probe is an outbound call: it uses the budget
 
 
 @router.get("/status")
@@ -136,7 +147,7 @@ async def setup(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    _check_setup_token(settings, req.setup_token)
+    _check_setup_token(request, settings, req.setup_token)
     if admins.exists(db):
         raise _completed()
 
