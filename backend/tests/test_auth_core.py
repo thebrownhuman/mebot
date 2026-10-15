@@ -5,8 +5,8 @@ import pytest
 from sqlalchemy import select
 
 from mebot.auth import passwords
-from mebot.auth.ratelimit import InMemoryLoginLimiter
 from mebot.db import make_session_factory, run_migrations
+from mebot.limits.memory import LoginLimiter as InMemoryLoginLimiter
 from mebot.models import AdminSession, utcnow
 from mebot.repos import admin_sessions, admins
 
