@@ -1,9 +1,10 @@
 import uuid
+from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from mebot.models import ChatSession, Message
+from mebot.models import ChatSession, Message, utcnow
 
 
 def create(db: Session, bot_id: str, recruiter_name: str | None) -> str:
@@ -54,5 +55,18 @@ def messages(db: Session, bot_id: str, session_id: str) -> list[Message]:
 
 
 def add_message(db: Session, bot_id: str, session_id: str, role: str, content: str) -> None:
-    db.add(Message(bot_id=bot_id, session_id=session_id, role=role, content=content))
+    # Messages are ordered by created_at; two written within the clock's resolution
+    # (a fast reply) would tie and fall back to random-uuid order. Keep them strictly
+    # increasing per session.
+    now = utcnow()
+    last = db.scalar(
+        select(func.max(Message.created_at)).where(
+            Message.bot_id == bot_id, Message.session_id == session_id
+        )
+    )
+    if last is not None and now <= last:
+        now = last + timedelta(microseconds=1)
+    db.add(
+        Message(bot_id=bot_id, session_id=session_id, role=role, content=content, created_at=now)
+    )
     db.flush()
