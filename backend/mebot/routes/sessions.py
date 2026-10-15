@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -25,18 +25,3 @@ def start_session(
     logs.add(db, bot.id, sid, "session_start", detail=req.recruiter_name, ip=client_ip(request))
     db.commit()
     return {"session_id": sid}
-
-
-@router.get("/sessions")
-def list_sessions(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
-    return sessions.list_with_turns(db, bot.id)
-
-
-@router.get("/session/{sid}/messages")
-def session_messages(sid: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
-    if sessions.get(db, bot.id, sid) is None:
-        raise HTTPException(404, "Unknown session")
-    return [
-        {"role": m.role, "content": m.content, "ts": m.created_at.timestamp()}
-        for m in sessions.messages(db, bot.id, sid)
-    ]

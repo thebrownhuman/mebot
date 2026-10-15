@@ -3,11 +3,29 @@
 import sys
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from mebot.auth.ratelimit import InMemoryLoginLimiter
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
+from mebot.errors import error_body, install_error_handlers
+from mebot.repos import admin_sessions
 from mebot.routes import routers
+
+
+def _validation_error(_, exc: RequestValidationError):
+    details = [
+        {
+            "field": ".".join(str(p) for p in err["loc"] if p not in ("body", "query", "path")),
+            "message": err["msg"].removeprefix("Value error, "),
+        }
+        for err in exc.errors()
+    ]
+    return JSONResponse(
+        error_body(422, "VALIDATION_ERROR", "Invalid request", details), status_code=422
+    )
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -20,9 +38,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.secret_key = secret_key
     app.state.session_factory = make_session_factory(settings.database_url)
+    app.state.login_limiter = InMemoryLoginLimiter()
+    with app.state.session_factory() as db:
+        admin_sessions.purge_expired(db)
+    install_error_handlers(app)
+    app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )

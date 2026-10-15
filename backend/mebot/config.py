@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     ollama_host: str = "http://127.0.0.1:11434"
     ollama_model: str = "me-bot"
     cors_origins: str = "http://localhost:5173"
+    # If set, POST /api/setup must include a matching setup_token. Recommended when the
+    # first boot is reachable from the internet.
+    setup_token: str | None = None
+    # Force the Secure flag on auth cookies (set when TLS terminates at a reverse proxy).
+    cookie_secure: bool = False
+    # Trust X-Forwarded-Proto / X-Forwarded-For from a reverse proxy.
+    trust_proxy: bool = False
 
     @model_validator(mode="after")
     def _default_db(self) -> "Settings":

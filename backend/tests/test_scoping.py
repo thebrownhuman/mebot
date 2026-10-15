@@ -19,11 +19,11 @@ def test_bot_cannot_read_other_bots_sessions(tmp_path):
         assert len(sessions.list_with_turns(db, a.id)) == 1
 
 
-def test_session_from_other_bot_404(client, app):
+def test_session_from_other_bot_404(admin_client, app):
     with app.state.session_factory() as db:
         other = bots.create(db, slug="other", name="Other")
         sid = sessions.create(db, other.id, recruiter_name=None)
         db.commit()
-    assert client.get(f"/api/session/{sid}/messages").status_code == 404
-    r = client.post("/api/chat", json={"session_id": sid, "message": "hi"})
+    assert admin_client.get(f"/api/admin/sessions/{sid}/messages").status_code == 404
+    r = admin_client.post("/api/chat", json={"session_id": sid, "message": "hi"})
     assert r.status_code == 404
