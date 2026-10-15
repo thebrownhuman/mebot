@@ -3,15 +3,19 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from mebot.config import Settings
 from mebot.db import get_db
-from mebot.deps import client_ip, get_current_bot, get_settings, require_setup_done
-from mebot.llm import ollama
+from mebot.deps import client_ip, get_current_bot, require_setup_done
+from mebot.errors import ApiError
+from mebot.llm import service as llm
+from mebot.llm.base import LLMError
 from mebot.models import Bot
 from mebot.prompt import build_system_prompt
-from mebot.repos import logs, profiles, sessions
+from mebot.repos import llm_configs, logs, profiles, sessions
 
 router = APIRouter(prefix="/api")
+
+# Shown to visitors whenever the owner's provider fails; details go to access_log only.
+UNAVAILABLE = "Sorry, the assistant is unavailable right now. Please try again later."
 
 
 class ChatReq(BaseModel):
@@ -26,26 +30,31 @@ class ChatReq(BaseModel):
         return v
 
 
+def _error_detail(provider: str, exc: Exception) -> str:
+    # Never the provider's message or body: it may echo request data.
+    if isinstance(exc, LLMError):
+        return f"provider={provider} status={exc.status} kind={exc.kind}"
+    return f"provider={provider} status=None kind=unexpected:{type(exc).__name__}"
+
+
 @router.post("/chat", dependencies=[Depends(require_setup_done)])
 async def chat(
     req: ChatReq,
     request: Request,
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
-    settings: Settings = Depends(get_settings),
 ):
     bot_id = bot.id
     if sessions.get(db, bot_id, req.session_id) is None:
         raise HTTPException(404, "Unknown session")
+    status, _, cfg = llm.load(db, bot_id, request.app.state.secret_key)
+    if cfg is None:
+        raise ApiError(503, "LLM_NOT_CONFIGURED", UNAVAILABLE)
+
     history = [
         {"role": m.role, "content": m.content}
         for m in sessions.messages(db, bot_id, req.session_id)
     ]
-
-    h = await ollama.health(settings.ollama_host, settings.ollama_model)
-    if not h.get("model"):
-        raise HTTPException(503, h.get("message", "Ollama not ready"))
-
     profile = profiles.get_content(db, bot_id)
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(
@@ -58,25 +67,40 @@ async def chat(
         *history,
         {"role": "user", "content": req.message},
     ]
-    payload = ollama.build_payload(h["model"], messages)
+    client = cfg.client()
     session_factory = request.app.state.session_factory
 
     async def gen():
         acc: list[str] = []
+        error: Exception | None = None
         try:
-            async for chunk in ollama.stream_chat(settings.ollama_host, payload):
+            async for chunk in client.stream_chat(
+                messages, model=cfg.model, temperature=cfg.temperature, max_tokens=cfg.max_tokens
+            ):
                 acc.append(chunk)
                 yield chunk
-        except Exception as e:  # noqa: BLE001 - shown to the user, as in the prototype
-            yield f"\n[error contacting model: {e}]"
+        except Exception as e:  # noqa: BLE001 - visitors get a fixed message
+            error = e
+            yield ("\n\n" if acc else "") + UNAVAILABLE
         finally:
             full = "".join(acc).strip()
             # Fresh DB session: the request-scoped one may be closed while we stream.
             with session_factory() as wdb:
                 if full:
                     sessions.add_message(wdb, bot_id, req.session_id, "assistant", full)
-                if payload.get("_leaked_thinking"):
+                if getattr(client, "leaked_thinking", False):
                     logs.add(wdb, bot_id, req.session_id, "WARN_thinking_leak")
+                if error is not None:
+                    logs.add(
+                        wdb,
+                        bot_id,
+                        req.session_id,
+                        "LLM_ERROR",
+                        detail=_error_detail(cfg.provider, error),
+                    )
+                    row = llm_configs.get(wdb, bot_id)
+                    if row is not None:
+                        llm_configs.record_test(wdb, row, ok=False)
                 wdb.commit()
 
     return StreamingResponse(gen(), media_type="text/plain")

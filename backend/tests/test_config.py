@@ -18,12 +18,10 @@ def test_env_overrides(tmp_path, monkeypatch):
     monkeypatch.setenv("MODE", "hosted")
     monkeypatch.setenv("SECRET_KEY", "abc")
     monkeypatch.setenv("CORS_ORIGINS", "http://a.test, http://b.test")
-    monkeypatch.setenv("OLLAMA_MODEL", "llama3")
     s = Settings(_env_file=None, data_dir=tmp_path)
     assert s.mode == "hosted"
     assert s.secret_key == "abc"
     assert s.cors_origin_list == ["http://a.test", "http://b.test"]
-    assert s.ollama_model == "llama3"
 
 
 def test_secret_generated_and_persisted_in_single_mode(tmp_path):
