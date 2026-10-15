@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     # Optional Cloudflare Turnstile on new chats (also needs the toggle in Admin -> Limits).
     turnstile_site_key: str | None = None
     turnstile_secret_key: str | None = None
+    # Public base URL (https://bot.example.com). Enables the Telegram webhook option and
+    # "Open chat" links in notifications.
+    public_url: str | None = None
+    # Background Telegram tasks (poller, outbox, digest). Tests turn them off.
+    telegram_workers: bool = True
 
     @model_validator(mode="after")
     def _default_db(self) -> "Settings":
