@@ -6,7 +6,7 @@ Every tenant-owned table carries ``bot_id``; repos always filter on it.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Index, Text, TypeDecorator, false
+from sqlalchemy import Boolean, DateTime, Float, Index, Integer, Text, TypeDecorator, false
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -129,3 +129,21 @@ class AdminSession(Base):
         Index("ix_admin_sessions_admin_id", "admin_id"),
         Index("ix_admin_sessions_expires_at", "expires_at"),
     )
+
+
+class LLMConfig(Base):
+    __tablename__ = "llm_configs"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    base_url: Mapped[str | None] = mapped_column(Text)
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text)  # never the plaintext key
+    api_key_last4: Mapped[str | None] = mapped_column(Text)
+    temperature: Mapped[float] = mapped_column(Float, default=0.4, nullable=False)
+    max_tokens: Mapped[int] = mapped_column(Integer, default=600, nullable=False)
+    last_tested_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_test_ok: Mapped[bool | None] = mapped_column(Boolean)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ux_llm_configs_bot_id", "bot_id", unique=True),)
