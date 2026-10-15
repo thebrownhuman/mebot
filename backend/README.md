@@ -7,15 +7,20 @@ sessions, messages and an access log in a SQL database (SQLite by default).
 mebot/
   main.py        create_app() factory; `uvicorn mebot.main:app`
   config.py      Settings from env / .env (see ../.env.example)
+  cli.py         python -m mebot.cli reset-password --email x
+  errors.py      ApiError + standard {"error": {...}} responses
+  auth/          argon2 passwords, CSRF, login rate limiter, auth cookies
   db.py          engine, sessions, get_db, programmatic Alembic upgrade
-  models.py      tables: bots, profiles, sessions, messages, access_log
-  deps.py        get_current_bot (single mode: the `default` bot)
+  models.py      tables: bots, profiles, sessions, messages, access_log,
+                 admins, admin_sessions
+  deps.py        get_current_bot, get_current_admin, require_setup_done
   repos/         data access; every query is scoped by bot_id
-  routes/        /api/health, profile, session(s), chat, log
+  routes/        public: /api/health, session, chat, setup, auth
+                 owner-only: /api/admin/* (profile, sessions, log)
   llm/ollama.py  Ollama model discovery + streaming
   prompt.py      persona system prompt + default profile template
   legacy.py      import of prototype data (used by migration 0002)
-migrations/      Alembic (0001 schema, 0002 legacy import)
+migrations/      Alembic (0001 schema, 0002 legacy import, 0003 admin auth)
 tests/           pytest
 ```
 
