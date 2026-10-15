@@ -1,11 +1,15 @@
 """Owner-only endpoints. Every route here needs setup done, a session, and CSRF on writes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import UTC
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
-from mebot.models import Bot
+from mebot.errors import ApiError
+from mebot.models import Bot, Contact, utcnow
 from mebot.repos import logs, sessions
 
 router = APIRouter(
@@ -40,6 +44,39 @@ def read_unanswered(
     bot: Bot = Depends(get_current_bot),
 ):
     return {"items": logs.unanswered(db, bot.id, limit)}
+
+
+def _contact(c: Contact) -> dict:
+    return {
+        "id": c.id,
+        "session_id": c.session_id,
+        "name": c.name,
+        "email": c.email,
+        "company": c.company,
+        "role": c.role,
+        "note": c.note,
+        "created_at": c.created_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+@router.get("/contacts")
+def list_contacts(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
+    rows = db.scalars(
+        select(Contact)
+        .where(Contact.bot_id == bot.id, Contact.deleted_at.is_(None))
+        .order_by(Contact.created_at.desc(), Contact.id)
+    )
+    return {"items": [_contact(c) for c in rows]}
+
+
+@router.delete("/contacts/{cid}", status_code=204)
+def delete_contact(cid: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
+    c = db.get(Contact, cid)
+    if c is None or c.bot_id != bot.id or c.deleted_at is not None:
+        raise ApiError(404, "NOT_FOUND", "Contact not found")
+    c.deleted_at = utcnow()
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/log")
