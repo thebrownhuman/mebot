@@ -4,6 +4,7 @@ Only the linked chat is served. Any other chat gets nothing except the answer to
 ``/start <code>`` attempt, so a stranger who finds the bot learns nothing.
 """
 
+import asyncio
 import html
 import logging
 from collections.abc import Callable
@@ -37,6 +38,9 @@ class TgContext:
     settings: object
     now: Callable[[], datetime] = utcnow
     foreign_logged: dict[tuple[str, str], datetime] = field(default_factory=dict)
+    # Outbox pacing: loop time of the last message per chat; sleep is injectable.
+    last_sent: dict[str, float] = field(default_factory=dict)
+    sleep: Callable = asyncio.sleep
 
 
 @dataclass
