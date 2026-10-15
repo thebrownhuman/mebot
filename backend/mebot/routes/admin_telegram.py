@@ -1,10 +1,13 @@
 """Owner-only Telegram settings. The bot token goes in, never out (only last4)."""
 
 import re
+import secrets
 from datetime import UTC
+from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from mebot.db import get_db
@@ -12,7 +15,7 @@ from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, req
 from mebot.errors import ApiError
 from mebot.models import Bot, TelegramConfig
 from mebot.repos import logs
-from mebot.telegram import repo
+from mebot.telegram import outbox, repo
 from mebot.telegram.client import TelegramClient, TelegramError
 
 router = APIRouter(
@@ -63,10 +66,43 @@ def view(row: TelegramConfig | None, request: Request, db: Session) -> dict:
         "error": row.error if row else None,
         "digest_hour": row.digest_hour if row else 21,
         "timezone": row.timezone if row else "UTC",
+        "outbox": _outbox(db, row),
     }
     for t in TOGGLES:
         body[t] = getattr(row, t) if row else TelegramConfig.__table__.c[t].default.arg
     return body
+
+
+def _outbox(db: Session, row: TelegramConfig | None) -> dict:
+    if row is None:
+        return {"pending": 0, "failed": 0, "dead": 0, "last_sent_at": None}
+    s = outbox.stats(db, row.bot_id)
+    return {**s, "last_sent_at": _iso(s["last_sent_at"])}
+
+
+class SettingsIn(BaseModel):
+    """Partial update of toggles, digest time, timezone and receive mode."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    notify_new_session: bool = None
+    notify_every_question: bool = None
+    notify_unanswered: bool = None
+    notify_contact: bool = None
+    notify_limits: bool = None
+    daily_digest: bool = None
+    digest_hour: int = Field(default=None, ge=0, le=23)
+    timezone: str = Field(default=None, max_length=64)
+    mode: Literal["polling", "webhook"] = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError("unknown IANA timezone (e.g. Europe/Berlin)") from None
+        return v
 
 
 def _service_changed(request: Request) -> None:
@@ -117,6 +153,53 @@ async def put_token(
     db.commit()
     _service_changed(request)
     return view(row, request, db)
+
+
+@router.patch("")
+async def patch_settings(
+    req: SettingsIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+):
+    row = repo.get(db, bot.id)
+    client = repo.client_for(row, request.app.state.secret_key)
+    if client is None:
+        raise ApiError(409, "TELEGRAM_NOT_CONFIGURED", "Save your bot token first.")
+    values = req.model_dump(exclude_unset=True)
+    mode = values.pop("mode", None)
+    for k, v in values.items():
+        setattr(row, k, v)
+    if mode and mode != row.mode:
+        await _switch_mode(row, mode, client, request, bot.id)
+    db.commit()
+    _service_changed(request)
+    return view(row, request, db)
+
+
+async def _switch_mode(row: TelegramConfig, mode: str, client, request: Request, bot_id: str):
+    public_url = request.app.state.settings.public_url
+    try:
+        if mode == "webhook":
+            if not public_url:
+                raise ApiError(
+                    422,
+                    "VALIDATION_ERROR",
+                    "Invalid request",
+                    [{"field": "mode", "message": "set PUBLIC_URL to use a webhook"}],
+                )
+            secret = secrets.token_urlsafe(32)
+            url = f"{public_url.rstrip('/')}/api/telegram/webhook/{bot_id}"
+            await client.set_webhook(url, secret)
+            row.webhook_secret = secret
+        else:
+            await client.delete_webhook()
+            row.webhook_secret = None
+    except TelegramError as e:
+        raise ApiError(502, "TELEGRAM_ERROR", e.message) from None
+    row.mode = mode
+    row.lease_owner = None
+    row.lease_expires_at = None
 
 
 @router.post("/link")
