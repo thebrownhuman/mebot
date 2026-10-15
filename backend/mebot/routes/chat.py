@@ -9,8 +9,9 @@ from mebot.errors import ApiError
 from mebot.llm import service as llm
 from mebot.llm.base import LLMError
 from mebot.models import Bot
-from mebot.prompt import build_system_prompt
-from mebot.repos import llm_configs, logs, profiles, sessions
+from mebot.profile.data import load_profile
+from mebot.prompt import build_system_prompt, render_profile
+from mebot.repos import llm_configs, logs, sessions
 
 router = APIRouter(prefix="/api")
 
@@ -55,7 +56,7 @@ async def chat(
         {"role": m.role, "content": m.content}
         for m in sessions.messages(db, bot_id, req.session_id)
     ]
-    profile = profiles.get_content(db, bot_id)
+    profile = render_profile(load_profile(db, bot_id))
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(
         db, bot_id, req.session_id, "question", detail=req.message[:200], ip=client_ip(request)
