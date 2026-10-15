@@ -4,7 +4,11 @@ Feature 5 extends this (computed facts, stricter grounding): keep it a pure func
 of ProfileData so it can be tested and previewed without a request.
 """
 
+from datetime import date
+
+from mebot.marker import neutralise
 from mebot.profile.data import ProfileData
+from mebot.profile.facts import compute_facts, format_duration, today_utc
 
 
 def _period(start: str | None, end: str | None) -> str:
@@ -134,9 +138,85 @@ def _notes(p: ProfileData) -> str | None:
     return _block("NOTES", [p.notes.strip()]) if p.notes.strip() else None
 
 
-def render_profile(profile: ProfileData) -> str:
-    """Labelled sections; empty sections are omitted."""
+def _evidence(kinds: list[str]) -> str:
+    return " and ".join(kinds)
+
+
+def _total_lines(f: dict) -> list[str]:
+    total = f["total_experience"]
+    if total is None:
+        return []
+    interns = f["internship_months"]
+    if total["months"] == 0:
+        line = "Total professional experience: no full-time professional experience yet"
+        return [line + (f"; {format_duration(interns)} of internships." if interns else ".")]
+    scope = "internships included" if total["internships_counted"] else "internships excluded"
+    if not total["freelance_counted"]:
+        scope += ", freelance and contract work excluded"
+    lines = [
+        f"Total professional experience: {total['text']} ({total['years']:.1f} years), counted "
+        f"from {total['from']} to {total['to']}, overlapping roles merged, {scope}."
+    ]
+    if interns and not total["internships_counted"]:
+        lines.append(f"Internships (not counted above): {format_duration(interns)}.")
+    return lines
+
+
+def _education_line(f: dict) -> str | None:
+    e = f["education"]["latest"]
+    if not e:
+        return None
+    what = e["degree"] + (f" in {e['field']}" if e.get("field") else "") + f", {e['institution']}"
+    if e["in_progress"]:
+        when = f"in progress, expected {e['end_month']}" if e["end_month"] else "in progress"
+    else:
+        when = f"graduated {e['end_month']}"
+    return f"Most recent education: {what} ({when})."
+
+
+def render_facts(profile: ProfileData, as_of: date | None = None) -> str | None:
+    """The authoritative FACTS block: plain sentences, numbers computed server-side."""
+    f = compute_facts(profile, as_of)
+    lines: list[str | None] = list(_total_lines(f))
+    lines += [
+        f"Current role: {r['title']} at {r['company']} (since {r['since']}, {r['text']})."
+        for r in f["current_roles"]
+    ]
+    if f["last_role_end"]:
+        lines.append(f"Currently employed: no; most recent role ended {f['last_role_end']}.")
+    lines += [
+        f"Upcoming role: {r['title']} at {r['company']} (starting {r['starts']})."
+        for r in f["upcoming_roles"]
+    ]
+    lines += [f"Time at {c['company']}: {c['text']}." for c in f["companies"]]
+    if f["first_job_start"]:
+        lines.append(f"First professional role started: {f['first_job_start']}.")
+    for s in f["skills"]:
+        if s["source"] == "stated":
+            lines.append(f"{s['name']}: {s['text']} (stated by owner).")
+        elif s["source"] == "computed":
+            lines.append(f"{s['name']}: about {s['text']} (from {_evidence(s['evidence'])}).")
+    lines.append(_education_line(f))
+    counts = f["counts"]
+    if counts["projects"]:
+        parts = [f"{n} {k}" for k, n in counts["projects_by_status"].items() if k != "unspecified"]
+        lines.append(
+            f"Projects listed: {counts['projects']}" + (f" ({', '.join(parts)})." if parts else ".")
+        )
+    if counts["companies"]:
+        lines.append(f"Companies worked at: {counts['companies']}.")
+    body = [ln for ln in lines if ln]
+    if not body:
+        return None
+    header = f"=== FACTS (computed by the system as of {f['as_of']} — authoritative) ==="
+    return header + "\n" + "\n".join(body)
+
+
+def render_profile(profile: ProfileData, as_of: date | None = None) -> str:
+    """FACTS first, then labelled sections; empty sections are omitted."""
+    as_of = as_of or today_utc()
     blocks = [
+        render_facts(profile, as_of),
         _identity(profile),
         _experience(profile),
         _education(profile),
@@ -147,7 +227,7 @@ def render_profile(profile: ProfileData) -> str:
         _avoid(profile),
         _notes(profile),
     ]
-    return "\n\n".join(b for b in blocks if b)
+    return neutralise("\n\n".join(b for b in blocks if b))
 
 
 def approx_tokens(text: str) -> int:
