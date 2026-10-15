@@ -32,7 +32,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 1 | Foundation: repo restructure, config, multi-tenant schema, migrations | review | [spec](../specs/foundation.md) | — | — | M |
 | 2 | First-run setup + admin auth | review | [spec](../specs/setup-auth.md) | — | #1 | M |
 | 3 | LLM provider layer (owner adds own key at setup, encrypted) | review | [spec](../specs/llm-provider.md) | — | #1, #2 | M |
-| 4 | Structured profile data + admin data pages | todo | — | — | #2 | L |
+| 4 | Structured profile data + admin data pages | building | [spec](../specs/profile-pages.md) | — | #2 | L |
 | 5 | Prompt builder: computed facts + grounded answers | todo | — | — | #3, #4 | M |
 | 6 | Public chat hardening: rate limits, daily cap, injection guard | todo | — | — | #3 | S |
 | 7 | Telegram notifications + reply-back loop | todo | — | — | #5 | M |
