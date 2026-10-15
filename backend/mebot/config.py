@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     # Defaults to sqlite:///<data_dir>/mebot.db when unset.
     database_url: str = ""
     telemetry: Literal["on", "off"] = "on"  # unused until telemetry feature lands
+    # Only the suggested base URL for the "ollama" provider; the model and provider
+    # are chosen in setup / Admin -> AI Provider.
     ollama_host: str = "http://127.0.0.1:11434"
-    ollama_model: str = "me-bot"
     cors_origins: str = "http://localhost:5173"
     # If set, POST /api/setup must include a matching setup_token. Recommended when the
     # first boot is reachable from the internet.

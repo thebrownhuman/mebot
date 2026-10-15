@@ -16,6 +16,7 @@ class FakeLLM:
     def __init__(self):
         self.fail = None  # LLMError raised by test() and stream_chat()
         self.stream_fail = None  # LLMError raised by stream_chat() only
+        self.fail_after = None  # raised by stream_chat() after yielding all chunks
         self.chunks = ["Hel", "lo ", "there"]
         self.models = ["gpt-4o-mini", "gpt-4o"]
         self.built: list[dict] = []
@@ -53,6 +54,8 @@ class _FakeClient:
             raise err
         for c in self.ctl.chunks:
             yield c
+        if self.ctl.fail_after:
+            raise self.ctl.fail_after
 
     async def list_models(self):
         return list(self.ctl.models)
@@ -75,7 +78,6 @@ def settings(tmp_path):
         data_dir=tmp_path,
         database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
         ollama_host="http://ollama.invalid",
-        ollama_model="me-bot",
     )
 
 
