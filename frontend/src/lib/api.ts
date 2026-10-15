@@ -448,3 +448,59 @@ export async function getUnanswered(limit = 10): Promise<UnansweredItem[]> {
   const d = await json<{ items: UnansweredItem[] }>(`/api/admin/unanswered?limit=${limit}`, admin);
   return d?.items ?? [];
 }
+
+// --- limits + usage (Feature 6) ------------------------------------------------
+
+export interface Limits {
+  per_ip_per_minute: number;
+  per_ip_per_day: number;
+  per_session_messages: number;
+  sessions_per_ip_per_hour: number;
+  daily_message_cap: number;
+  daily_token_cap: number | null;
+  max_message_chars: number;
+  history_turns: number;
+  paused: boolean;
+  paused_message: string | null;
+  turnstile_enabled: boolean;
+}
+
+export interface LimitsView extends Limits {
+  turnstile_available: boolean;
+}
+
+export interface UsageDay {
+  date: string;
+  messages: number;
+  tokens: number;
+  tokens_estimated: boolean;
+  rate_limited: number;
+  leak_blocked: number;
+}
+
+export interface Usage {
+  days: UsageDay[];
+  top_visitors: { ip_hash: string; messages: number }[];
+}
+
+export interface PublicConfig {
+  turnstile_site_key: string | null;
+  max_message_chars: number;
+  paused: boolean;
+}
+
+export async function getLimits(): Promise<LimitsView> {
+  return json<LimitsView>("/api/admin/limits", admin);
+}
+
+export async function saveLimits(body: Partial<Limits>): Promise<LimitsView> {
+  return json<LimitsView>("/api/admin/limits", { method: "PUT", body, ...admin });
+}
+
+export async function getUsage(days = 7): Promise<Usage> {
+  return json<Usage>(`/api/admin/usage?days=${days}`, admin);
+}
+
+export async function getPublicConfig(): Promise<PublicConfig> {
+  return json<PublicConfig>("/api/public/config");
+}

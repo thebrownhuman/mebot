@@ -5,6 +5,7 @@ import SetupPage from "./pages/SetupPage";
 import LoginPage from "./pages/LoginPage";
 import LlmPage from "./pages/LlmPage";
 import AccountPage from "./pages/admin/AccountPage";
+import LimitsPage from "./pages/admin/LimitsPage";
 import ProfilePage from "./pages/admin/ProfilePages";
 import AdminLayout from "./components/admin/AdminLayout";
 import SetupGate from "./components/SetupGate";
@@ -24,6 +25,7 @@ export default function App() {
           <Route index element={<AdminPage />} />
           <Route path="profile/:page" element={<ProfilePage />} />
           <Route path="llm" element={<LlmPage />} />
+          <Route path="limits" element={<LimitsPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
         {/* anything else -> public chat */}
