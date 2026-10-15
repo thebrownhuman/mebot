@@ -25,5 +25,6 @@ setup is pending (`/setup`), `/admin` is guarded by `GET /api/auth/me`, and the 
 client (`src/lib/api.ts`) sends cookies plus an `X-CSRF-Token` header on writes.
 
 ## Notes
-- The frontend never calls Ollama directly; `think: false` is enforced in the backend.
+- The frontend never calls an LLM provider directly; API keys go to the backend once
+  (setup / AI Provider page) and are never sent back.
 - SPA routing: Vite handles deep links in dev; `nginx.conf` has `try_files` for Docker.

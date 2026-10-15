@@ -1,7 +1,8 @@
 # mebot — candidate terminal
 
 A chat bot recruiters can talk to about a candidate. It answers only from a profile
-you write, streaming from a local Ollama model.
+you write, streaming from the AI provider *you* choose (Gemini, OpenAI, Anthropic,
+OpenRouter, Groq, a local Ollama or any OpenAI-compatible server) using your own key.
 
 ```
 backend/    FastAPI + SQLAlchemy + Alembic (SQLite by default)
@@ -13,12 +14,12 @@ deploy/     docker-compose, example Ollama Modelfile
 
 All configuration is via environment variables. Copy `.env.example` to `.env` and
 edit; you never need to change source code. Key settings: `MODE`, `SECRET_KEY`,
-`DATABASE_URL`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `CORS_ORIGINS`, `SETUP_TOKEN`,
+`DATABASE_URL`, `OLLAMA_HOST`, `CORS_ORIGINS`, `SETUP_TOKEN`,
 `COOKIE_SECURE`, `TRUST_PROXY`.
 
 ## Run bare-metal (development)
 
-    # terminal 1
+    # terminal 1 (only if you'll use the Ollama provider)
     ollama serve
 
     # terminal 2
@@ -37,7 +38,7 @@ Database migrations run automatically on startup.
 
 ## Run with Docker
 
-    ollama serve          # keep Ollama on the host for GPU
+    ollama serve          # only for the Ollama provider; keep it on the host for GPU
     cd deploy
     docker compose up --build
     # open http://localhost:8080
@@ -61,6 +62,33 @@ https. If a reverse proxy terminates TLS and talks plain http to mebot, set
 `COOKIE_SECURE=true` (and `TRUST_PROXY=true` if mebot is only reachable via that
 proxy). Add the public site origin to `CORS_ORIGINS` if it differs from the host
 mebot sees.
+
+## Add your API key
+
+mebot never ships, provides or shares an API key. During setup (step 2 of 3) you
+pick a provider, paste **your own** key, choose a model and press **Test**; setup
+can't finish until that live test call succeeds. Change it later in
+Admin → AI Provider (`/admin/llm`), which tests before saving.
+
+| Provider | Where to get a key | Notes |
+|---|---|---|
+| Google Gemini | https://aistudio.google.com/apikey | Free tier available. Uses Gemini's OpenAI-compatible endpoint. |
+| OpenAI | https://platform.openai.com/api-keys | |
+| Anthropic | https://console.anthropic.com/settings/keys | |
+| OpenRouter | https://openrouter.ai/keys | One key, many models (`vendor/model` ids). |
+| Groq | https://console.groq.com/keys | |
+| Ollama | no key | Runs locally; base URL defaults to `OLLAMA_HOST`. Pull a model first (`ollama pull gemma3`). |
+| OpenAI-compatible | depends on the server | Any `/chat/completions` API (vLLM, LM Studio, LiteLLM proxy…); enter its base URL, key optional. |
+
+The key is stored encrypted (Fernet, derived from `SECRET_KEY`) and is never sent
+back to the browser — the admin page shows only its last 4 characters. If you change
+`SECRET_KEY` the stored key can't be decrypted: chat pauses and the admin panel asks
+you to re-enter it. When the provider fails (bad key, quota, outage) visitors see a
+polite "assistant unavailable" message; the admin panel shows a banner and the access
+log records `LLM_ERROR` with the provider and status code (never the key).
+
+Upgrading an install from before this feature: log in, then follow the banner to
+Admin → AI Provider; chat returns 503 until a provider is saved.
 
 ### Forgot the admin password
 
@@ -92,8 +120,8 @@ sessions, messages and access log into the new schema under a `default` bot.
 Back up the file first if you want a pristine copy.
 
 ## Notes
-- `think: false` is sent to Ollama by the backend on every call; the frontend never
-  talks to Ollama directly, so model reasoning cannot leak into the UI.
+- The frontend never talks to the AI provider directly; all calls go through the
+  backend. For Ollama the backend sends `think: false` so model reasoning can't leak.
 - Admin auth is server-side: an HttpOnly session cookie, double-submit CSRF token,
   argon2id password hashes and per-IP/per-email login rate limits (in-memory, so
   limits reset on restart and assume one backend process).
