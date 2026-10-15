@@ -8,6 +8,9 @@ services:
       # reach Ollama running on the HOST machine (not in a container)
       - OLLAMA_HOST=http://host.docker.internal:11434
       - CORS_ORIGINS=http://localhost:8080
+      # nginx (frontend container) is the proxy: use its X-Forwarded-* headers so login
+      # rate limits apply per client, not to the nginx container's IP.
+      - TRUST_PROXY=true
     volumes:
       # persist the sqlite db on the host so data survives container restarts
       - ./data:/app/data
