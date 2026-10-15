@@ -9,6 +9,7 @@ from mebot import guard
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
+from mebot.limits import counters
 from mebot.limits.service import LimitExceeded
 from mebot.llm import service as llm
 from mebot.llm.base import LLMError
@@ -18,6 +19,7 @@ from mebot.profile.data import load_profile
 from mebot.prompt import build_system_prompt, render_profile
 from mebot.repos import limits as limits_repo
 from mebot.repos import llm_configs, logs, sessions
+from mebot.telegram import events
 
 router = APIRouter(prefix="/api")
 
@@ -70,8 +72,10 @@ async def chat(
             f"Please keep messages under {limits.max_message_chars} characters.",
             details=[{"field": "message", "message": f"max {limits.max_message_chars} characters"}],
         )
-    if sessions.get(db, bot_id, req.session_id) is None:
+    chat_session = sessions.get(db, bot_id, req.session_id)
+    if chat_session is None:
         raise HTTPException(404, "Unknown session")
+    visitor = chat_session.recruiter_name
     limiter = request.app.state.chat_limiter
     try:
         limiter.check_and_consume(db, bot_id, limits, ip, req.session_id)
@@ -95,6 +99,11 @@ async def chat(
     profile = render_profile(load_profile(db, bot_id))
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
+    # Telegram notifications are queued in the same transaction as the event.
+    events.question(db, bot_id, req.session_id, visitor, req.message)
+    bot_day = counters.get(db, bot_id, "bot_day", "*", limiter.today())
+    if bot_day is not None:
+        events.cap_warning(db, bot_id, bot_day.messages, limits.daily_message_cap, limiter.today())
     db.commit()
 
     suspicious = guard.looks_like_injection(req.message)
@@ -110,6 +119,7 @@ async def chat(
     ]
     client = cfg.client()
     session_factory = request.app.state.session_factory
+    public_url = request.app.state.settings.public_url
 
     async def gen():
         acc: list[str] = []
@@ -155,15 +165,26 @@ async def chat(
                 estimated = True
             # Fresh DB session: the request-scoped one may be closed while we stream.
             with session_factory() as wdb:
+                reply = None
                 if full:
-                    sessions.add_message(
+                    reply = sessions.add_message(
                         wdb, bot_id, req.session_id, "assistant", full, unanswered=marker.found
                     )
                 limiter.record_tokens(wdb, bot_id, ip, tokens, estimated=estimated)
                 if leak.tripped:
                     logs.add(wdb, bot_id, req.session_id, "LEAK_BLOCKED")
+                    events.leak_blocked(wdb, bot_id)
                 if marker.found:
                     logs.add(wdb, bot_id, req.session_id, "UNANSWERED", detail=req.message[:500])
+                    events.unanswered(
+                        wdb,
+                        bot_id,
+                        req.session_id,
+                        visitor,
+                        req.message,
+                        reply.id if reply else None,
+                        public_url,
+                    )
                 if getattr(client, "leaked_thinking", False):
                     logs.add(wdb, bot_id, req.session_id, "WARN_thinking_leak")
                 if error is not None:
