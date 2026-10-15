@@ -39,7 +39,7 @@ def counts(engine):
     with engine.connect() as c:
         return {
             t: c.execute(sa.text(f"SELECT COUNT(*) FROM {t}")).scalar_one()
-            for t in ("bots", "profiles", "sessions", "messages", "access_log")
+            for t in ("bots", "profile_notes", "sessions", "messages", "access_log")
         }
 
 
@@ -53,7 +53,7 @@ def test_legacy_db_is_imported_under_default_bot(tmp_path):
     assert {"legacy_profile", "legacy_sessions", "legacy_messages", "legacy_access_log"} <= tables
     assert counts(engine) == {
         "bots": 1,
-        "profiles": 1,
+        "profile_notes": 1,
         "sessions": 2,
         "messages": 2,
         "access_log": 1,
@@ -61,10 +61,10 @@ def test_legacy_db_is_imported_under_default_bot(tmp_path):
     with engine.connect() as c:
         bot = c.execute(sa.text("SELECT id, slug FROM bots")).one()
         assert bot.slug == "default"
-        for t in ("profiles", "sessions", "messages", "access_log"):
+        for t in ("profile_notes", "sessions", "messages", "access_log"):
             ids = c.execute(sa.text(f"SELECT DISTINCT bot_id FROM {t}")).scalars().all()
             assert ids == [bot.id]
-        content = c.execute(sa.text("SELECT content FROM profiles")).scalar_one()
+        content = c.execute(sa.text("SELECT content FROM profile_notes")).scalar_one()
         assert content == "NAME: Legacy Person"
         s1 = c.execute(
             sa.text("SELECT recruiter_name, started_at FROM sessions WHERE id='s1'")

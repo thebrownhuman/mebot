@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from mebot.models import AccessLog, Bot, ChatSession, Message, Profile, new_id, utcnow
+from mebot.models import AccessLog, Bot, ChatSession, Message, new_id, utcnow
 
 DEFAULT_SLUG = "default"
 DEFAULT_NAME = "Default"
@@ -33,6 +33,17 @@ _BOTS_0002 = sa.table(
     sa.column("id"),
     sa.column("slug"),
     sa.column("name"),
+    sa.column("created_at", Bot.__table__.c.created_at.type),
+    sa.column("updated_at", Bot.__table__.c.updated_at.type),
+)
+
+
+# profiles as of 0002 (renamed legacy_profiles by 0005; no ORM model any more).
+_PROFILES_0002 = sa.table(
+    "profiles",
+    sa.column("id"),
+    sa.column("bot_id"),
+    sa.column("content"),
     sa.column("created_at", Bot.__table__.c.created_at.type),
     sa.column("updated_at", Bot.__table__.c.updated_at.type),
 )
@@ -67,8 +78,9 @@ def import_legacy(conn: Connection) -> dict[str, int]:
         return copied
     bot_id = ensure_default_bot(conn)
 
-    if "profile" in legacy:
-        profiles = Profile.__table__
+    # After 0005 the profiles table is renamed; its data already moved to profile_notes.
+    if "profile" in legacy and "profiles" in tables:
+        profiles = _PROFILES_0002
         has_profile = conn.execute(
             sa.select(profiles.c.id).where(profiles.c.bot_id == bot_id)
         ).first()

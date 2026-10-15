@@ -2,7 +2,7 @@ import sqlalchemy as sa
 
 from mebot.db import run_migrations
 
-NEW_TABLES = {"bots", "profiles", "sessions", "messages", "access_log"}
+NEW_TABLES = {"bots", "profile_notes", "sessions", "messages", "access_log"}
 
 
 def test_upgrade_from_empty(tmp_path):
@@ -11,7 +11,8 @@ def test_upgrade_from_empty(tmp_path):
     insp = sa.inspect(sa.create_engine(url))
     tables = set(insp.get_table_names())
     assert NEW_TABLES <= tables
-    assert not any(t.startswith("legacy_") for t in tables)
+    # 0005 keeps the (empty, on a fresh db) blob table as legacy_profiles.
+    assert {t for t in tables if t.startswith("legacy_")} == {"legacy_profiles"}
     for t in NEW_TABLES - {"bots"}:
         cols = {c["name"] for c in insp.get_columns(t)}
         assert "bot_id" in cols
