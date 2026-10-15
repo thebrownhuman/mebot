@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from mebot import turnstile
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot
+from mebot.errors import ApiError
 from mebot.limits.service import LimitExceeded
 from mebot.models import Bot
 from mebot.repos import limits as limits_repo
@@ -11,19 +13,24 @@ from mebot.repos import logs, sessions
 
 router = APIRouter(prefix="/api")
 
+TURNSTILE_FAILED = "We couldn't verify you're human. Please refresh the page and try again."
+TURNSTILE_DOWN = "Verification is unavailable right now. Please try again in a few minutes."
+
 
 class StartReq(BaseModel):
     recruiter_name: str | None = Field(default=None, max_length=120)
+    turnstile_token: str | None = Field(default=None, max_length=4096)
 
 
 @router.post("/session")
-def start_session(
+async def start_session(
     req: StartReq,
     request: Request,
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
 ):
     ip = client_ip(request)
+    settings = request.app.state.settings
     limits = limits_repo.get_or_create(db, bot.id)
     limiter = request.app.state.chat_limiter
     wait = limiter.session_start_wait(limits, ip)
@@ -32,6 +39,15 @@ def start_session(
             logs.add(db, bot.id, None, "RATE_LIMITED", detail="session_start")
             db.commit()
         raise LimitExceeded("session_start", wait).api_error()
+    if turnstile.active(settings, limits):
+        if not req.turnstile_token:
+            raise ApiError(403, "TURNSTILE_FAILED", TURNSTILE_FAILED)
+        try:
+            ok = await turnstile.verify(settings.turnstile_secret_key, req.turnstile_token, ip)
+        except turnstile.TurnstileUnavailable:  # fail closed; the owner can disable it
+            raise ApiError(503, "TURNSTILE_UNAVAILABLE", TURNSTILE_DOWN) from None
+        if not ok:
+            raise ApiError(403, "TURNSTILE_FAILED", TURNSTILE_FAILED)
     sid = sessions.create(db, bot.id, req.recruiter_name)
     logs.add(db, bot.id, sid, "session_start", detail=req.recruiter_name, ip=ip)
     db.commit()
