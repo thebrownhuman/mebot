@@ -270,3 +270,126 @@ describe("identity, notes and preview", () => {
     expect(calls.some((c) => c.key === "PUT /api/admin/profile/notes")).toBe(true);
   });
 });
+
+describe("grounded answers", () => {
+  const FACTS = {
+    as_of: "2026-10-16",
+    total_experience: {
+      months: 40,
+      text: "3 years 4 months",
+      years: 3.3,
+      from: "2023-06",
+      to: "2026-10",
+      internships_counted: false,
+      freelance_counted: true,
+    },
+    internship_months: 6,
+    current_roles: [
+      {
+        company: "Acme",
+        title: "Backend Engineer",
+        since: "2024-02",
+        months: 33,
+        text: "2 years 9 months",
+      },
+    ],
+    upcoming_roles: [],
+    last_role_end: null,
+    companies: [],
+    first_job_start: "2023-06",
+    gaps: [],
+    skills: [
+      {
+        name: "Python",
+        months: 38,
+        text: "3 years 2 months",
+        years: 3.2,
+        source: "computed",
+        evidence: ["work"],
+      },
+      { name: "Rust", months: null, text: null, years: null, source: null, evidence: [] },
+    ],
+    education: {
+      latest: {
+        degree: "B.Tech",
+        field: "CS",
+        institution: "IIT",
+        end_month: "2023-05",
+        in_progress: false,
+      },
+    },
+    counts: { projects: 2, projects_by_status: { active: 2 }, companies: 1 },
+  };
+
+  it("identity toggles are sent on save", async () => {
+    const { calls } = routes({
+      "GET /api/admin/profile/identity": () =>
+        jsonResponse({
+          full_name: "Jane",
+          headline: "",
+          location: "",
+          open_to: "",
+          summary: "",
+          count_internships: false,
+          count_freelance: true,
+        }),
+      "GET /api/admin/profile/links": () => jsonResponse({ items: [] }),
+      "PUT /api/admin/profile/identity": (init) => jsonResponse(JSON.parse(init!.body as string)),
+    });
+    renderAt("/admin/profile/identity");
+    const interns = await screen.findByLabelText(/count internships/i);
+    expect(interns).not.toBeChecked();
+    expect(screen.getByLabelText(/count freelance/i)).toBeChecked();
+    fireEvent.click(interns);
+    fireEvent.click(screen.getByRole("button", { name: /save identity/i }));
+    await screen.findByText(/saved/i);
+    const body = JSON.parse(
+      calls.find((c) => c.key === "PUT /api/admin/profile/identity")!.init!.body as string,
+    );
+    expect(body.count_internships).toBe(true);
+    expect(body.count_freelance).toBe(true);
+  });
+
+  it("preview shows the computed facts card", async () => {
+    routes({
+      "GET /api/admin/profile/preview": () =>
+        jsonResponse({ text: "=== FACTS ===", chars: 13, approx_tokens: 4 }),
+      "GET /api/admin/profile/facts": () => jsonResponse(FACTS),
+    });
+    renderAt("/admin/profile/preview");
+    const card = await screen.findByRole("region", { name: /computed facts/i });
+    expect(within(card).getByText(/3 years 4 months/)).toBeInTheDocument();
+    expect(within(card).getByText(/backend engineer at acme/i)).toBeInTheDocument();
+    expect(within(card).getByText(/python/i)).toBeInTheDocument();
+    expect(within(card).queryByText(/rust/i)).not.toBeInTheDocument();
+    expect(within(card).getByText(/internships excluded/i)).toBeInTheDocument();
+  });
+
+  it("dashboard lists unanswered questions", async () => {
+    routes({
+      "GET /api/admin/unanswered": () =>
+        jsonResponse({
+          items: [
+            {
+              session_id: "s9",
+              question: "What is your expected CTC?",
+              created_at: "2026-10-16T09:12:00Z",
+            },
+          ],
+        }),
+      "GET /api/admin/sessions/s9/messages": () => jsonResponse([]),
+    });
+    renderAt("/admin");
+    const list = await screen.findByRole("region", { name: /unanswered questions/i });
+    expect(within(list).getByText("What is your expected CTC?")).toBeInTheDocument();
+    expect(within(list).getByText(/add this to your faq or profile/i)).toBeInTheDocument();
+    fireEvent.click(within(list).getByRole("button", { name: /open session/i }));
+  });
+
+  it("dashboard shows an empty state when nothing is unanswered", async () => {
+    routes({ "GET /api/admin/unanswered": () => jsonResponse({ items: [] }) });
+    renderAt("/admin");
+    const list = await screen.findByRole("region", { name: /unanswered questions/i });
+    expect(await within(list).findByText(/nothing unanswered/i)).toBeInTheDocument();
+  });
+});
