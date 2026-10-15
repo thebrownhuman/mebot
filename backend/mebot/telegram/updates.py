@@ -92,10 +92,11 @@ async def _start(ctx: TgContext, inc: Incoming, arg: str) -> None:
     await _safe_send(inc.client, inc.chat_id, LINK_FAILED)
 
 
-# Handlers for the linked chat, registered by later modules (commands, replies).
-MessageHandler = Callable[[TgContext, Incoming, dict], "object"]
-message_handlers: list = []
-callback_handlers: list = []
+def _handlers() -> tuple[list, list]:
+    """Linked-chat handlers, tried in order; each returns True when it handled it."""
+    from mebot.telegram import replies  # late import: they build on this module
+
+    return list(replies.MESSAGE_HANDLERS), list(replies.CALLBACK_HANDLERS)
 
 
 async def handle_update(ctx: TgContext, bot_id: str, update: dict) -> None:
@@ -119,7 +120,8 @@ async def handle_update(ctx: TgContext, bot_id: str, update: dict) -> None:
         if row.chat_id is None or chat_id != row.chat_id:
             _log_foreign(ctx, db, bot_id, chat_id)
             return
-        handlers = message_handlers if msg else callback_handlers
+        on_message, on_callback = _handlers()
+        handlers = on_message if msg else on_callback
         for h in handlers:
             if await h(ctx, inc, msg or cb):
                 return

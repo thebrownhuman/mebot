@@ -57,6 +57,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.login_limiter = LoginLimiter()
     app.state.chat_limiter = ChatLimiter(secret_key)
     app.state.setup_limiter = SlidingWindowLimiter(limit=10, window_seconds=15 * 60)
+    # Recruiter UI polls for owner replies every 5s while visible.
+    app.state.updates_limiter = SlidingWindowLimiter(limit=20, window_seconds=60)
     app.state.telegram_ctx = TgContext(app.state.session_factory, secret_key, settings)
     app.state.telegram = TelegramService(app.state.telegram_ctx)
     with app.state.session_factory() as db:
