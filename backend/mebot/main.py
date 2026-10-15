@@ -16,6 +16,7 @@ from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
 from mebot.limits.service import ChatLimiter
 from mebot.repos import admin_sessions
 from mebot.routes import routers
+from mebot.telegram import outbox
 from mebot.telegram.service import TelegramService
 from mebot.telegram.updates import TgContext
 
@@ -61,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     with app.state.session_factory() as db:
         admin_sessions.purge_expired(db)
         counters.purge(db)
+        outbox.purge(db)
         db.commit()
     install_error_handlers(app)
     app.add_exception_handler(RequestValidationError, _validation_error)
