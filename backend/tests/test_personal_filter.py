@@ -76,7 +76,7 @@ def test_prompt_hint_added_only_when_given():
 
 
 def test_canary_rule_renumbered():
-    assert "9. Confidential marker: CAN-1" in build_system_prompt("x", canary="CAN-1")
+    assert "10. Confidential marker: CAN-1" in build_system_prompt("x", canary="CAN-1")
 
 
 def feed_all(chunks):
