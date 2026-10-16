@@ -19,7 +19,7 @@ from mebot.models import Bot
 from mebot.profile.data import load_profile
 from mebot.prompt import build_system_prompt, render_profile
 from mebot.repos import limits as limits_repo
-from mebot.repos import llm_configs, logs, sessions
+from mebot.repos import llm_configs, logs, open_questions, sessions
 from mebot.telegram import events
 
 router = APIRouter(prefix="/api")
@@ -202,6 +202,7 @@ async def chat(
                     events.retract_question(wdb, bot_id, req.session_id)
                 elif unanswered:
                     logs.add(wdb, bot_id, req.session_id, "UNANSWERED", detail=req.message[:500])
+                    group, _ = open_questions.record(wdb, bot_id, req.message, req.session_id)
                     events.unanswered(
                         wdb,
                         bot_id,
@@ -210,6 +211,7 @@ async def chat(
                         req.message,
                         reply.id if reply else None,
                         public_url,
+                        group=group,
                     )
                 if getattr(client, "leaked_thinking", False):
                     logs.add(wdb, bot_id, req.session_id, "WARN_thinking_leak")

@@ -215,3 +215,26 @@ def test_0009_identity_persona_columns(tmp_path):
     assert cols["pronouns"]["nullable"] is False
     assert "they/them" in str(cols["pronouns"]["default"])
     assert cols["assistant_greeting"]["nullable"] is True
+
+
+def test_0009_learning_tables(tmp_path):
+    url = f"sqlite:///{(tmp_path / 't.db').as_posix()}"
+    run_migrations(url)
+    insp = sa.inspect(sa.create_engine(url))
+    oq = {c["name"]: c for c in insp.get_columns("open_questions")}
+    assert set(oq) >= {
+        "id", "bot_id", "question", "normalized", "ask_count", "first_asked_at",
+        "last_asked_at", "last_session_id", "status", "answered_fact_id",
+        "last_notified_at", "created_at", "updated_at",
+    }  # fmt: skip
+    assert oq["ask_count"]["nullable"] is False
+    lf = {c["name"]: c for c in insp.get_columns("learned_facts")}
+    assert set(lf) >= {
+        "id", "bot_id", "open_question_id", "question", "answer_raw", "fact_text",
+        "suggested_section", "suggested_field", "suggested_value", "status", "source",
+        "needs_review", "approved_at", "created_at", "updated_at", "deleted_at",
+    }  # fmt: skip
+    assert lf["deleted_at"]["nullable"] is True
+    assert ["bot_id", "status"] in [i["column_names"] for i in insp.get_indexes("open_questions")]
+    for t in ("open_questions", "learned_facts"):
+        assert insp.get_foreign_keys(t) == []
