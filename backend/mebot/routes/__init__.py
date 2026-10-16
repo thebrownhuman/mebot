@@ -1,5 +1,6 @@
 from mebot.routes import (
     admin,
+    admin_import,
     admin_learning,
     admin_limits,
     admin_llm,
@@ -26,6 +27,7 @@ routers = [
     chat.router,
     contact.router,
     admin.router,
+    admin_import.router,
     admin_llm.router,
     admin_limits.router,
     admin_learning.router,
