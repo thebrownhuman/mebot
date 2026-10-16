@@ -313,3 +313,19 @@ def test_0010_idempotent_and_skips_existing_channels(tmp_path):
         n = c.execute(sa.text("SELECT count(*) FROM profile_links")).scalar()
         kinds = [r[0] for r in c.execute(sa.text("SELECT kind FROM profile_links"))]
     assert n == 6 and kinds.count("phone") == 1 and kinds.count("email") == 1
+
+
+def test_0011_widget_settings(tmp_path):
+    url = f"sqlite:///{(tmp_path / 'w.db').as_posix()}"
+    run_migrations(url)
+    insp = sa.inspect(sa.create_engine(url))
+    cols = {c["name"] for c in insp.get_columns("widget_settings")}
+    assert cols >= {
+        "id", "bot_id", "enabled", "allowed_origins", "allow_any_origin", "primary_color",
+        "theme", "position", "title", "avatar_url", "launcher_label", "suggested_questions",
+        "show_orb", "auto_open_seconds", "created_at", "updated_at",
+    }  # fmt: skip
+    ix = {i["name"]: i for i in insp.get_indexes("widget_settings")}
+    assert ix["ux_widget_settings_bot_id"]["unique"]
+    command.downgrade(alembic_config(url), "0010")
+    assert "widget_settings" not in sa.inspect(sa.create_engine(url)).get_table_names()
