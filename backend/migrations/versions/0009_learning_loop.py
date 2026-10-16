@@ -20,9 +20,7 @@ def _ts(name: str, nullable: bool = False) -> sa.Column:
 
 def upgrade() -> None:
     with op.batch_alter_table("profile_identity") as b:
-        b.add_column(
-            sa.Column("pronouns", sa.Text, nullable=False, server_default="they/them")
-        )
+        b.add_column(sa.Column("pronouns", sa.Text, nullable=False, server_default="they/them"))
         b.add_column(sa.Column("assistant_greeting", sa.Text, nullable=True))
 
     op.create_table(
