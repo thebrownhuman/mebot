@@ -14,7 +14,7 @@ def ask(c, message="what's his number?"):
     sid = c.post("/api/session", json={"recruiter_name": "Priya"}).json()["session_id"]
     r = c.post("/api/chat", json={"session_id": sid, "message": message})
     assert r.status_code == 200
-    return r.text
+    return r.text.partition("\x1e")[0]  # drop the trailing replace frame, if any
 
 
 def logs(app):

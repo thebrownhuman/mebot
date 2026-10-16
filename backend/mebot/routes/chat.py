@@ -1,3 +1,4 @@
+import json
 import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -28,6 +29,9 @@ router = APIRouter(prefix="/api")
 # Shown to visitors whenever the owner's provider fails; details go to access_log only.
 UNAVAILABLE = "Sorry, the assistant is unavailable right now. Please try again later."
 PAUSED = "The assistant is paused right now. Please try again later."
+# Starts the stream's one control frame: \x1e{"type":"replace","content":...}. Model output
+# never contains it (stripped), so the UI can trust whatever follows it.
+FRAME_SEP = "\x1e"
 # Body-size guard only; the owner's max_message_chars (100-4000) is checked in the route.
 HARD_MAX_CHARS = 20_000
 
@@ -42,6 +46,10 @@ class ChatReq(BaseModel):
         if not v.strip():
             raise ValueError("message must not be empty")
         return v
+
+
+def replace_frame(content: str) -> str:
+    return FRAME_SEP + json.dumps({"type": "replace", "content": content})
 
 
 def _error_detail(provider: str, exc: Exception) -> str:
@@ -156,6 +164,7 @@ async def chat(
                 messages, model=cfg.model, temperature=cfg.temperature, max_tokens=cfg.max_tokens
             ):
                 produced += len(chunk)
+                chunk = chunk.replace(FRAME_SEP, "")
                 shown = leak.feed(chan.feed(marker.feed(chunk)))
                 if leak.tripped:
                     break
@@ -170,6 +179,10 @@ async def chat(
                     yield tail
             if leak.tripped:
                 yield ("\n\n" if "".join(acc) else "") + guard.SAFE_REPLY
+                # The visible bubble still holds the text streamed before the cut.
+                yield replace_frame(guard.SAFE_REPLY)
+            elif chan.redactions:
+                yield replace_frame("".join(acc).strip())
         except Exception as e:  # noqa: BLE001 - visitors get a fixed message
             error = e
             tail = (
