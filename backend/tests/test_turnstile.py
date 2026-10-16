@@ -25,6 +25,7 @@ def test_public_config_defaults(admin_client):
             "Hi! I'm Shivansh's assistant. Ask me anything about their work, "
             "experience or projects."
         ),
+        "suggested_questions": [],
     }
 
 
@@ -40,6 +41,7 @@ def test_public_config_reflects_limits(admin_client, ts_app):
             "Hi! I'm Shivansh's assistant. Ask me anything about their work, "
             "experience or projects."
         ),
+        "suggested_questions": [],
     }
     set_limits(ts_app, turnstile_enabled=True)
     assert admin_client.get("/api/public/config").json()["turnstile_site_key"] == "site-key-1"
