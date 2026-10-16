@@ -67,6 +67,19 @@ describe("recruiter chat limits", () => {
     expect(btn).toBeDisabled();
   });
 
+  it("shows suggested-question chips until the first question", async () => {
+    const api = routes({
+      "GET /api/public/config": () => jsonResponse({ ...CONFIG, suggested_questions: ["Tech stack?"] }),
+      "POST /api/chat": () => new Response("Python and TS."),
+    });
+    await enter();
+    fireEvent.click(await screen.findByRole("button", { name: "Tech stack?" }));
+    expect(await screen.findByText("Python and TS.")).toBeInTheDocument();
+    const call = api.calls.find((c) => c.key === "POST /api/chat")!;
+    expect(JSON.parse(String(call.init!.body)).message).toBe("Tech stack?");
+    expect(screen.queryByRole("button", { name: "Tech stack?" })).toBeNull();
+  });
+
   it("shows the paused message from the server", async () => {
     routes({
       "POST /api/chat": () => errorResponse(503, "BOT_PAUSED", "Back on Monday!"),

@@ -45,6 +45,7 @@ export default function RecruiterPage() {
         onTurnstileError={(m) => chat.sysLine(m, true)}
         ownerName={ownerName}
         onContact={() => setContactOpen(true)}
+        suggestions={chat.config.suggested_questions ?? []}
         headerAction={
           chat.ready && (
             <button

@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* Owner's brand colour comes in as --mb-primary (hex); everything else is fixed tokens. */
+:root {
+  --mb-primary: #0f766e;
+  --mb-bg: #ffffff;
+  --mb-panel: #f6f7f9;
+  --mb-fg: #1f2933;
+  --mb-dim: #5f6b7a;
+  --mb-line: #e3e7ec;
+  --mb-bot: #f1f3f6;
+  --mb-err: #b42318;
+}
+.mb-dark {
+  --mb-bg: #0c1016;
+  --mb-panel: #121821;
+  --mb-fg: #dbe4ee;
+  --mb-dim: #8b98a8;
+  --mb-line: #243140;
+  --mb-bot: #182230;
+  --mb-err: #ff8a80;
+}
+body {
+  background: var(--mb-bg);
+  color: var(--mb-fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
