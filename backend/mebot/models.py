@@ -522,3 +522,20 @@ class ImportJob(Base):
         Index("ix_import_jobs_bot_id_created_at", "bot_id", "created_at"),
         Index("ix_import_jobs_bot_id_sha256", "bot_id", "sha256"),
     )
+
+
+# --- integration tokens (migration 0013) ---------------------------------------------
+
+
+class IntegrationToken(Base):
+    __tablename__ = "integration_tokens"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)  # github
+    token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)  # never the plaintext
+    token_last4: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (
+        Index("ux_integration_tokens_bot_provider", "bot_id", "provider", unique=True),
+    )
