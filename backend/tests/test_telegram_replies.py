@@ -1,9 +1,7 @@
-import json
-
 import respx
 from sqlalchemy import select
 
-from mebot.models import AccessLog, Faq, Message, Notification
+from mebot.models import AccessLog, Message, Notification
 from mebot.telegram import outbox
 from mebot.telegram.replies import NO_MATCH
 from mebot.telegram.updates import handle_update
@@ -49,7 +47,7 @@ async def test_direct_reply_reaches_session(admin_client, app, fake_llm):
     assert m.role == "assistant" and m.content == "Around 30 LPA, negotiable."
     last = sent(routes)[-1]
     assert last["text"] == "✅ Sent to <b>Priya</b>."
-    assert last["reply_markup"]["inline_keyboard"][0][0]["text"] == "Save to FAQ"
+    assert last["reply_markup"]["inline_keyboard"][0][0]["text"] == "Save to memory"
     with app.state.session_factory() as db:
         assert db.scalar(select(AccessLog).where(AccessLog.event == "OWNER_REPLIED"))
 
@@ -66,22 +64,6 @@ async def test_reply_button_force_reply_then_answer(admin_client, app, fake_llm)
     prompt_id = int(routes["sendMessage"].calls.last.response.json()["result"]["message_id"])
     await handle_update(ctx(app), bot_id, text_update("30 days", reply_to=prompt_id))
     assert [m.content for m in owner_messages(app, sid)] == ["30 days"]
-
-
-@respx.mock
-async def test_save_to_faq_once(admin_client, app, fake_llm):
-    routes = mock_telegram()
-    bot_id, sid, n = await unanswered_sent(admin_client, app, fake_llm, "Expected CTC?")
-    await handle_update(ctx(app), bot_id, text_update("30 LPA", reply_to=n.telegram_message_id))
-    faq_cb = sent(routes)[-1]["reply_markup"]["inline_keyboard"][0][0]["callback_data"]
-    for _ in range(3):
-        await handle_update(ctx(app), bot_id, callback_update(faq_cb, message_id=555))
-    with app.state.session_factory() as db:
-        faqs = db.scalars(select(Faq).where(Faq.deleted_at.is_(None))).all()
-    assert [(f.question, f.answer) for f in faqs] == [("Expected CTC?", "30 LPA")]
-    edit = json.loads(routes["editMessageReplyMarkup"].calls.last.request.content)
-    assert edit["message_id"] == 555
-    assert edit["reply_markup"]["inline_keyboard"][0][0]["text"] == "Saved ✓"
 
 
 @respx.mock

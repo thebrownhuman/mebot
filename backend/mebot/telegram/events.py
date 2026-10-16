@@ -294,9 +294,15 @@ def maybe_digest(db: Session, row: TelegramConfig, now: datetime) -> bool:
     a = activity(db, row.bot_id, start, min(end, now))
     if not (a["chats"] or a["messages"] or a["contacts"]):
         return False
-    outbox.enqueue(
-        db, row.bot_id, "daily_digest", {"text": summary_text(f"🗓️ Daily digest — {today}", a)}
-    )
+    from mebot.telegram import memory  # late import: memory builds on the Telegram modules
+
+    text = summary_text(f"🗓️ Daily digest — {today}", a)
+    payload: dict = {}
+    items, lines, markup = memory.open_questions_summary(db, row.bot_id, 3)
+    if items:
+        text += f"\n\nOpen questions (top {len(items)}):\n{lines}"
+        payload["reply_markup"] = markup
+    outbox.enqueue(db, row.bot_id, "daily_digest", {"text": text, **payload})
     return True
 
 

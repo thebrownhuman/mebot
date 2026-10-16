@@ -1,9 +1,9 @@
-"""Commands from the linked chat: /status /pause /resume /today /help."""
+"""Commands from the linked chat: /status /pause /resume /today /questions /help."""
 
 from mebot.limits import counters
 from mebot.repos import limits as limits_repo
 from mebot.repos import logs
-from mebot.telegram import events
+from mebot.telegram import events, memory
 from mebot.telegram.updates import COMMANDS, Incoming, TgContext, _safe_send
 
 HELP = "\n".join(["<b>mebot commands</b>"] + [f"/{c} — {d}" for c, d in COMMANDS])
@@ -48,6 +48,18 @@ async def on_command(ctx: TgContext, inc: Incoming, msg: dict) -> bool:
         reply = _set_paused(inc, False)
     elif cmd == "today":
         reply = events.today_so_far(inc.db, inc.row, ctx.now())
+    elif cmd == "questions":
+        items, lines, markup = memory.open_questions_summary(inc.db, inc.bot_id, 5)
+        if not items:
+            reply = "No open questions right now. 🎉"
+        else:
+            await _safe_send(
+                inc.client,
+                inc.chat_id,
+                f"<b>Open questions</b> (most asked first)\n{lines}",
+                reply_markup=markup,
+            )
+            return True
     elif cmd == "help":
         reply = HELP
     else:
