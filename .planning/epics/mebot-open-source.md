@@ -37,7 +37,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 6 | Public chat hardening: rate limits, daily cap, injection guard | review | [spec](../specs/chat-hardening.md) | — | #3 | S |
 | 7 | Telegram notifications + reply-back loop | review | [spec](../specs/telegram.md) | — | #5 | M |
 | 7b | Learning loop: open-questions inbox, owner answers → AI-cleaned facts (approve first), professional-topic filter, assistant persona (3rd person) | review | [spec](../specs/learning-loop.md) | — | #7 | M |
-| 7c | Contact handoff: on meeting/contact requests bot shares owner-chosen channels (portfolio, email, Instagram, WhatsApp username, LinkedIn…); per-channel "share" toggle; phone number never shared by default; no calendar booking | spec | [spec](../specs/contact-handoff.md) | — | #7b | S |
+| 7c | Contact handoff: on meeting/contact requests bot shares owner-chosen channels (portfolio, email, Instagram, WhatsApp username, LinkedIn…); per-channel "share" toggle; phone number never shared by default; no calendar booking | building | [spec](../specs/contact-handoff.md) | — | #7b | S |
 | 8 | Embeddable widget + allowed origins + theming | todo | — | — | #6 | M |
 | 9 | Imports: resume PDF/DOCX + LinkedIn export ZIP | todo | — | — | #3, #4 | M |
 | 10 | Import: GitHub repo → project entry | todo | — | — | #9 | S |
