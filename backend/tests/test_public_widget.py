@@ -45,3 +45,45 @@ def test_public_widget_unknown_or_disabled(admin_client, app):
     assert r.status_code == 404 and r.json()["error"]["code"] == "WIDGET_UNAVAILABLE"
     set_widget(app, enabled=False)
     assert admin_client.get("/api/public/widget/shivansh").status_code == 404
+
+
+LAUNCHER = "/api/public/widget/shivansh/launcher"
+
+
+def test_launcher_cors_only_for_allowed_sites(admin_client, app):
+    set_widget(app, allowed_origins=["https://shivansh.dev"], launcher_label="Ask me")
+    r = admin_client.get(LAUNCHER, headers={"Origin": "https://shivansh.dev"})
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] == "https://shivansh.dev"
+    assert "origin" in r.headers["vary"].lower()
+    assert r.json() == {
+        "title": "Shivansh's assistant",
+        "primary_color": "#0f766e",
+        "position": "right",
+        "theme": "auto",
+        "launcher_label": "Ask me",
+        "auto_open_seconds": None,
+    }
+    r = admin_client.get(LAUNCHER, headers={"Origin": "https://evil.dev"})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "WIDGET_NOT_ALLOWED"
+    assert "access-control-allow-origin" not in r.headers
+
+
+def test_launcher_same_origin_and_any(admin_client, app):
+    assert admin_client.get(LAUNCHER, headers={"Origin": "http://testserver"}).status_code == 200
+    assert admin_client.get(LAUNCHER).status_code == 200
+    set_widget(app, allow_any_origin=True)
+    r = admin_client.get(LAUNCHER, headers={"Origin": "https://anyone.dev"})
+    assert r.headers["access-control-allow-origin"] == "*"
+
+
+def test_launcher_unknown_or_disabled(admin_client, app):
+    assert admin_client.get("/api/public/widget/x/launcher").status_code == 404
+    set_widget(app, enabled=False)
+    assert admin_client.get(LAUNCHER).status_code == 404
+
+
+def test_public_config_has_suggested_questions(admin_client, app):
+    assert admin_client.get("/api/public/config").json()["suggested_questions"] == []
+    set_widget(app, suggested_questions=["Tech stack?"])
+    assert admin_client.get("/api/public/config").json()["suggested_questions"] == ["Tech stack?"]

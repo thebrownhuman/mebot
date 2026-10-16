@@ -11,6 +11,7 @@ from mebot.models import Bot
 from mebot.profile.data import load_profile
 from mebot.repos import limits as limits_repo
 from mebot.repos import profile_items
+from mebot.repos import widget as widget_repo
 
 router = APIRouter(prefix="/api/public")
 
@@ -31,6 +32,8 @@ def public_config(
         "owner_name": _owner_name(db, bot),
         # The recruiter chat's first bubble; rendered server-side, not an LLM call.
         "assistant_greeting": persona.render_greeting(load_profile(db, bot.id).identity, bot.name),
+        # Chips shown before the first message (set on the admin Widget page).
+        "suggested_questions": widget_repo.questions(widget_repo.get_or_create(db, bot.id)),
     }
 
 
