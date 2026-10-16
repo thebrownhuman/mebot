@@ -6,8 +6,9 @@ discard and expiry are the #9 endpoints.
 
 import hashlib
 import json
+import re
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -109,3 +110,51 @@ async def import_github(
     ctx = RunContext("json", resolved, {"token": resolve_token(request, db, bot.id)})
     background.add_task(process, request.app.state, bot.id, job.id, "github", payload, ctx)
     return {"id": job.id, "status": job.status}
+
+
+_USERNAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
+
+
+def _repo_row(d: dict) -> dict:
+    return {
+        "name": d.get("name"),
+        "full_name": d.get("full_name"),
+        "description": d.get("description"),
+        "language": d.get("language"),
+        "stars": int(d.get("stargazers_count") or 0),
+        "pushed_at": d.get("pushed_at"),
+        "fork": bool(d.get("fork")),
+        "archived": bool(d.get("archived")),
+        "html_url": github.repo_url(*str(d.get("full_name") or "/").split("/", 1)),
+    }
+
+
+@router.get("/import/github/repos")
+async def github_repos(
+    request: Request,
+    username: str = Query(max_length=39),
+    include_forks: bool = Query(False),
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+):
+    """A user's public repos for the picker: non-archived first, then stars, then push."""
+    if not _USERNAME.match(username):
+        raise ApiError(
+            422,
+            "VALIDATION_ERROR",
+            "That isn't a GitHub username.",
+            [{"field": "username", "message": "invalid"}],
+        )
+    try:
+        async with github.GitHubClient(resolve_token(request, db, bot.id)) as gh:
+            rows = await gh.user_repos(username)
+    except github.GitHubError as e:
+        raise ApiError(e.status if e.status != 422 else 502, e.code, e.message) from None
+    rows = [
+        r for r in rows if r.get("private") is not True and (include_forks or not r.get("fork"))
+    ]
+    # Stable sorts: newest push, then by stars, then non-archived first.
+    rows.sort(key=lambda d: str(d.get("pushed_at") or ""), reverse=True)
+    rows.sort(key=lambda d: int(d.get("stargazers_count") or 0), reverse=True)
+    rows.sort(key=lambda d: bool(d.get("archived")))
+    return {"items": [_repo_row(d) for d in rows[:100]]}
