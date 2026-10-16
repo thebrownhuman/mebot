@@ -75,7 +75,8 @@ def test_personal_data_and_phones_stripped():
                     data={
                         "company": "Acme Corporation",
                         "title": "Backend Engineer",
-                        "description": "Built payment APIs. Married with two kids. Call +91 98765 43210.",
+                        "description": "Built payment APIs. Married with two kids. "
+                        "Call +91 98765 43210.",
                         "highlights": ["Led a team of 4", "Date of birth: 1 Jan 1995"],
                     }
                 )

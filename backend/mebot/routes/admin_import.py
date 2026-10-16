@@ -10,14 +10,17 @@ ever read.
 import hashlib
 import re
 from datetime import UTC
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
+from mebot.imports import apply as applier
 from mebot.imports.filetype import ImportFailure, check_pdf, sniff
 from mebot.imports.pipelines import KINDS, RunContext, process
 from mebot.llm import service as llm
@@ -188,3 +191,60 @@ def discard_job(job_id: str, db: Session = Depends(get_db), bot: Bot = Depends(g
     import_jobs.discard(db, _job_or_404(db, bot, job_id))
     db.commit()
     return Response(status_code=204)
+
+
+class Decision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    temp_id: str = Field(max_length=40)
+    action: Literal["add", "update", "skip"]
+    data: dict | None = None
+
+
+class ApplyIn(BaseModel):
+    decisions: list[Decision] = Field(max_length=2000)
+
+
+@router.post("/jobs/{job_id}/apply")
+def apply_job(
+    job_id: str, req: ApplyIn, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+):
+    import_jobs.purge_expired(db)
+    job = _job_or_404(db, bot, job_id)
+    if job.status == "applied":
+        raise ApiError(409, "ALREADY_APPLIED", "This import was already applied.")
+    if job.status != "ready":
+        message = (
+            "This import expired. Please upload the file again."
+            if job.status == "expired"
+            else "This import isn't ready to apply."
+        )
+        raise ApiError(409, "IMPORT_NOT_READY", message)
+    draft = import_jobs.draft_of(job) or {"sections": {}}
+    known = {e["temp_id"] for entries in draft["sections"].values() for e in entries}
+    decisions = {}
+    for d in req.decisions:
+        if d.temp_id not in known:
+            raise ApiError(
+                422,
+                "VALIDATION_ERROR",
+                "Invalid request",
+                [{"field": d.temp_id, "message": "not in this import"}],
+            )
+        decisions[d.temp_id] = d.model_dump()
+    plan = applier.plan(db, bot.id, draft, decisions)
+    if plan.errors:
+        db.rollback()
+        raise ApiError(
+            422, "VALIDATION_ERROR", "Some items need fixing; nothing was applied.", plan.errors
+        )
+    try:
+        summary = applier.execute(db, bot.id, plan)
+        import_jobs.mark_applied(db, job, summary)
+        logs.add(db, bot.id, None, "IMPORT_APPLIED", detail=f"{job.kind}")
+        logs.add(db, bot.id, None, "profile_updated", detail="import")
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {"applied": summary}
