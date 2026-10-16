@@ -58,8 +58,19 @@ class ChannelError(ValueError):
     """Value is not valid for its kind; the message is shown to the owner."""
 
 
+# A phone-shaped string: 10+ digits, optionally with +, spaces, dots, dashes, parentheses.
+PHONE_SHAPED = re.compile(r"\+?\d[\d\s().\-]{8,40}\d")
+PHONE_MIN_DIGITS = 10
+
+
 def digits(s: str) -> str:
     return re.sub(r"\D", "", s)
+
+
+def phone_numbers(text: str) -> list[str]:
+    """Digits of every phone-shaped string in text."""
+    found = (digits(m.group()) for m in PHONE_SHAPED.finditer(text))
+    return [d for d in found if len(d) >= PHONE_MIN_DIGITS]
 
 
 def infer_kind(url: str) -> str:

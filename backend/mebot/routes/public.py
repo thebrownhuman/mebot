@@ -3,9 +3,10 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from mebot import persona, turnstile
+from mebot import channels, persona, turnstile
 from mebot.db import get_db
-from mebot.deps import get_current_bot
+from mebot.deps import client_ip, get_current_bot
+from mebot.errors import ApiError
 from mebot.models import Bot
 from mebot.profile.data import load_profile
 from mebot.repos import limits as limits_repo
@@ -30,6 +31,30 @@ def public_config(
         "owner_name": _owner_name(db, bot),
         # The recruiter chat's first bubble; rendered server-side, not an LLM call.
         "assistant_greeting": persona.render_greeting(load_profile(db, bot.id).identity, bot.name),
+    }
+
+
+@router.get("/contact-channels")
+def contact_channels(
+    request: Request, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+):
+    """The channels the owner shares with recruiters. Nothing else is ever returned."""
+    ip = client_ip(request)
+    wait = request.app.state.channels_limiter.hit(request.app.state.chat_limiter.ip_key(ip))
+    if wait is not None:
+        raise ApiError(
+            429,
+            "RATE_LIMITED",
+            "Too many requests. Please wait a moment.",
+            headers={"Retry-After": str(wait)},
+        )
+    items = channels.from_items(load_profile(db, bot.id).items("links"))
+    return {
+        "items": [
+            {"kind": c.kind, "label": c.label, "display": c.display, "href": c.href}
+            for c in items
+            if c.share
+        ]
     }
 
 

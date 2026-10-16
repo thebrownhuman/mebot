@@ -10,12 +10,11 @@ logged.
 
 import re
 
-from mebot.channels import Channel, digits, variants
+from mebot.channels import PHONE_MIN_DIGITS, PHONE_SHAPED, Channel, digits, variants
 
 HIDDEN = "[hidden]"
-_PHONE = re.compile(r"\+?\d[\d\s().\-]{8,40}\d")
 _TRAILING_DIGITS = re.compile(r"\[hidden\]\d+")
-_MIN_DIGITS = 10
+_MIN_DIGITS = PHONE_MIN_DIGITS
 _PHONE_HOLD = 44  # the longest string _PHONE can match, plus slack
 
 
@@ -56,7 +55,7 @@ class ChannelGuard:
             for m in re.finditer(re.escape(h), low):
                 if free(m.start(), m.end()):
                     spans.append((m.start(), m.end()))
-        for m in _PHONE.finditer(text):
+        for m in PHONE_SHAPED.finditer(text):
             d = digits(m.group())
             if len(d) >= _MIN_DIGITS and d not in self._shared_phones and free(*m.span()):
                 spans.append(m.span())
