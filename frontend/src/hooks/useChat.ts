@@ -5,15 +5,41 @@ import {
   getHealth,
   getPublicConfig,
   getSessionMessages,
+  getSessionUpdates,
   startSession,
   streamChat,
   type PublicConfig,
+  type SessionUpdates,
 } from "../lib/api";
 
 export type Line =
   | { kind: "recruiter"; text: string }
   | { kind: "me"; text: string; streaming?: boolean; thinking?: boolean }
-  | { kind: "sys"; text: string; err?: boolean };
+  | { kind: "sys"; text: string; err?: boolean }
+  // A reply the owner sent from Telegram.
+  | { kind: "owner"; text: string; at: string }
+  // "Leave your contact" suggestion after a question the bot couldn't answer.
+  | { kind: "suggest" };
+
+// The recruiter's session id survives reloads so owner replies still reach them.
+export const SESSION_STORE_KEY = "mebot.session";
+
+function readStoredSession(): string | null {
+  try {
+    return localStorage.getItem(SESSION_STORE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeSession(id: string | null) {
+  try {
+    if (id) localStorage.setItem(SESSION_STORE_KEY, id);
+    else localStorage.removeItem(SESSION_STORE_KEY);
+  } catch {
+    // private mode / blocked storage: replies only show while the tab stays open
+  }
+}
 
 const DEFAULT_CONFIG: PublicConfig = {
   turnstile_site_key: null,
@@ -41,9 +67,13 @@ export function useChat() {
   const setSid = useCallback((id: string | null) => {
     sessionId.current = id;
     setSidState(id);
+    suggested.current = false;
+    if (remember.current) storeSession(id);
   }, []);
   const pendingName = useRef<string | undefined>(undefined);
   const pulseRef = useRef(0);
+  const remember = useRef(false);
+  const suggested = useRef(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -55,8 +85,10 @@ export function useChat() {
     setLines((l) => [...l, { kind: "sys", text, err }]);
   }, []);
 
+  // remember: keep the session id in localStorage and resume it next time (recruiters).
   const connect = useCallback(
-    async (recruiterName?: string) => {
+    async (recruiterName?: string, opts: { remember?: boolean } = {}) => {
+      remember.current = Boolean(opts.remember);
       const h = await getHealth();
       if (!h.ready || !h.model) {
         setConn({ ok: false, text: h.message ?? "assistant unavailable" });
@@ -71,6 +103,18 @@ export function useChat() {
         return false;
       }
       setConn({ ok: true, text: "online · " + h.model });
+      const stored = remember.current ? readStoredSession() : null;
+      if (stored) {
+        try {
+          await getSessionUpdates(stored); // still exists?
+          setSid(stored);
+          setReady(true);
+          return true;
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 404) storeSession(null);
+          // otherwise fall through to a fresh session
+        }
+      }
       if (cfg?.turnstile_site_key) {
         pendingName.current = recruiterName;
         setTurnstileKey(cfg.turnstile_site_key);
@@ -86,6 +130,21 @@ export function useChat() {
     },
     [sysLine, setSid],
   );
+
+  // Owner replies + the "unanswered" flag from GET /api/session/{sid}/updates.
+  const applyUpdates = useCallback((u: SessionUpdates) => {
+    setLines((l) => {
+      const seen = new Set(l.flatMap((x) => (x.kind === "owner" ? [x.at + x.text] : [])));
+      const add: Line[] = u.messages
+        .filter((m) => !seen.has(m.created_at + m.content))
+        .map((m) => ({ kind: "owner", text: m.content, at: m.created_at }));
+      if (u.unanswered && !suggested.current) {
+        suggested.current = true;
+        add.push({ kind: "suggest" });
+      }
+      return add.length ? [...l, ...add] : l;
+    });
+  }, []);
 
   // Turnstile passed: start the session with its token.
   const verify = useCallback(
@@ -191,6 +250,7 @@ export function useChat() {
     newSession,
     send,
     loadSession,
+    applyUpdates,
     setLines,
     sysLine,
   };

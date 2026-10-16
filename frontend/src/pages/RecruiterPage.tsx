@@ -1,18 +1,27 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChatScreen from "../components/ChatScreen";
 import WelcomeGate from "../components/WelcomeGate";
 import ContactModal from "../components/ContactModal";
 import { useChat } from "../hooks/useChat";
+import { useOwnerReplies } from "../hooks/useOwnerReplies";
 
 export default function RecruiterPage() {
   const chat = useChat();
   const [entered, setEntered] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const ownerName = chat.config.owner_name || "the candidate";
+  const { pollNow } = useOwnerReplies(chat.sessionId, chat.applyUpdates, chat.ready);
+
+  // Right after the bot answers, check at once whether it couldn't (suggest contact).
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (wasBusy.current && !chat.busy) pollNow();
+    wasBusy.current = chat.busy;
+  }, [chat.busy, pollNow]);
 
   async function enter(name: string) {
     setEntered(true);
-    await chat.connect(name);
+    await chat.connect(name, { remember: true });
   }
 
   return (
@@ -32,6 +41,8 @@ export default function RecruiterPage() {
         turnstileKey={chat.turnstileKey}
         onTurnstile={(t) => void chat.verify(t)}
         onTurnstileError={(m) => chat.sysLine(m, true)}
+        ownerName={ownerName}
+        onContact={() => setContactOpen(true)}
         headerAction={
           chat.ready && (
             <button

@@ -26,6 +26,10 @@ interface Props {
   turnstileKey?: string | null;
   onTurnstile?: (token: string) => void;
   onTurnstileError?: (message: string) => void;
+  // Shown on owner-reply bubbles ("{first name} replied:").
+  ownerName?: string;
+  // Opens the contact form from the "unanswered" suggestion.
+  onContact?: () => void;
 }
 
 export default function ChatScreen({
@@ -45,6 +49,8 @@ export default function ChatScreen({
   turnstileKey = null,
   onTurnstile,
   onTurnstileError,
+  ownerName = "The owner",
+  onContact,
 }: Props) {
   const [input, setInput] = useState("");
   const screenRef = useRef<HTMLDivElement>(null);
@@ -88,7 +94,7 @@ export default function ChatScreen({
           {toolbar}
           {drawers}
           {lines.map((l, i) => (
-            <LineView key={i} line={l} />
+            <LineView key={i} line={l} ownerName={ownerName} onContact={onContact} />
           ))}
           {turnstileKey && (
             <div className="mb-3 text-term-amber text-xs">
@@ -143,7 +149,40 @@ export default function ChatScreen({
   );
 }
 
-function LineView({ line }: { line: Line }) {
+function LineView({
+  line,
+  ownerName,
+  onContact,
+}: {
+  line: Line;
+  ownerName: string;
+  onContact?: () => void;
+}) {
+  if (line.kind === "suggest") {
+    if (!onContact) return null;
+    return (
+      <div className="mb-3 text-term-amber text-xs">
+        // {ownerName.split(/\s+/)[0]} can answer this personally.{" "}
+        <button
+          type="button"
+          onClick={onContact}
+          className="underline text-term-bright focus-visible:outline focus-visible:outline-2 focus-visible:outline-term-bright"
+        >
+          leave your contact
+        </button>
+      </div>
+    );
+  }
+  if (line.kind === "owner") {
+    return (
+      <div className="mb-3 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-term-amber pl-3">
+        <span className="block text-[11px] tracking-wider text-term-amber mb-0.5">
+          {ownerName.split(/\s+/)[0]} replied:
+        </span>
+        <span className="text-term-fg">{line.text}</span>
+      </div>
+    );
+  }
   if (line.kind === "sys") {
     return <div className={"mb-3 " + (line.err ? "text-term-err" : "text-term-amber")}>// {line.text}</div>;
   }
