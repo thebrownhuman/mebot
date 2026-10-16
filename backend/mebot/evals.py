@@ -16,6 +16,7 @@ from pathlib import Path
 
 import yaml
 
+from mebot import persona
 from mebot.config import BACKEND_DIR, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.llm import service as llm
@@ -105,7 +106,12 @@ async def run(
     max_tokens: int = 400,
     cases: list[Case] | None = None,
 ) -> list[Result]:
-    system = build_system_prompt(render_profile(golden.profile, as_of=golden.as_of), golden.as_of)
+    system = build_system_prompt(
+        render_profile(golden.profile, as_of=golden.as_of),
+        golden.as_of,
+        name=persona.display_name(golden.profile.identity),
+        pronouns=golden.profile.identity.get("pronouns") or persona.DEFAULT_PRONOUNS,
+    )
     results = []
     for case in cases or golden.cases:
         messages = [

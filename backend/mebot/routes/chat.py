@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
-from mebot import guard
+from mebot import guard, persona
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
@@ -96,7 +96,10 @@ async def chat(
         }
         for m in stored[-limits.history_turns :]
     ]
-    profile = render_profile(load_profile(db, bot_id))
+    profile_data = load_profile(db, bot_id)
+    profile = render_profile(profile_data)
+    owner = persona.display_name(profile_data.identity, bot.name)
+    pronouns = profile_data.identity.get("pronouns") or persona.DEFAULT_PRONOUNS
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
     # Telegram notifications are queued in the same transaction as the event.
@@ -111,7 +114,9 @@ async def chat(
         logs.add(db, bot_id, req.session_id, "INJECTION_SUSPECTED", detail=req.message[:200])
         db.commit()
     canary = guard.canary_for(request.app.state.secret_key, bot_id)
-    system = build_system_prompt(profile, canary=canary, reminder=suspicious)
+    system = build_system_prompt(
+        profile, canary=canary, reminder=suspicious, name=owner, pronouns=pronouns
+    )
     messages = [
         {"role": "system", "content": system},
         *history,

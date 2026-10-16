@@ -7,6 +7,7 @@ of ProfileData so it can be tested and previewed without a request.
 from datetime import date
 
 from mebot.marker import neutralise
+from mebot.persona import display_name
 from mebot.profile.data import ProfileData
 from mebot.profile.facts import compute_facts, format_duration, today_utc
 
@@ -43,6 +44,7 @@ def _identity(p: ProfileData) -> str | None:
     i = p.identity
     lines = [
         _line("Name", i.get("full_name")),
+        _line("Pronouns", i.get("pronouns")),
         _line("Headline", i.get("headline")),
         _line("Location", i.get("location")),
         _line("Open to", i.get("open_to")),
@@ -142,27 +144,28 @@ def _evidence(kinds: list[str]) -> str:
     return " and ".join(kinds)
 
 
-def _total_lines(f: dict) -> list[str]:
+def _total_lines(f: dict, who: str) -> list[str]:
     total = f["total_experience"]
     if total is None:
         return []
     interns = f["internship_months"]
     if total["months"] == 0:
-        line = "Total professional experience: no full-time professional experience yet"
+        line = f"{who} has no full-time professional experience yet"
         return [line + (f"; {format_duration(interns)} of internships." if interns else ".")]
     scope = "internships included" if total["internships_counted"] else "internships excluded"
     if not total["freelance_counted"]:
         scope += ", freelance and contract work excluded"
     lines = [
-        f"Total professional experience: {total['text']} ({total['years']:.1f} years), counted "
+        f"{who}'s total professional experience: {total['text']} "
+        f"({total['years']:.1f} years), counted "
         f"from {total['from']} to {total['to']}, overlapping roles merged, {scope}."
     ]
     if interns and not total["internships_counted"]:
-        lines.append(f"Internships (not counted above): {format_duration(interns)}.")
+        lines.append(f"{who}'s internships (not counted above): {format_duration(interns)}.")
     return lines
 
 
-def _education_line(f: dict) -> str | None:
+def _education_line(f: dict, who: str) -> str | None:
     e = f["education"]["latest"]
     if not e:
         return None
@@ -171,40 +174,50 @@ def _education_line(f: dict) -> str | None:
         when = f"in progress, expected {e['end_month']}" if e["end_month"] else "in progress"
     else:
         when = f"graduated {e['end_month']}"
-    return f"Most recent education: {what} ({when})."
+    return f"{who}'s most recent education: {what} ({when})."
 
 
 def render_facts(profile: ProfileData, as_of: date | None = None) -> str | None:
     """The authoritative FACTS block: plain sentences, numbers computed server-side."""
     f = compute_facts(profile, as_of)
-    lines: list[str | None] = list(_total_lines(f))
+    who = display_name(profile.identity)
+    who = who[0].upper() + who[1:]  # "the candidate" starts a sentence
+    lines: list[str | None] = list(_total_lines(f, who))
     lines += [
-        f"Current role: {r['title']} at {r['company']} (since {r['since']}, {r['text']})."
+        f"{who}'s current role: {r['title']} at {r['company']} (since {r['since']}, {r['text']})."
         for r in f["current_roles"]
     ]
     if f["last_role_end"]:
-        lines.append(f"Currently employed: no; most recent role ended {f['last_role_end']}.")
+        lines.append(
+            f"{who} is not currently employed; most recent role ended {f['last_role_end']}."
+        )
     lines += [
-        f"Upcoming role: {r['title']} at {r['company']} (starting {r['starts']})."
+        f"{who}'s upcoming role: {r['title']} at {r['company']} (starting {r['starts']})."
         for r in f["upcoming_roles"]
     ]
-    lines += [f"Time at {c['company']}: {c['text']}." for c in f["companies"]]
+    lines += [f"{who}'s time at {c['company']}: {c['text']}." for c in f["companies"]]
     if f["first_job_start"]:
-        lines.append(f"First professional role started: {f['first_job_start']}.")
+        lines.append(f"{who}'s first professional role started: {f['first_job_start']}.")
     for s in f["skills"]:
         if s["source"] == "stated":
-            lines.append(f"{s['name']}: {s['text']} (stated by owner).")
+            lines.append(f"{who}'s {s['name']} experience: {s['text']} (stated by {who}).")
         elif s["source"] == "computed":
-            lines.append(f"{s['name']}: about {s['text']} (from {_evidence(s['evidence'])}).")
-    lines.append(_education_line(f))
+            lines.append(
+                f"{who}'s {s['name']} experience: about {s['text']} "
+                f"(from {_evidence(s['evidence'])})."
+            )
+    lines.append(_education_line(f, who))
     counts = f["counts"]
     if counts["projects"]:
         parts = [f"{n} {k}" for k, n in counts["projects_by_status"].items() if k != "unspecified"]
+        n = counts["projects"]
         lines.append(
-            f"Projects listed: {counts['projects']}" + (f" ({', '.join(parts)})." if parts else ".")
+            f"{who} lists {n} project{'s' if n != 1 else ''}"
+            + (f" ({', '.join(parts)})." if parts else ".")
         )
     if counts["companies"]:
-        lines.append(f"Companies worked at: {counts['companies']}.")
+        n = counts["companies"]
+        lines.append(f"{who} has worked at {n} {'company' if n == 1 else 'companies'}.")
     body = [ln for ln in lines if ln]
     if not body:
         return None

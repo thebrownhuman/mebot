@@ -96,6 +96,8 @@ class IdentityIn(_In):
     salary_expectation: OptShort = None
     work_authorization: OptShort = None
     photo_url: OptUrl = None
+    pronouns: Literal["he/him", "she/her", "they/them"] = "they/them"
+    assistant_greeting: Annotated[_str(300) | None, BeforeValidator(_blank_to_none)] = None
     count_internships: bool = False
     count_freelance: bool = True
 

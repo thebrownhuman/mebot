@@ -205,3 +205,13 @@ def test_0008_telegram_tables(tmp_path):
     assert msg["from_owner"]["nullable"] is False
     for t in ("telegram_configs", "notifications", "contacts"):
         assert insp.get_foreign_keys(t) == []
+
+
+def test_0009_identity_persona_columns(tmp_path):
+    url = f"sqlite:///{(tmp_path / 't.db').as_posix()}"
+    run_migrations(url)
+    insp = sa.inspect(sa.create_engine(url))
+    cols = {c["name"]: c for c in insp.get_columns("profile_identity")}
+    assert cols["pronouns"]["nullable"] is False
+    assert "they/them" in str(cols["pronouns"]["default"])
+    assert cols["assistant_greeting"]["nullable"] is True

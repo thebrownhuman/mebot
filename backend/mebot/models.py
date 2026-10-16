@@ -195,6 +195,11 @@ class ProfileIdentity(_ProfileRow, Base):
     salary_expectation: Mapped[str | None] = mapped_column(Text)
     work_authorization: Mapped[str | None] = mapped_column(Text)
     photo_url: Mapped[str | None] = mapped_column(Text)
+    # Assistant persona (migration 0009): he/him | she/her | they/them, and the first bubble.
+    pronouns: Mapped[str] = mapped_column(
+        Text, default="they/them", server_default="they/them", nullable=False
+    )
+    assistant_greeting: Mapped[str | None] = mapped_column(Text)
     # Which experiences count toward total experience (see profile.facts).
     count_internships: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False

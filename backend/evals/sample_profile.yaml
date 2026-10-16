@@ -3,10 +3,11 @@
 #   Python 4 years 4 months, Go 1 year 7 months, internship 7 months
 identity:
   full_name: Alex Rivera
+  pronouns: he/him
   headline: Backend engineer
   location: Lisbon, Portugal
   open_to: remote or hybrid roles
-  summary: I build reliable payment and data APIs in Python.
+  summary: Builds reliable payment and data APIs in Python.
   email_public: alex@example.com
 
 experiences:
@@ -70,4 +71,4 @@ faqs:
 
 avoid-topics:
   - topic: Politics
-    reply: I keep politics out of work conversations.
+    reply: Alex keeps politics out of work conversations.
