@@ -133,6 +133,8 @@ async def clean(
         {"role": "user", "content": payload},
     ]
     try:
+        if client is None:
+            raise RuntimeError("no AI provider configured")
         chunks = [
             c
             async for c in client.stream_chat(
