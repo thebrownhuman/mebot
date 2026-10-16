@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
+from mebot import channels
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
@@ -104,6 +105,26 @@ def facts(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     return compute_facts(load_profile(db, bot.id))
 
 
+def _phone_warnings(data) -> list[str]:
+    """The output guard hides phone-shaped strings, but free text is the wrong place for one."""
+    shared = {
+        channels.digits(c["value"])
+        for c in data.items("links")
+        if c.get("kind") == "phone" and c.get("share")
+    }
+    where = {
+        "notes": data.notes,
+        "FAQ": " ".join(f["question"] + " " + f["answer"] for f in data.items("faqs")),
+        "learned facts": " ".join(data.learned),
+    }
+    return [
+        f"A phone number appears in your {name}. The bot will never show it; "
+        "add it as a Phone channel above and remove it from the text."
+        for name, text in where.items()
+        if any(d not in shared for d in channels.phone_numbers(text))
+    ]
+
+
 @router.get("/preview")
 def preview(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     data = load_profile(db, bot.id)
@@ -114,6 +135,7 @@ def preview(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
             f"Only the newest {learned_facts.MAX_ACTIVE} learned facts are used. "
             "Move older ones into profile sections (FAQ, projects) to keep them."
         )
+    warnings += _phone_warnings(data)
     return {
         "text": text,
         "chars": len(text),
