@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import ChatScreen from "../components/ChatScreen";
 import WelcomeGate from "../components/WelcomeGate";
 import ContactModal from "../components/ContactModal";
+import ContactPanel from "../components/ContactPanel";
 import { useChat } from "../hooks/useChat";
 import { useOwnerReplies } from "../hooks/useOwnerReplies";
 
@@ -9,6 +10,7 @@ export default function RecruiterPage() {
   const chat = useChat();
   const [entered, setEntered] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const ownerName = chat.config.owner_name || "the candidate";
   const { pollNow } = useOwnerReplies(chat.sessionId, chat.applyUpdates, chat.ready);
 
@@ -47,14 +49,25 @@ export default function RecruiterPage() {
           chat.ready && (
             <button
               type="button"
-              onClick={() => setContactOpen(true)}
+              aria-haspopup="dialog"
+              onClick={() => setPanelOpen(true)}
               className="shrink-0 font-mono text-[11px] px-2 py-1 rounded border border-term-line2 text-term-bright hover:border-term-bright focus-visible:outline focus-visible:outline-2 focus-visible:outline-term-bright"
             >
-              leave my contact
+              contact
             </button>
           )
         }
       />
+      {panelOpen && (
+        <ContactPanel
+          ownerName={ownerName}
+          onClose={() => setPanelOpen(false)}
+          onLeave={() => {
+            setPanelOpen(false);
+            setContactOpen(true);
+          }}
+        />
+      )}
       {contactOpen && (
         <ContactModal
           ownerName={ownerName}

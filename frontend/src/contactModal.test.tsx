@@ -37,7 +37,9 @@ async function enter() {
 }
 
 async function openModal() {
-  fireEvent.click(await screen.findByRole("button", { name: /leave my contact/i }));
+  fireEvent.click(await screen.findByRole("button", { name: /^contact$/i }));
+  const panel = await screen.findByRole("dialog", { name: /get in touch/i });
+  fireEvent.click(within(panel).getByRole("button", { name: /leave my contact/i }));
   return screen.getByRole("dialog", { name: /leave your contact/i });
 }
 
