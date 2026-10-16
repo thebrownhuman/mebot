@@ -70,7 +70,7 @@ left; a menu button on phones). One page per section:
 
 | Page | What goes there |
 |---|---|
-| Identity | Name, **pronouns**, headline, location, what you're open to, summary, public contact, notice period, salary expectation, work authorisation, photo URL, the **assistant greeting**, plus your **links** (GitHub, LinkedIn…) |
+| Identity | Name, **pronouns**, headline, location, what you're open to, summary, notice period, salary expectation, work authorisation, photo URL, the **assistant greeting**, plus your **contact channels** (see *How recruiters contact you*) |
 | Experience | Jobs with start/end months (tick "I currently work here" for the current one), description, highlights, tech |
 | Education | Degrees and courses with dates |
 | Skills | Name, category, level, optional years |
@@ -99,7 +99,7 @@ save wins.
 - **Internships and freelance.** Identity has two toggles: count internships (off
   by default) and count freelance/contract work (on by default) toward the total.
 - **"I don't know" is tracked.** When the profile can't answer, the bot says so
-  (offering your public contact if you set one) and ends with a hidden
+  (offering the contact channels you share, if any) and ends with a hidden
   `[[UNANSWERED]]` marker. The server strips it from the stream, flags the
   message and files the question under **Open questions**, where you can answer
   it once and the bot learns it (see *How mebot learns*).
@@ -115,9 +115,9 @@ save wins.
       cd backend
       python -m mebot.evals --bot default
 
-  It uses `evals/sample_profile.yaml` and `evals/golden.yaml` (29 questions:
+  It uses `evals/sample_profile.yaml` and `evals/golden.yaml` (33 questions:
   years, roles, projects, hobbies, unknowns, off-topic, avoid-topics, a prompt
-  injection, third-person persona, personal questions that must be declined) and makes real API calls with your key, so it costs a few cents.
+  injection, third-person persona, personal questions that must be declined, meeting and phone-number requests) and makes real API calls with your key, so it costs a few cents.
 
 ## How mebot learns
 
@@ -176,6 +176,44 @@ city. This list is built in and can't be edited in this version.
 - A false positive on a keyword only adds a hint for the model; it can't hide a
   professional answer. The one side effect: if the keyword matches and the model also
   says it doesn't know, the question is treated as declined instead of opening a question.
+
+## How recruiters contact you
+
+On **Admin → Profile → Identity** the **Contact channels** list replaces the old Links
+and public email/phone fields. Each channel has a type (portfolio, website, email,
+LinkedIn, GitHub, Instagram, WhatsApp, Telegram, X, phone, other), a value, a label and
+a **Share with recruiters** switch. You can keep up to 30.
+
+- **Only shared channels are ever used.** They appear in the **Contact** panel in the
+  recruiter chat header (links open in a new tab), and the bot lists them when someone
+  asks to meet, call, interview or hire you ("Can we set up a call?"). It also points to
+  the **Leave your contact** form. It never invents times or claims it can book a
+  meeting: there is no calendar feature. With nothing shared, it offers only the form.
+- **A phone number is never shared by default.** Adding one keeps the switch off.
+  Turning it on asks for explicit confirmation (the API needs `confirm_share_phone: true`).
+- **WhatsApp takes a username, not a number.** `@yourname` or `wa.me/yourname`; a value
+  with 7 or more digits is rejected and you are told to add it as a Phone channel
+  instead. Handles for Instagram, X, Telegram and GitHub are turned into profile links;
+  website-style types accept only `http(s)` URLs.
+- **Switched-off channels are kept for you and never revealed.** They are not sent to
+  the AI at all (see Admin → Preview), and an output guard also replaces any
+  non-shared value in a reply (and its variants: a phone number with or without `+`
+  or spaces, a handle with or without `@`) with `[hidden]`, even if the model quotes
+  it in pieces. Any phone-shaped string of 10+ digits is hidden unless it is your shared
+  phone. The Logs show `CHANNEL_REDACTED` with a count, never the value. Turning a
+  switch off takes effect on the very next message.
+- **Don't put your number in Notes or FAQ.** The guard hides it anyway, but Preview
+  warns "A phone number appears in your notes", so you can move it to a Phone channel.
+- **Limits of the guard:** it can't know a made-up address is wrong. If the AI invents
+  an email, it is not one of yours; the prompt forbids it and the golden evals check
+  the common cases.
+- **Upgrading:** existing links become channels (kind guessed from the domain, shared);
+  the old public email becomes a shared Email channel and the old public phone becomes
+  a Phone channel that is **not** shared. The old Identity columns stay in the database
+  but are no longer used.
+
+Public API: `GET /api/public/contact-channels` returns only the shared channels
+(`kind`, `label`, `display`, `href`) and is rate limited.
 
 ## Add your API key
 
