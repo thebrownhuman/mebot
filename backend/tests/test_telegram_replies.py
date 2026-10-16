@@ -128,15 +128,16 @@ async def test_updates_endpoint_returns_only_new_owner_messages(admin_client, ap
     mock_telegram()
     bot_id, sid, n = await unanswered_sent(admin_client, app, fake_llm)
     r = admin_client.get(f"/api/session/{sid}/updates")
-    assert r.json() == {"messages": []}
+    assert r.json() == {"messages": [], "unanswered": True}
     await handle_update(ctx(app), bot_id, text_update("first", reply_to=n.telegram_message_id))
     msgs = admin_client.get(f"/api/session/{sid}/updates").json()["messages"]
     assert [m["content"] for m in msgs] == ["first"]
     assert msgs[0]["from_owner"] is True and msgs[0]["created_at"].endswith("Z")
     after = msgs[0]["created_at"]
-    assert admin_client.get(f"/api/session/{sid}/updates", params={"after": after}).json() == {
-        "messages": []
-    }
+    assert (
+        admin_client.get(f"/api/session/{sid}/updates", params={"after": after}).json()["messages"]
+        == []
+    )
     await handle_update(ctx(app), bot_id, text_update("second", reply_to=n.telegram_message_id))
     msgs = admin_client.get(f"/api/session/{sid}/updates", params={"after": after}).json()
     assert [m["content"] for m in msgs["messages"]] == ["second"]

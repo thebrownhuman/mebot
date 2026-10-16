@@ -8,6 +8,7 @@ from mebot.db import get_db
 from mebot.deps import get_current_bot
 from mebot.models import Bot
 from mebot.repos import limits as limits_repo
+from mebot.repos import profile_items
 
 router = APIRouter(prefix="/api/public")
 
@@ -24,4 +25,11 @@ def public_config(
         else None,
         "max_message_chars": limits.max_message_chars,
         "paused": limits.paused,
+        # Shown to recruiters (consent line, "{name} replied:"); identity name, else bot name.
+        "owner_name": _owner_name(db, bot),
     }
+
+
+def _owner_name(db: Session, bot: Bot) -> str:
+    ident = profile_items.get_identity(db, bot.id)
+    return (ident.full_name.strip() if ident else "") or bot.name

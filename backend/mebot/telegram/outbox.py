@@ -8,9 +8,9 @@ back the later rows of that bot, so the owner never sees messages out of order.
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from mebot.models import Notification, new_id, utcnow
@@ -37,6 +37,13 @@ def enqueue(
     nid: str | None = None,
 ) -> Notification:
     now = utcnow()
+    # Delivery order is created_at; Windows clocks can repeat a value, so keep it
+    # strictly increasing per bot (ids are random and can't break ties in order).
+    last = db.scalar(select(func.max(Notification.created_at)).where(Notification.bot_id == bot_id))
+    if last is not None:
+        last = last if last.tzinfo else last.replace(tzinfo=UTC)
+        if last >= now:
+            now = last + timedelta(microseconds=1)
     n = Notification(
         id=nid or new_id(),
         bot_id=bot_id,

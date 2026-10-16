@@ -71,7 +71,9 @@ def session_updates(
                 "created_at": _iso(m.created_at),
             }
             for m in sessions.owner_messages(db, bot.id, sid, since)
-        ]
+        ],
+        # Lets the chat suggest "Leave my contact" after a reply the bot couldn't give.
+        "unanswered": sessions.last_reply_unanswered(db, bot.id, sid),
     }
 
 
