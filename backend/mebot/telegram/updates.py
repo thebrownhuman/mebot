@@ -42,6 +42,8 @@ class TgContext:
     # Outbox pacing: loop time of the last message per chat; sleep is injectable.
     last_sent: dict[str, float] = field(default_factory=dict)
     sleep: Callable = asyncio.sleep
+    # Monotonic seconds for pacing; None = the event loop's clock. Injectable for tests.
+    clock: Callable[[], float] | None = None
 
 
 @dataclass

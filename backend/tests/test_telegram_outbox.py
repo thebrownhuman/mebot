@@ -51,12 +51,13 @@ async def test_sends_in_order_with_pacing(admin_client, app):
     for t in ("one", "two", "three"):
         enqueue(app, bot_id, t)
     c = tctx(app)
+    c.clock = lambda: 100.0  # frozen: the test must not depend on how fast the sends are
     assert await outbox.send_due(c) == 3
     assert sent_texts(routes) == ["one", "two", "three"]
     assert [r.status for r in rows(app)] == ["sent"] * 3
     assert all(r.telegram_message_id for r in rows(app))
     # <= 1 message per second per chat: the 2nd and 3rd waited
-    assert len(c.sleep.calls) == 2 and all(0 < s <= 1 for s in c.sleep.calls)
+    assert c.sleep.calls == [outbox.PER_CHAT_GAP, outbox.PER_CHAT_GAP]
     body = json.loads(routes["sendMessage"].calls[0].request.content)
     assert body["parse_mode"] == "HTML"
 
