@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { FormError } from "../../components/AuthForm";
 import { AdminSection, useAdmin } from "../../components/admin/AdminLayout";
+import ChannelsEditor from "../../components/admin/ChannelsEditor";
 import CollectionPage from "../../components/admin/CollectionPage";
 import {
   FormField,
@@ -13,7 +14,7 @@ import {
   type FormErrors,
   type FormValues,
 } from "../../components/admin/fields";
-import { LINKS, sectionByRoute } from "../../components/admin/sections";
+import { sectionByRoute } from "../../components/admin/sections";
 import { DEFAULT_GREETING, PRONOUNS, renderGreeting } from "../../lib/greeting";
 import {
   getIdentity,
@@ -82,8 +83,6 @@ const IDENTITY_FIELDS: FieldDef[] = [
     placeholder: "remote, relocation",
   },
   { name: "summary", label: "Summary", kind: "textarea", maxLength: 5000 },
-  { name: "email_public", label: "Public email", kind: "email", maxLength: 200 },
-  { name: "phone_public", label: "Public phone", kind: "text", maxLength: 200 },
   { name: "notice_period", label: "Notice period", kind: "text", maxLength: 200 },
   { name: "salary_expectation", label: "Salary expectation", kind: "text", maxLength: 200 },
   { name: "work_authorization", label: "Work authorisation", kind: "text", maxLength: 200 },
@@ -201,9 +200,7 @@ function IdentityPage() {
           </button>
         </form>
       )}
-      <h2 className="text-term-bright text-base mb-1">Links</h2>
-      <p className="text-term-dim text-xs mb-3">{LINKS.intro}</p>
-      <CollectionPage config={LINKS} />
+      <ChannelsEditor />
     </AdminSection>
   );
 }
