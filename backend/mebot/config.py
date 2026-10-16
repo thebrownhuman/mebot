@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # Built frontend (npm run build). The backend serves the widget loader and the embed
     # bundle from here when nginx doesn't (single-process / dev setups).
     frontend_dist: Path = REPO_ROOT / "frontend" / "dist"
+    # Optional token for GitHub imports (public data only; raises the 60/hour limit).
+    # A token saved in Admin -> Import takes precedence.
+    github_token: str | None = None
 
     @model_validator(mode="after")
     def _default_db(self) -> "Settings":

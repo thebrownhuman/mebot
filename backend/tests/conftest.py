@@ -91,6 +91,7 @@ def settings(tmp_path):
         ollama_host="http://ollama.invalid",
         telegram_workers=False,
         frontend_dist=tmp_path / "dist",
+        github_token=None,
     )
 
 

@@ -159,6 +159,8 @@ def _entry(temp_id: str, item: Item, match: dict, reason: str | None = None) -> 
         out["kind"] = item.kind
     if item.snippet:
         out["snippet"] = item.snippet
+    if item.evidence:
+        out["evidence"] = item.evidence
     status = match["status"]
     if needs_review or item.default_skip or status == "same":
         out["default_action"] = "skip"
@@ -204,6 +206,8 @@ def build(db: Session, bot_id: str, ex: Extracted) -> dict:
                 entries.append(_entry(temp_id, item, {"status": status}))
                 continue
             row = find_match(slug, item.data, profile.items(slug))
+            if row is not None and item.only_if_new:
+                continue
             if row is None:
                 entries.append(
                     _entry(temp_id, item, {"status": "new"}, validation_reason(slug, item.data))
@@ -219,4 +223,7 @@ def build(db: Session, bot_id: str, ex: Extracted) -> dict:
                 entries.append(_entry(temp_id, item, match, validation_reason(slug, merged)))
         if entries:
             sections[slug] = entries
-    return {"sections": {k: sections[k] for k in SECTION_ORDER if k in sections}}
+    out = {"sections": {k: sections[k] for k in SECTION_ORDER if k in sections}}
+    if ex.errors:
+        out["errors"] = ex.errors
+    return out
