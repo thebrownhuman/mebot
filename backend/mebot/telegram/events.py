@@ -12,7 +12,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from mebot.models import ChatSession, Contact, Message, TelegramConfig, new_id, utcnow
+from mebot.guard import personal
+from mebot.models import ChatSession, Contact, Message, Notification, TelegramConfig, new_id, utcnow
 from mebot.telegram import outbox, repo
 
 MAX_TEXT = 800
@@ -72,6 +73,27 @@ def question(db: Session, bot_id: str, session_id: str, name: str | None, text: 
         {"text": f"💬 <b>{_name(name)}</b>: {esc(text)}"},
         session_id=session_id,
     )
+
+
+def retract_question(db: Session, bot_id: str, session_id: str) -> None:
+    """A question the model declined as personal: drop its alert if it hasn't been sent.
+
+    The alert is queued before the model answers, so only the model's own PERSONAL
+    verdict can tell us; keyword-matched questions never get queued at all."""
+    n = db.scalar(
+        select(Notification)
+        .where(
+            Notification.bot_id == bot_id,
+            Notification.session_id == session_id,
+            Notification.kind == "question",
+            Notification.status == "pending",
+        )
+        .order_by(Notification.created_at.desc())
+        .limit(1)
+    )
+    if n is not None:
+        db.delete(n)
+        db.flush()
 
 
 def unanswered(
@@ -191,7 +213,8 @@ def activity(db: Session, bot_id: str, start: datetime, end: datetime) -> dict:
             Message.bot_id == bot_id, Message.created_at >= start, Message.created_at < end
         )
     ).all()
-    questions = [c for r, c, _ in msgs if r == "user"]
+    # Personal-looking questions never reach the owner, digest included.
+    questions = [c for r, c, _ in msgs if r == "user" and personal.classify(c) is None]
     contacts = db.scalar(
         select(func.count())
         .select_from(Contact)
