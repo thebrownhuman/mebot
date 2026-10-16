@@ -17,7 +17,7 @@ from mebot.profile.data import load_profile
 from mebot.profile.facts import compute_facts
 from mebot.profile.render import approx_tokens, render_profile
 from mebot.profile.schemas import IdentityIn, NotesIn, OrderIn
-from mebot.repos import logs
+from mebot.repos import learned_facts, logs
 from mebot.repos import profile_items as repo
 
 router = APIRouter(
@@ -95,8 +95,21 @@ def facts(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
 
 @router.get("/preview")
 def preview(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
-    text = render_profile(load_profile(db, bot.id))
-    return {"text": text, "chars": len(text), "approx_tokens": approx_tokens(text)}
+    data = load_profile(db, bot.id)
+    text = render_profile(data)
+    warnings = []
+    if len(data.learned) >= learned_facts.MAX_ACTIVE:
+        warnings.append(
+            f"Only the newest {learned_facts.MAX_ACTIVE} learned facts are used. "
+            "Move older ones into profile sections (FAQ, projects) to keep them."
+        )
+    return {
+        "text": text,
+        "chars": len(text),
+        "approx_tokens": approx_tokens(text),
+        "learned_facts": len(data.learned),
+        "warnings": warnings,
+    }
 
 
 # --- list sections -----------------------------------------------------------------------

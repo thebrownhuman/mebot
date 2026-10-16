@@ -128,6 +128,14 @@ def _faq(p: ProfileData) -> str | None:
     return _block("FAQ", [f"Q: {f['question']}\nA: {f['answer']}" for f in p.items("faqs")])
 
 
+def _learned(p: ProfileData) -> str | None:
+    if not p.learned:
+        return None
+    who = display_name(p.identity)
+    # Newest first; as authoritative as the rest of the profile (the owner approved each).
+    return _block(f"LEARNED FACTS (confirmed by {who})", [f"- {t}" for t in p.learned])
+
+
 def _avoid(p: ProfileData) -> str | None:
     lines = [
         f"- {a['topic']}" + (f' (reply: "{a["reply"]}")' if a.get("reply") else "")
@@ -237,6 +245,7 @@ def render_profile(profile: ProfileData, as_of: date | None = None) -> str:
         _projects(profile),
         _interests(profile),
         _faq(profile),
+        _learned(profile),
         _avoid(profile),
         _notes(profile),
     ]
