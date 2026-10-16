@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
+from mebot.imports import pipelines
 from mebot.limits import counters
 from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
 from mebot.limits.service import ChatLimiter
@@ -64,6 +65,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Recruiter UI fetches the Contact panel once per chat open.
     app.state.channels_limiter = SlidingWindowLimiter(limit=30, window_seconds=60)
     app.state.contact_limiter = SlidingWindowLimiter(limit=3, window_seconds=3600)
+    # Imports: 10 uploads per hour per bot; runners by kind (tests swap them).
+    app.state.import_limiter = SlidingWindowLimiter(limit=10, window_seconds=3600)
+    app.state.import_runners = pipelines.RUNNERS
     app.state.telegram_ctx = TgContext(app.state.session_factory, secret_key, settings)
     app.state.telegram = TelegramService(app.state.telegram_ctx)
     with app.state.session_factory() as db:
