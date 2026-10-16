@@ -343,3 +343,23 @@ def test_0012_import_jobs(tmp_path):
     }  # fmt: skip
     command.downgrade(alembic_config(url), "0011")
     assert "import_jobs" not in sa.inspect(sa.create_engine(url)).get_table_names()
+
+
+def test_0013_integration_tokens(tmp_path):
+    url = f"sqlite:///{(tmp_path / 't.db').as_posix()}"
+    run_migrations(url)
+    insp = sa.inspect(sa.create_engine(url))
+    cols = {c["name"] for c in insp.get_columns("integration_tokens")}
+    assert cols == {
+        "id",
+        "bot_id",
+        "provider",
+        "token_encrypted",
+        "token_last4",
+        "created_at",
+        "updated_at",
+    }
+    ix = {i["name"]: i for i in insp.get_indexes("integration_tokens")}
+    assert ix["ux_integration_tokens_bot_provider"]["unique"]
+    command.downgrade(alembic_config(url), "0012")
+    assert "integration_tokens" not in sa.inspect(sa.create_engine(url)).get_table_names()

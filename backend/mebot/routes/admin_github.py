@@ -8,7 +8,7 @@ import hashlib
 import json
 import re
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,7 @@ from mebot.imports.filetype import ImportFailure
 from mebot.imports.pipelines import RunContext, process
 from mebot.llm import service as llm
 from mebot.models import Bot
-from mebot.repos import import_jobs, logs
+from mebot.repos import import_jobs, integration_tokens, logs
 
 router = APIRouter(
     prefix="/api/admin",
@@ -38,7 +38,8 @@ class GithubImportIn(BaseModel):
 
 def resolve_token(request: Request, db: Session, bot_id: str) -> str | None:
     """The token for GitHub's rate limits: the admin-saved one, else GITHUB_TOKEN."""
-    return request.app.state.settings.github_token or None
+    saved = integration_tokens.plaintext(db, request.app.state.secret_key, bot_id, "github")
+    return saved or request.app.state.settings.github_token or None
 
 
 def _parse_all(urls: list[str]) -> list[tuple[str, str]]:
@@ -158,3 +159,57 @@ async def github_repos(
     rows.sort(key=lambda d: int(d.get("stargazers_count") or 0), reverse=True)
     rows.sort(key=lambda d: bool(d.get("archived")))
     return {"items": [_repo_row(d) for d in rows[:100]]}
+
+
+# --- the optional token ------------------------------------------------------------------
+
+_TOKEN = re.compile(r"^[A-Za-z0-9_]{20,255}$")
+
+
+class TokenIn(BaseModel):
+    token: str = Field(max_length=255)
+
+
+def _token_view(request: Request, db: Session, bot_id: str) -> dict:
+    row = integration_tokens.get(db, bot_id, "github")
+    return {
+        "configured": row is not None,
+        "token_last4": row.token_last4 if row else None,
+        "env_token": bool(request.app.state.settings.github_token),
+    }
+
+
+@router.get("/integrations/github")
+def get_github_token(
+    request: Request, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+):
+    return _token_view(request, db, bot.id)
+
+
+@router.put("/integrations/github")
+def put_github_token(
+    req: TokenIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+):
+    token = req.token.strip()
+    if not _TOKEN.match(token):
+        raise ApiError(
+            422,
+            "VALIDATION_ERROR",
+            "That doesn't look like a GitHub token.",
+            [{"field": "token", "message": "paste a token like ghp_… or github_pat_…"}],
+        )
+    integration_tokens.save(db, request.app.state.secret_key, bot.id, "github", token)
+    logs.add(db, bot.id, None, "github_token_saved")  # never the token
+    db.commit()
+    return _token_view(request, db, bot.id)
+
+
+@router.delete("/integrations/github", status_code=204)
+def delete_github_token(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
+    if integration_tokens.delete(db, bot.id, "github"):
+        logs.add(db, bot.id, None, "github_token_removed")
+    db.commit()
+    return Response(status_code=204)
