@@ -821,3 +821,107 @@ export async function saveWidgetSettings(body: WidgetUpdate): Promise<WidgetSett
 export async function getWidgetSnippets(): Promise<WidgetSnippets> {
   return json("/api/admin/widget/snippets", admin);
 }
+
+// --- imports -------------------------------------------------------------------
+
+export type ImportKind = "resume" | "linkedin";
+export type ImportStatus = "processing" | "ready" | "applied" | "failed" | "expired";
+export type ImportAction = "add" | "update" | "skip";
+
+export interface DraftEntry {
+  temp_id: string;
+  data: Record<string, unknown>;
+  match: {
+    status: "new" | "same" | "changed";
+    existing_id?: string;
+    diff?: Record<string, { from: unknown; to: unknown }>;
+  };
+  needs_review: boolean;
+  reason?: string;
+  kind?: string;
+  snippet?: string;
+  default_action: ImportAction;
+}
+
+export type ImportSummary = Record<string, { added: number; updated: number }>;
+
+export interface ImportJobSummary {
+  id: string;
+  kind: ImportKind;
+  status: ImportStatus;
+  filename: string | null;
+  size_bytes: number | null;
+  error_code: string | null;
+  error_message: string | null;
+  applied_summary: ImportSummary | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface ImportJob extends ImportJobSummary {
+  draft: { sections: Record<string, DraftEntry[]> } | null;
+  source_text: string | null;
+}
+
+export interface ImportDecision {
+  temp_id: string;
+  action: ImportAction;
+  data?: Record<string, unknown>;
+}
+
+const IMP = "/api/admin/import";
+
+// XHR rather than fetch: fetch can't report upload progress.
+export function uploadImport(
+  kind: ImportKind,
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<ImportJobSummary | { id: string; status: ImportStatus }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${IMP}/${kind}`);
+    xhr.withCredentials = true;
+    const token = readCookie(CSRF_COOKIE);
+    if (token) xhr.setRequestHeader("X-CSRF-Token", token);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded / e.total);
+    };
+    xhr.onerror = () => reject(new ApiError(0, "NETWORK", "Upload failed. Check your connection."));
+    xhr.onload = async () => {
+      const headers = new Headers({ "Content-Type": "application/json" });
+      const ra = xhr.getResponseHeader("Retry-After");
+      if (ra) headers.set("Retry-After", ra);
+      const r = new Response(xhr.responseText || null, { status: xhr.status, headers });
+      if (xhr.status >= 200 && xhr.status < 300) resolve(await r.json());
+      else {
+        if (xhr.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+        reject(await toApiError(r));
+      }
+    };
+    const form = new FormData();
+    form.append("file", file);
+    xhr.send(form);
+  });
+}
+
+export async function listImportJobs(): Promise<ImportJobSummary[]> {
+  const d = await json<{ items: ImportJobSummary[] }>(`${IMP}/jobs`, admin);
+  return d?.items ?? [];
+}
+
+export async function getImportJob(id: string): Promise<ImportJob> {
+  return json(`${IMP}/jobs/${encodeURIComponent(id)}`, admin);
+}
+
+export async function applyImport(id: string, decisions: ImportDecision[]): Promise<ImportSummary> {
+  const d = await json<{ applied: ImportSummary }>(`${IMP}/jobs/${encodeURIComponent(id)}/apply`, {
+    method: "POST",
+    body: { decisions },
+    ...admin,
+  });
+  return d?.applied ?? {};
+}
+
+export async function discardImport(id: string): Promise<void> {
+  await send(`${IMP}/jobs/${encodeURIComponent(id)}`, { method: "DELETE", ...admin });
+}
