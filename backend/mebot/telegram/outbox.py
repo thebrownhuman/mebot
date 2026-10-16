@@ -74,12 +74,13 @@ def _backoff(attempts: int) -> timedelta:
 
 
 async def _pace(ctx: TgContext, chat_id: str) -> None:
+    clock = ctx.clock or asyncio.get_running_loop().time
     last = ctx.last_sent.get(chat_id)
     if last is not None:
-        gap = PER_CHAT_GAP - (asyncio.get_running_loop().time() - last)
+        gap = PER_CHAT_GAP - (clock() - last)
         if gap > 0:
             await ctx.sleep(gap)
-    ctx.last_sent[chat_id] = asyncio.get_running_loop().time()
+    ctx.last_sent[chat_id] = clock()
 
 
 async def send_due(ctx: TgContext, limit: int = 50) -> int:
