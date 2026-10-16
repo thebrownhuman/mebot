@@ -24,6 +24,7 @@ LINK_FAILED = "Link expired or invalid. Generate a new one in mebot admin → No
 COMMANDS = [
     ("status", "Bot status and today's usage"),
     ("today", "Today's activity so far"),
+    ("questions", "Top open questions to answer"),
     ("pause", "Pause the chat bot"),
     ("resume", "Resume the chat bot"),
     ("help", "What I can do"),
@@ -94,9 +95,13 @@ async def _start(ctx: TgContext, inc: Incoming, arg: str) -> None:
 
 def _handlers() -> tuple[list, list]:
     """Linked-chat handlers, tried in order; each returns True when it handled it."""
-    from mebot.telegram import commands, replies  # late import: they build on this module
+    from mebot.telegram import commands, memory, replies  # late: they build on this module
 
-    return [commands.on_command, *replies.MESSAGE_HANDLERS], list(replies.CALLBACK_HANDLERS)
+    # memory's prompt replies come before replies', which treats any other reply as a miss.
+    return (
+        [commands.on_command, *memory.MESSAGE_HANDLERS, *replies.MESSAGE_HANDLERS],
+        [*replies.CALLBACK_HANDLERS, *memory.CALLBACK_HANDLERS],
+    )
 
 
 async def handle_update(ctx: TgContext, bot_id: str, update: dict) -> None:

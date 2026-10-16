@@ -3,7 +3,7 @@
 Tap **Reply** (force-reply prompt) or reply directly to the ❓ message; either way the
 replied-to Telegram message id maps to an outbox row, hence to the session and the
 visitor's question. The answer is stored as an assistant message with from_owner=true
-(the recruiter UI polls for it), and **Save to FAQ** turns it into a FAQ entry once.
+(the recruiter UI polls for it); **Save to memory** (mebot.telegram.memory) is separate.
 """
 
 import json
@@ -11,10 +11,7 @@ import json
 from sqlalchemy import select
 
 from mebot.models import Notification, utcnow
-from mebot.profile.schemas import FaqIn
-from mebot.profile.sections import SECTIONS
 from mebot.repos import logs, sessions
-from mebot.repos import profile_items as profile
 from mebot.telegram.client import TelegramError
 from mebot.telegram.events import esc
 from mebot.telegram.updates import Incoming, TgContext, _safe_send
@@ -102,7 +99,7 @@ async def on_reply_message(ctx: TgContext, inc: Incoming, msg: dict) -> bool:
         inc.chat_id,
         f"✅ Sent to <b>{name}</b>.",
         reply_markup={
-            "inline_keyboard": [[{"text": "Save to FAQ", "callback_data": f"faq:{record.id}"}]]
+            "inline_keyboard": [[{"text": "Save to memory", "callback_data": f"mem:{record.id}"}]]
         },
     )
     record.telegram_message_id = tid
@@ -132,36 +129,6 @@ async def on_callback(ctx: TgContext, inc: Incoming, cb: dict) -> bool:
         _record(inc, "reply_prompt", {"ref": target.id}, tid, session_id=target.session_id)
         inc.db.commit()
         await _answer(inc, cb)
-        return True
-    if action == "faq":
-        record = _by_id(inc, nid, "owner_reply")
-        if record is None:
-            await _answer(inc, cb, "Can't find that answer.")
-            return True
-        p = _payload(record)
-        if not p.get("faq_id"):
-            question = (p.get("question") or "").strip()[:400] or "(question)"
-            faq = profile.create(
-                inc.db,
-                SECTIONS["faqs"],
-                inc.bot_id,
-                FaqIn(question=question, answer=p.get("answer", "")[:4000]),
-            )
-            p["faq_id"] = faq.id
-            record.payload = json.dumps(p, ensure_ascii=False)
-            logs.add(inc.db, inc.bot_id, record.session_id, "profile_updated", detail="faqs")
-            inc.db.commit()
-        message_id = (cb.get("message") or {}).get("message_id")
-        if message_id is not None:
-            try:
-                await inc.client.edit_reply_markup(
-                    inc.chat_id,
-                    message_id,
-                    {"inline_keyboard": [[{"text": "Saved ✓", "callback_data": "noop"}]]},
-                )
-            except TelegramError:
-                pass
-        await _answer(inc, cb, "Saved to FAQ")
         return True
     if action == "noop":
         await _answer(inc, cb)

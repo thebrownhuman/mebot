@@ -16,7 +16,7 @@ async def test_help(admin_client, app):
     bot_id = link(app)
     await say(app, bot_id, "/help")
     t = sent_texts(routes)[-1]
-    for c in ("/status", "/pause", "/resume", "/today", "/help"):
+    for c in ("/status", "/pause", "/resume", "/today", "/questions", "/help"):
         assert c in t
 
 
