@@ -51,6 +51,12 @@ def norm(v) -> str:
     return re.sub(r"[^a-z0-9+#]+", " ", str(v or "").lower()).strip()
 
 
+def _repo_key(d: dict) -> str | None:
+    url = str(d.get("repo_url") or "").strip().lower()
+    url = re.sub(r"^https?://(www\.)?", "", url).removesuffix("/").removesuffix(".git")
+    return url or None
+
+
 def _channel_key(d: dict) -> tuple:
     kind = d.get("kind") or "website"
     try:
@@ -66,6 +72,8 @@ class Matcher:
     # Fields the key is built from: equal once matched (aliases, case), so never diffed.
     fields: tuple[str, ...] = ()
     dated: bool = False  # also require start months within +-1 month (when both known)
+    # Tried before `key` when both sides have it (projects: the repo URL).
+    primary: Callable[[dict], object] | None = None
 
 
 MATCHERS: dict[str, Matcher] = {
@@ -76,7 +84,7 @@ MATCHERS: dict[str, Matcher] = {
         lambda d: (norm(d.get("institution")), norm(d.get("degree"))), ("institution", "degree")
     ),
     "skills": Matcher(lambda d: normalize_skill(norm(d.get("name"))), ("name",)),
-    "projects": Matcher(lambda d: norm(d.get("name")), ("name",)),
+    "projects": Matcher(lambda d: norm(d.get("name")), ("name",), primary=lambda d: _repo_key(d)),
     "interests": Matcher(lambda d: norm(d.get("name")), ("name",)),
     "links": Matcher(_channel_key, ("kind", "value")),
 }
@@ -122,6 +130,10 @@ def find_match(slug: str, data: dict, existing: list[dict]) -> dict | None:
     m = MATCHERS.get(slug)
     if m is None:
         return None
+    if m.primary is not None and m.primary(data):
+        for row in existing:
+            if m.primary(row) == m.primary(data):
+                return row
     key = m.key(data)
     if not key or key == ("", "") or key == ("website", ""):
         return None
