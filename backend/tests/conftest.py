@@ -82,6 +82,7 @@ def settings(tmp_path):
         database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
         ollama_host="http://ollama.invalid",
         telegram_workers=False,
+        frontend_dist=tmp_path / "dist",
     )
 
 
