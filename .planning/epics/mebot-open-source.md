@@ -39,7 +39,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 7b | Learning loop: open-questions inbox, owner answers → AI-cleaned facts (approve first), professional-topic filter, assistant persona (3rd person) | review | [spec](../specs/learning-loop.md) | — | #7 | M |
 | 7c | Contact handoff: on meeting/contact requests bot shares owner-chosen channels (portfolio, email, Instagram, WhatsApp username, LinkedIn…); per-channel "share" toggle; phone number never shared by default; no calendar booking | review | [spec](../specs/contact-handoff.md) | — | #7b | S |
 | 8 | Embeddable widget + allowed origins + theming | review | [spec](../specs/embed-widget.md) | — | #6 | M |
-| 9 | Imports: resume PDF/DOCX + LinkedIn export ZIP | todo | — | — | #3, #4 | M |
+| 9 | Imports: resume PDF/DOCX + LinkedIn export ZIP | building | [spec](../specs/imports.md) | — | #3, #4 | M |
 | 10 | Import: GitHub repo → project entry | todo | — | — | #9 | S |
 | 11 | Dashboard + conversations + analytics | todo | — | — | #4, #7 | M |
 | 12 | Install registry + opt-in telemetry | todo | — | — | #2 | M |
