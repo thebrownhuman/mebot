@@ -70,7 +70,7 @@ left; a menu button on phones). One page per section:
 
 | Page | What goes there |
 |---|---|
-| Identity | Name, headline, location, what you're open to, summary, public contact, notice period, salary expectation, work authorisation, photo URL, plus your **links** (GitHub, LinkedIn…) |
+| Identity | Name, **pronouns**, headline, location, what you're open to, summary, public contact, notice period, salary expectation, work authorisation, photo URL, the **assistant greeting**, plus your **links** (GitHub, LinkedIn…) |
 | Experience | Jobs with start/end months (tick "I currently work here" for the current one), description, highlights, tech |
 | Education | Degrees and courses with dates |
 | Skills | Name, category, level, optional years |
@@ -79,6 +79,8 @@ left; a menu button on phones). One page per section:
 | FAQ | Exact answers to questions you get often ("Open to relocation?") |
 | Avoid topics | Things the bot must never discuss, with an optional polite reply |
 | Notes | Anything else. Text from the old single profile box was moved here on upgrade |
+| Open questions | Questions the bot couldn't answer, most asked first. Answer once and the bot learns it (see below). The sidebar shows how many are open |
+| Memory | Facts the bot learned from you: waiting for your approval, approved, rejected. You can also add a fact directly |
 | Preview | The exact text the bot receives, with a size estimate (it warns above ~6k tokens) |
 
 Lists can be reordered with the arrow buttons; the order is the order the bot sees.
@@ -99,17 +101,81 @@ save wins.
 - **"I don't know" is tracked.** When the profile can't answer, the bot says so
   (offering your public contact if you set one) and ends with a hidden
   `[[UNANSWERED]]` marker. The server strips it from the stream, flags the
-  message and logs the question. The dashboard lists the latest ones so you can
-  add the answer to your FAQ or profile.
+  message and files the question under **Open questions**, where you can answer
+  it once and the bot learns it (see *How mebot learns*).
+- **The bot is your assistant, not you.** It always talks about you in the third
+  person ("Shivansh has 4 years of Python…"), uses the pronouns you chose on the
+  Identity page (default they/them: it then says your name or "they"), and says it
+  is an AI assistant if asked. Recruiters see your **assistant greeting** as the
+  first message; it is rendered by the server, not generated, so it costs nothing.
+  Placeholders: `{first_name}`, `{name}`, `{pronoun_subj}`, `{pronoun_obj}`.
 - **Limits.** This is prompt-level grounding: a model can still ignore its rules.
   Run the golden evals against your provider and model to check:
 
       cd backend
       python -m mebot.evals --bot default
 
-  It uses `evals/sample_profile.yaml` and `evals/golden.yaml` (21 questions:
+  It uses `evals/sample_profile.yaml` and `evals/golden.yaml` (29 questions:
   years, roles, projects, hobbies, unknowns, off-topic, avoid-topics, a prompt
-  injection) and makes real API calls with your key, so it costs a few cents.
+  injection, third-person persona, personal questions that must be declined) and makes real API calls with your key, so it costs a few cents.
+
+## How mebot learns
+
+Every professional question the bot can't answer lands in **Admin → Open questions**
+(and the sidebar badge counts them). Similar wordings are grouped and counted, so
+"What's his notice period?" and "notice period?" become one line, "asked 4×". No AI
+call is used for grouping.
+
+1. **You answer** in plain words, in Admin or from Telegram ("Bangalore, open to remote").
+2. **One AI call** (with your own provider key, a few cents at most) turns it into a
+   clean third-person fact: "Shivansh lives in Bangalore and is open to remote work."
+   It may only use what you wrote. mebot then checks that every number, link and
+   e-mail in the result appears in your answer; if not, or if the AI fails, the fact
+   falls back to your own words, marked **needs review**.
+3. **You approve.** Nothing is known to the bot until you press **Approve** (you can
+   **Edit** first, or **Reject**, which puts the question back in the inbox).
+   - A fact about a single profile field (location, notice period, open to, salary
+     expectation, work authorisation) fills that field on the Identity page if it is
+     empty. If it already has a value you choose **Replace** or **Keep both**; mebot
+     never overwrites it silently.
+   - Anything else becomes a **learned fact** (Memory page). The bot gets them in a
+     `LEARNED FACTS` section, newest first, as authoritative as the rest of your
+     profile. Only the newest 200 are used; Preview warns when you reach that, so move
+     old ones into FAQ or projects.
+4. **Delete** a learned fact any time and the bot stops saying it (the question reopens).
+
+You are the only teacher: recruiter statements are never learned. Approving twice, or
+in Admin and Telegram at once, does nothing the second time.
+
+**In Telegram** (see below), after you reply to a "couldn't answer" notice, **Save to
+memory** shows the cleaned fact with **Approve / Edit / Reject**. The daily digest lists
+your top 3 open questions with **Answer** buttons, and `/questions` lists the top 5.
+You are pinged about a question on its first ask and then at most once a day ("asked 3×").
+
+## What mebot will never discuss
+
+mebot only talks about your work. It always declines, in one polite sentence, questions
+about romantic relationships or dating, marital status, sexual orientation, religion or
+caste, politics, health or disability, pregnancy or family planning, age or date of
+birth, ethnicity or race, finances unrelated to salary, and a home address beyond your
+city. This list is built in and can't be edited in this version.
+
+- **Two layers.** A keyword check (English and common Hinglish, whole words only, so
+  "Religare" is not "religion") flags the message; the prompt rule makes the model
+  decline even indirect phrasings ("is he single?") and end with a hidden `[[PERSONAL]]`
+  marker that the server strips.
+- **Not logged as unanswered, never sent to you.** A declined question creates no open
+  question and no Telegram message (the per-question alert and the digest skip it too).
+  The log records `PERSONAL_DECLINED` with the category only, not the question text. The
+  chat history itself still stores what the visitor typed, like any message.
+- **Your own data doesn't override this.** If you typed something in these categories
+  into Notes or an answer, the bot still won't volunteer it, and the cleaning step
+  refuses to save personal answers.
+- **Still allowed** when you provided them: salary expectation, notice period, work
+  authorisation, your city and relocation.
+- A false positive on a keyword only adds a hint for the model; it can't hide a
+  professional answer. The one side effect: if the keyword matches and the model also
+  says it doesn't know, the question is treated as declined instead of opening a question.
 
 ## Add your API key
 
@@ -215,15 +281,17 @@ couldn't from Telegram — the reply shows up in the recruiter's open chat.
 **What gets sent to Telegram.** Only what you need to act on: the recruiter's name
 (as they typed it), their questions, the bot's "couldn't answer" notices, contact
 details a recruiter chose to leave, limit / leak-guard alerts and daily counts. All
-visitor text is HTML-escaped. Never sent: IP addresses, your profile notes, the system
+visitor text is HTML-escaped. Personal-topic questions are never sent (see *What mebot
+will never discuss*). Never sent: IP addresses, your profile notes, the system
 prompt or any API key. Telegram itself stores those messages like any other chat.
 
 **Replying.** On a "couldn't answer" notice, press **Reply** (or reply to the message)
 and type your answer. It's added to the recruiter's chat as "{your first name}
 replied:" — their chat checks every 5 seconds while the tab is open, and the session
-is remembered in their browser, so they see it when they come back. **Save to FAQ**
-turns the question and your answer into an FAQ entry. Commands in the linked chat:
-`/status`, `/pause`, `/resume`, `/today`, `/help`.
+is remembered in their browser, so they see it when they come back. **Save to memory**
+turns your answer into a learned fact (cleaned by the AI, then Approve / Edit / Reject;
+see *How mebot learns*). Commands in the linked chat: `/status`, `/pause`, `/resume`,
+`/today`, `/questions`, `/help`.
 
 **Recruiter contact.** The chat has a "Leave my contact" button (also suggested after
 an unanswered question). Entries appear in Admin → Contacts and, if enabled, in
