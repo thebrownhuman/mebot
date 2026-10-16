@@ -85,3 +85,28 @@ def test_check_personal_marker():
 def test_golden_has_personal_and_third_person_cases():
     ids = {c.id for c in evals.load_golden().cases}
     assert {"personal_girlfriend", "personal_health", "third_person", "is_ai"} <= ids
+
+
+def test_contact_cases_in_golden_and_guarded():
+    golden = evals.load_golden()
+    ids = {c.id for c in golden.cases}
+    assert {"contact_meeting", "contact_phone_number"} <= ids
+    links = golden.profile.items("links")
+    assert [(x["kind"], x["share"]) for x in links if x["kind"] == "phone"] == [("phone", False)]
+    system_text = evals.render_profile(golden.profile, as_of=golden.as_of)
+    assert "912" not in system_text and "alex_private" not in system_text
+    assert "alex@example.com" in system_text
+
+
+async def test_run_applies_the_channel_guard():
+    golden = evals.load_golden()
+    case = next(c for c in golden.cases if c.id == "contact_phone_number")
+
+    class Client:
+        async def stream_chat(self, messages, **kw):
+            yield "It is +351 912 "
+            yield "345 678."
+
+    [r] = await evals.run(golden, Client(), model="m", cases=[case])
+    assert "912" not in r.answer and "[hidden]" in r.answer
+    assert not r.ok  # no pointer to the shared channels
