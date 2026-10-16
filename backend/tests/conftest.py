@@ -23,6 +23,8 @@ class FakeLLM:
         self.tests: list[str] = []
         self.streams: list[dict] = []
         self.usage = None  # Usage reported after the stream (None = provider silent)
+        # If set, each stream_chat() call yields the next reply instead of `chunks`.
+        self.replies: list[str] = []
 
     def build(self, provider_id, *, api_key=None, base_url=None):
         self.built.append({"provider": provider_id, "api_key": api_key, "base_url": base_url})
@@ -54,6 +56,12 @@ class _FakeClient:
         err = self.ctl.fail or self.ctl.stream_fail
         if err:
             raise err
+        if self.ctl.replies:
+            reply = self.ctl.replies.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
+            yield reply
+            return
         for c in self.ctl.chunks:
             yield c
         self.usage = self.ctl.usage
