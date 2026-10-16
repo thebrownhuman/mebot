@@ -56,7 +56,7 @@ async def test_run_against_scripted_client():
     assert [r.ok for r in results] == [True]
     prompt = client.prompts[0]
     assert "=== FACTS (computed by the system as of 2026-10-16" in prompt
-    assert "Total professional experience: 4 years 4 months (4.3 years)" in prompt
+    assert "Alex's total professional experience: 4 years 4 months (4.3 years)" in prompt
 
 
 def test_cli_requires_configured_bot(tmp_path, monkeypatch, capsys):

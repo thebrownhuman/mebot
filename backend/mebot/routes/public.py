@@ -3,10 +3,11 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from mebot import turnstile
+from mebot import persona, turnstile
 from mebot.db import get_db
 from mebot.deps import get_current_bot
 from mebot.models import Bot
+from mebot.profile.data import load_profile
 from mebot.repos import limits as limits_repo
 from mebot.repos import profile_items
 
@@ -27,6 +28,8 @@ def public_config(
         "paused": limits.paused,
         # Shown to recruiters (consent line, "{name} replied:"); identity name, else bot name.
         "owner_name": _owner_name(db, bot),
+        # The recruiter chat's first bubble; rendered server-side, not an LLM call.
+        "assistant_greeting": persona.render_greeting(load_profile(db, bot.id).identity, bot.name),
     }
 
 

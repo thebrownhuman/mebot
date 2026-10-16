@@ -95,25 +95,26 @@ def test_facts_block_sentences():
     lines = text.splitlines()
     assert lines[0] == ("=== FACTS (computed by the system as of 2026-10-16 — authoritative) ===")
     assert (
-        "Total professional experience: 3 years 5 months (3.4 years), counted from 2023-06 "
-        "to 2026-10, overlapping roles merged, internships excluded."
+        "Jane's total professional experience: 3 years 5 months (3.4 years), counted from "
+        "2023-06 to 2026-10, overlapping roles merged, internships excluded."
     ) in lines
-    assert "Internships (not counted above): 6 months." in lines
-    assert "Current role: Backend Engineer at Acme (since 2024-02, 2 years 9 months)." in lines
-    assert "Time at Beta: 8 months." in lines
-    assert "Python: about 3 years 5 months (from work and projects)." in lines
-    assert "Rust: 2 years (stated by owner)." in lines
-    assert not any(ln.startswith("Haskell") for ln in lines)
-    assert "Most recent education: B.Tech in CS, IIT (graduated 2023-05)." in lines
-    assert "Projects listed: 2 (1 active, 1 completed)." in lines
-    assert "Companies worked at: 3." in lines
+    assert "Jane's internships (not counted above): 6 months." in lines
+    assert (
+        "Jane's current role: Backend Engineer at Acme (since 2024-02, 2 years 9 months)." in lines
+    )
+    assert "Jane's time at Beta: 8 months." in lines
+    assert "Jane's Python experience: about 3 years 5 months (from work and projects)." in lines
+    assert "Jane's Rust experience: 2 years (stated by Jane)." in lines
+    assert not any("Haskell" in ln for ln in lines)
+    assert "Jane's most recent education: B.Tech in CS, IIT (graduated 2023-05)." in lines
+    assert "Jane lists 2 projects (1 active, 1 completed)." in lines
+    assert "Jane has worked at 3 companies." in lines
 
 
 def test_only_internships_sentence():
     p = ProfileData(sections={"experiences": [exp("Lab", "2025-01", "2025-06", kind="internship")]})
     assert (
-        "Total professional experience: no full-time professional experience yet; "
-        "6 months of internships."
+        "The candidate has no full-time professional experience yet; 6 months of internships."
     ) in render_facts(p, AS_OF).splitlines()
 
 
@@ -127,8 +128,8 @@ def test_not_employed_and_upcoming():
         }
     )
     lines = render_facts(p, AS_OF).splitlines()
-    assert "Currently employed: no; most recent role ended 2025-03." in lines
-    assert "Upcoming role: Lead at Next (starting 2027-01)." in lines
+    assert "The candidate is not currently employed; most recent role ended 2025-03." in lines
+    assert "The candidate's upcoming role: Lead at Next (starting 2027-01)." in lines
 
 
 def test_facts_first_and_empty_profile_omits_facts():
@@ -150,7 +151,8 @@ def test_system_prompt_rules():
     prompt = build_system_prompt("=== FACTS ===\nX", today=AS_OF)
     low = prompt.lower()
     assert "2026-10-16" in prompt
-    assert "first person" in low
+    assert "third person" in low
+    assert "ai assistant" in low
     assert "facts" in low and "never compute" in low
     assert UNANSWERED_MARKER in prompt
     assert "avoid" in low
