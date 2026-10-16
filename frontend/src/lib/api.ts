@@ -5,6 +5,8 @@
 // readable `mebot_csrf` cookie in X-CSRF-Token (double-submit). A 401 from an admin
 // call fires UNAUTHORIZED_EVENT so the admin guard can send the user to the login page.
 
+import type { PublicChannel } from "./channels";
+
 export interface HealthResp {
   ready: boolean;
   model: string | null;
@@ -738,4 +740,11 @@ export async function updateLearnedFact(id: string, edit: FactEdit): Promise<Lea
 
 export async function deleteLearnedFact(id: string): Promise<void> {
   await send(`${LF}/${encodeURIComponent(id)}`, { method: "DELETE", ...admin });
+}
+
+// --- contact channels (recruiter side) --------------------------------------------
+
+export async function getContactChannels(): Promise<PublicChannel[]> {
+  const d = await json<{ items: PublicChannel[] }>("/api/public/contact-channels");
+  return d?.items ?? [];
 }

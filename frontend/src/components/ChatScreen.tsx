@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import Orb from "./Orb";
 import Thinking from "./Thinking";
 import Turnstile from "./Turnstile";
+import { linkify } from "../lib/linkify";
 import { useAutoScroll, type Line } from "../hooks/useChat";
 import type { OrbState } from "./Orb";
 
@@ -179,7 +180,7 @@ function LineView({
         <span className="block text-[11px] tracking-wider text-term-amber mb-0.5">
           {ownerName.split(/\s+/)[0]} replied:
         </span>
-        <span className="text-term-fg">{line.text}</span>
+        <span className="text-term-fg">{linkify(line.text)}</span>
       </div>
     );
   }
@@ -197,7 +198,7 @@ function LineView({
           <Thinking />
         ) : (
           <>
-            {line.text}
+            {line.kind === "me" ? linkify(line.text) : line.text}
             {line.kind === "me" && line.streaming && <span className="text-term-bright animate-blink">▋</span>}
           </>
         )}
