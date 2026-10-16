@@ -41,7 +41,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 8 | Embeddable widget + allowed origins + theming | review | [spec](../specs/embed-widget.md) | — | #6 | M |
 | 9 | Imports: resume PDF/DOCX + LinkedIn export ZIP | review | [spec](../specs/imports.md) | — | #3, #4 | M |
 | 10 | Import: GitHub repo → project entry | review | [spec](../specs/github-import.md) | — | #9 | S |
-| 11 | Dashboard + conversations + analytics | todo | — | — | #4, #7 | M |
+| 11 | Dashboard + conversations + analytics | building | [spec](../specs/dashboard-analytics.md) | — | #4, #7 | M |
 | 12 | Install registry + opt-in telemetry | todo | — | — | #2 | M |
 | 13 | Open-source packaging: single image, docs, CI, deploy buttons | todo | — | — | #1–#12 | M |
 | 14 | Retrieval (embeddings) for large profiles | todo | — | — | #5 | M |
