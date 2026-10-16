@@ -20,13 +20,19 @@ def test_public_config_defaults(admin_client):
         "turnstile_site_key": None,
         "max_message_chars": 1000,
         "paused": False,
+        "owner_name": "Shivansh",
     }
 
 
 def test_public_config_reflects_limits(admin_client, ts_app):
     set_limits(ts_app, max_message_chars=500, paused=True)
     body = admin_client.get("/api/public/config").json()
-    assert body == {"turnstile_site_key": None, "max_message_chars": 500, "paused": True}
+    assert body == {
+        "turnstile_site_key": None,
+        "max_message_chars": 500,
+        "paused": True,
+        "owner_name": "Shivansh",
+    }
     set_limits(ts_app, turnstile_enabled=True)
     assert admin_client.get("/api/public/config").json()["turnstile_site_key"] == "site-key-1"
 

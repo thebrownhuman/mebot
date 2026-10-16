@@ -160,3 +160,14 @@ def test_purge_old(admin_client, app):
         assert outbox.purge(db) == 1
         db.commit()
     assert len(rows(app)) == 1
+
+
+def test_enqueue_order_survives_equal_clock(admin_client, app, monkeypatch):
+    bot_id = link(app)
+    frozen = utcnow()
+    monkeypatch.setattr(outbox, "utcnow", lambda: frozen)
+    for t in ("a", "b", "c"):
+        enqueue(app, bot_id, t)
+    got = rows(app)
+    assert [json.loads(r.payload)["text"] for r in got] == ["a", "b", "c"]
+    assert got[0].created_at < got[1].created_at < got[2].created_at

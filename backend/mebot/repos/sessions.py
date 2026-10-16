@@ -54,6 +54,22 @@ def messages(db: Session, bot_id: str, session_id: str) -> list[Message]:
     )
 
 
+def last_reply_unanswered(db: Session, bot_id: str, session_id: str) -> bool:
+    """Whether the bot's latest (non-owner) reply in the session was unanswered."""
+    m = db.scalar(
+        select(Message)
+        .where(
+            Message.bot_id == bot_id,
+            Message.session_id == session_id,
+            Message.role == "assistant",
+            Message.from_owner.is_(False),
+        )
+        .order_by(Message.created_at.desc())
+        .limit(1)
+    )
+    return bool(m and m.unanswered)
+
+
 def owner_messages(
     db: Session, bot_id: str, session_id: str, after: datetime | None
 ) -> list[Message]:
