@@ -49,6 +49,17 @@ def _not_found() -> ApiError:
     return ApiError(404, "NOT_FOUND", "Item not found")
 
 
+def _confirm_phone_share(data: BaseModel, was_shared: bool) -> None:
+    """Sharing a phone number takes an explicit yes (only when turning sharing on)."""
+    if getattr(data, "kind", None) == "phone" and data.share and not was_shared:
+        if not data.confirm_share_phone:
+            raise ApiError(
+                422,
+                "CONFIRM_REQUIRED",
+                "Confirm you want to share your phone number with recruiters.",
+            )
+
+
 def _changed(db: Session, bot: Bot, section: str) -> None:
     logs.add(db, bot.id, None, "profile_updated", detail=section)
     db.commit()
@@ -130,10 +141,9 @@ def create_item(
 ):
     sec = _section(section)
     data = _parse(sec.schema, payload)
-    if repo.count(db, sec, bot.id) >= sections.MAX_ITEMS:
-        raise ApiError(
-            422, "LIMIT_REACHED", f"A section can hold at most {sections.MAX_ITEMS} items."
-        )
+    if repo.count(db, sec, bot.id) >= sec.limit:
+        raise ApiError(422, "LIMIT_REACHED", f"A section can hold at most {sec.limit} items.")
+    _confirm_phone_share(data, was_shared=False)
     row = repo.create(db, sec, bot.id, data)
     _changed(db, bot, section)
     return repo.serialize(sec, row)
@@ -165,10 +175,15 @@ def update_item(
     bot: Bot = Depends(get_current_bot),
 ):
     sec = _section(section)
-    data = _parse(sec.schema, payload)
     row = repo.get(db, sec, bot.id, item_id)
     if row is None:
         raise _not_found()
+    if section == "links":
+        # Partial update (e.g. just the Share switch): unsent fields keep their value.
+        keep = {k: getattr(row, k) for k in ("kind", "label", "value", "share")}
+        payload = {**keep, **payload}
+    data = _parse(sec.schema, payload)
+    _confirm_phone_share(data, was_shared=bool(getattr(row, "share", False)))
     repo.update(db, sec, row, data)
     _changed(db, bot, section)
     return repo.serialize(sec, row)

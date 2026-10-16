@@ -7,7 +7,7 @@ from tests.conftest import csrf
 BASE = "/api/admin/profile"
 
 SAMPLES = {
-    "links": {"label": "GitHub", "url": "https://github.com/jane"},
+    "links": {"label": "GitHub", "kind": "github", "value": "https://github.com/jane"},
     "experiences": {
         "company": "Acme",
         "title": "Backend Engineer",
@@ -97,7 +97,7 @@ def test_unknown_section_404(admin_client):
     [
         ("experiences", {**SAMPLES["experiences"], "end_month": "2020-01"}, "end_month"),
         ("experiences", {**SAMPLES["experiences"], "start_month": "2021-13"}, "start_month"),
-        ("links", {"label": "x", "url": "javascript:alert(1)"}, "url"),
+        ("links", {"kind": "website", "label": "x", "value": "javascript:alert(1)"}, "value"),
         ("projects", {**SAMPLES["projects"], "tech": ["x"] * 31}, "tech"),
         ("projects", {**SAMPLES["projects"], "name": "x" * 201}, "name"),
         ("faqs", {"question": "q"}, "answer"),

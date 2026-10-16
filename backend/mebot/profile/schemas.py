@@ -13,7 +13,10 @@ from pydantic import (
     StringConstraints,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
+
+from mebot import channels
 
 SHORT = 200
 LONG = 5000
@@ -112,13 +115,36 @@ class NotesIn(_In):
 
 
 class LinkIn(_In):
-    label: Required
-    url: Url
+    """A contact channel. ``share`` defaults to False for phone, True otherwise."""
 
-    @field_validator("url")
+    kind: Literal[
+        "portfolio", "website", "email", "linkedin", "github", "instagram",
+        "whatsapp", "telegram", "x", "phone", "other",
+    ] = "website"  # fmt: skip
+    label: Short = ""
+    value: Annotated[_str(500, 1), BeforeValidator(str)]
+    share: bool | None = None
+    # Request-only: explicit consent to share a phone number (never stored).
+    confirm_share_phone: bool = Field(default=False, exclude=True)
+
+    @field_validator("value")
     @classmethod
-    def _url(cls, v):
-        return _check_url(v)
+    def _value(cls, v, info: ValidationInfo):
+        kind = info.data.get("kind")
+        if kind is None:  # kind itself failed validation
+            return v
+        try:
+            return channels.normalize(kind, v)
+        except channels.ChannelError as e:
+            raise ValueError(str(e)) from None
+
+    @model_validator(mode="after")
+    def _defaults(self):
+        if not self.label.strip():
+            self.label = channels.LABELS[self.kind]
+        if self.share is None:
+            self.share = self.kind != "phone"
+        return self
 
 
 class ExperienceIn(_Dated):
