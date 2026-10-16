@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AdminSection } from "../../components/admin/AdminLayout";
+import GithubImportCard from "../../components/admin/GithubImportCard";
 import ImportReview, { summaryText } from "../../components/admin/ImportReview";
 import {
   ApiError,
@@ -16,7 +17,7 @@ import {
 
 // Fill the profile from a resume (PDF/DOCX, via the owner's AI provider) or a LinkedIn
 // data export (deterministic). Upload -> processing -> review -> apply.
-// Cards are config: a new importer (GitHub, #10) is one more entry in CARDS.
+// Cards are config: file importers are entries in CARDS; GitHub has its own card.
 
 export const POLL_MS = 2000;
 const MB = 1024 * 1024;
@@ -246,7 +247,7 @@ export default function ImportPage() {
 
   const intro = (
     <>
-      Upload your resume or LinkedIn export and review every item before it's saved.{" "}
+      Upload your resume or LinkedIn export, or pick GitHub repos, and review every item before it's saved.{" "}
       <span className="text-term-fg">Your file isn't stored. We never read your LinkedIn messages or connections.</span>
     </>
   );
@@ -262,7 +263,7 @@ export default function ImportPage() {
   return (
     <AdminSection title="Import" intro={intro}>
       {phase.name === "pick" && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {CARDS.map((c) => (
             <UploadCard
               key={c.kind}
@@ -282,6 +283,7 @@ export default function ImportPage() {
               }
             />
           ))}
+          <GithubImportCard onStarted={(id) => setPhase({ name: "processing", id, kind: "github" })} />
         </div>
       )}
 
@@ -304,10 +306,14 @@ export default function ImportPage() {
       {phase.name === "processing" && (
         <div className="border border-term-line2 rounded-lg p-4" aria-live="polite" aria-busy="true">
           <p className="text-term-fg text-sm mb-1">
-            {phase.kind === "resume" ? "Reading your resume…" : "Reading your LinkedIn export…"}
+            {phase.kind === "resume"
+              ? "Reading your resume…"
+              : phase.kind === "github"
+                ? "Reading your repos on GitHub…"
+                : "Reading your LinkedIn export…"}
           </p>
           <p className="text-term-dim text-xs">
-            {phase.kind === "resume" ? "Your AI provider is extracting it; this can take up to a minute." : "Usually a few seconds."}
+            {phase.kind === "linkedin" ? "Usually a few seconds." : "This can take up to a minute."}
           </p>
         </div>
       )}

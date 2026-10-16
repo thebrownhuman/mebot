@@ -824,7 +824,7 @@ export async function getWidgetSnippets(): Promise<WidgetSnippets> {
 
 // --- imports -------------------------------------------------------------------
 
-export type ImportKind = "resume" | "linkedin";
+export type ImportKind = "resume" | "linkedin" | "github";
 export type ImportStatus = "processing" | "ready" | "applied" | "failed" | "expired";
 export type ImportAction = "add" | "update" | "skip";
 
@@ -840,6 +840,8 @@ export interface DraftEntry {
   reason?: string;
   kind?: string;
   snippet?: string;
+  // GitHub: which file detected each tech.
+  evidence?: { tech: string; file: string; key?: string }[];
   default_action: ImportAction;
 }
 
@@ -859,7 +861,11 @@ export interface ImportJobSummary {
 }
 
 export interface ImportJob extends ImportJobSummary {
-  draft: { sections: Record<string, DraftEntry[]> } | null;
+  draft: {
+    sections: Record<string, DraftEntry[]>;
+    // Parts that failed on their own (e.g. one repo of several).
+    errors?: { source: string; code: string; message: string }[];
+  } | null;
   source_text: string | null;
 }
 
@@ -924,4 +930,48 @@ export async function applyImport(id: string, decisions: ImportDecision[]): Prom
 
 export async function discardImport(id: string): Promise<void> {
   await send(`${IMP}/jobs/${encodeURIComponent(id)}`, { method: "DELETE", ...admin });
+}
+
+// --- GitHub import -------------------------------------------------------------
+
+export interface GithubRepo {
+  name: string;
+  full_name: string;
+  description: string | null;
+  language: string | null;
+  stars: number;
+  pushed_at: string | null;
+  fork: boolean;
+  archived: boolean;
+  html_url: string;
+}
+
+export interface GithubTokenView {
+  configured: boolean;
+  token_last4: string | null;
+  env_token: boolean;
+}
+
+export async function startGithubImport(repoUrls: string[]): Promise<{ id: string; status: ImportStatus }> {
+  return json(`${IMP}/github`, { method: "POST", body: { repo_urls: repoUrls }, ...admin });
+}
+
+export async function listGithubRepos(username: string, includeForks = false): Promise<GithubRepo[]> {
+  const q = new URLSearchParams({ username, include_forks: String(includeForks) });
+  const d = await json<{ items: GithubRepo[] }>(`${IMP}/github/repos?${q}`, admin);
+  return d?.items ?? [];
+}
+
+const GH_TOKEN = "/api/admin/integrations/github";
+
+export async function getGithubToken(): Promise<GithubTokenView> {
+  return json(GH_TOKEN, admin);
+}
+
+export async function saveGithubToken(token: string): Promise<GithubTokenView> {
+  return json(GH_TOKEN, { method: "PUT", body: { token }, ...admin });
+}
+
+export async function deleteGithubToken(): Promise<void> {
+  await send(GH_TOKEN, { method: "DELETE", ...admin });
 }
