@@ -176,6 +176,7 @@ function ItemCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [showSource, setShowSource] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(false);
   const data = choice.data ?? entry.data;
   const badge = BADGE[entry.match.status];
   const canUpdate = Boolean(entry.match.existing_id) || section === "identity";
@@ -253,6 +254,11 @@ function ItemCard({
         <button type="button" className={ghost} onClick={() => setEditing((e) => !e)} aria-expanded={editing}>
           edit
         </button>
+        {entry.evidence && entry.evidence.length > 0 && (
+          <button type="button" className={ghost} aria-expanded={showEvidence} onClick={() => setShowEvidence((s) => !s)}>
+            {showEvidence ? "hide evidence" : "evidence"}
+          </button>
+        )}
         {source && entry.snippet && (
           <button type="button" className={ghost} aria-expanded={showSource} onClick={() => setShowSource((s) => !s)}>
             {showSource ? "hide source" : "show in source"}
@@ -270,6 +276,28 @@ function ItemCard({
         />
       )}
       {showSource && source && entry.snippet && <SourceSnippet source={source} snippet={entry.snippet} />}
+      {showEvidence && entry.evidence && (
+        <table className="mt-2 w-full text-[11px] text-term-dim">
+          <caption className="sr-only">Where each tech was detected</caption>
+          <thead>
+            <tr className="text-left">
+              <th className="font-normal pr-3">tech</th>
+              <th className="font-normal">found in</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entry.evidence.map((e) => (
+              <tr key={e.tech + e.file}>
+                <td className="pr-3 text-term-fg align-top">{e.tech}</td>
+                <td className="font-mono break-all">
+                  {e.file}
+                  {e.key && e.key !== e.file ? ` (${e.key})` : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </li>
   );
 }
@@ -390,6 +418,18 @@ export default function ImportReview({
         )}
       </div>
       <FormError message={error} />
+      {(job.draft?.errors ?? []).length > 0 && (
+        <div role="alert" className="border border-term-amber rounded px-3 py-2 mb-4 text-xs text-term-amber">
+          <p className="mb-1">Some sources couldn't be imported:</p>
+          <ul className="space-y-0.5">
+            {job.draft!.errors!.map((e) => (
+              <li key={e.source}>
+                <span className="font-mono text-term-fg">{e.source}</span>: {e.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {groups.map(([slug, label, list]) => (
         <section key={label} className="mb-6" aria-labelledby={`imp-${label}`}>
           <h2 id={`imp-${label}`} className="text-term-fg text-sm mb-2">
