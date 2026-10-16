@@ -356,6 +356,46 @@ set `TELEGRAM_WORKERS=false` on processes that shouldn't run the background task
   test after fixing it. Error text shown on the page never contains the token.
 - *Changed `SECRET_KEY`* — the saved token can't be decrypted; paste it again.
 
+## Import your resume or LinkedIn
+
+Admin → Import fills your profile from files you already have. You review every item
+before anything is saved.
+
+**Resume (PDF or .docx, up to 10 MB).** mebot reads the text and asks *your* AI provider
+to sort it into jobs, education, skills, projects, interests and links, with strict
+instructions to copy only what's written. Then it checks the result against the file:
+company, title, school, degree, project and skill names must appear in the resume
+(fuzzy, ignoring case and punctuation), and so must every year. Anything that doesn't is
+marked **Check this** with the reason and starts as *Skip*. Phone numbers and personal
+details (date of birth, marital status, religion and the like; see *What mebot will
+never discuss*) are removed. Scanned PDFs have no text to read: use the .docx or the
+LinkedIn import. Password-protected PDFs, old `.doc` and macro-enabled files are
+refused. You need an AI provider set up first.
+
+**LinkedIn export (ZIP, up to 50 MB).** No AI, so the result is exactly what LinkedIn
+has. To get it: LinkedIn → Me → Settings & Privacy → Data privacy → *Get a copy of your
+data* → tick Profile, Positions, Education, Skills, Projects (plus Certifications,
+Languages, Honors if you want) → request it, wait for the email, upload the ZIP as is.
+mebot opens **only** those CSV files (and Email Addresses). Messages, connections,
+invitations, phone numbers and everything else in the archive are never read.
+Certifications land in Education (shown separately), languages become skills,
+honors are proposed as a note, and with several e-mail addresses only the primary one
+starts ticked. Year-only dates become January of that year and are flagged.
+
+**Review.** Each item is compared with what's already in your profile: **New** (starts as
+*Add*), **Already in profile** (*Skip*), or **Changed** with a field-by-field diff
+(*Update*). Jobs match on company + title + start month (±1 month), education on school +
+degree, skills by name (aliases like JS/JavaScript count), projects by name. Edit any
+item inline, use *Accept all new*, or *Show in source* to see where a resume item came
+from. *Apply* saves everything in one go; if one item fails validation (an end date
+before the start, say), nothing is saved and that item is highlighted. Re-importing an
+updated file only proposes what's new or changed.
+
+**Privacy.** The file is processed in memory and never stored or logged (the server keeps
+its name, size and a SHA-256 hash, so uploading the same file twice returns the same
+review). The extracted draft is kept for 7 days for you to review, then deleted (or as
+soon as you apply or discard it). Limits: 10 imports per hour and one at a time.
+
 ## Embed on your site
 
 Put the chat on your portfolio as a floating bubble or an inline panel. Works with plain
