@@ -31,6 +31,8 @@ interface Props {
   ownerName?: string;
   // Opens the contact form from the "unanswered" suggestion.
   onContact?: () => void;
+  // Suggested-question chips shown before the first question (admin Widget page).
+  suggestions?: string[];
 }
 
 export default function ChatScreen({
@@ -52,6 +54,7 @@ export default function ChatScreen({
   onTurnstileError,
   ownerName = "The owner",
   onContact,
+  suggestions = [],
 }: Props) {
   const [input, setInput] = useState("");
   const screenRef = useRef<HTMLDivElement>(null);
@@ -97,6 +100,21 @@ export default function ChatScreen({
           {lines.map((l, i) => (
             <LineView key={i} line={l} ownerName={ownerName} onContact={onContact} />
           ))}
+          {ready && !lines.some((l) => l.kind === "recruiter") && suggestions.length > 0 && (
+            <div aria-label="Suggested questions" className="mb-3 flex flex-wrap gap-2">
+              {suggestions.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  disabled={busy || cooldown > 0}
+                  onClick={() => onSend(q)}
+                  className="text-left font-mono text-xs px-2.5 py-1.5 min-h-[36px] rounded border border-term-line2 text-term-bright hover:border-term-bright disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-term-bright"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
           {turnstileKey && (
             <div className="mb-3 text-term-amber text-xs">
               // quick check that you're human…

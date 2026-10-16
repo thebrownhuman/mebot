@@ -496,6 +496,8 @@ export interface PublicConfig {
   owner_name?: string;
   // The assistant's first chat bubble (rendered by the server, not an AI call).
   assistant_greeting?: string;
+  // Chips shown before the first message (admin Widget page).
+  suggested_questions?: string[];
 }
 
 export async function getLimits(): Promise<LimitsView> {
@@ -747,4 +749,35 @@ export async function deleteLearnedFact(id: string): Promise<void> {
 export async function getContactChannels(): Promise<PublicChannel[]> {
   const d = await json<{ items: PublicChannel[] }>("/api/public/contact-channels");
   return d?.items ?? [];
+}
+
+// --- widget ------------------------------------------------------------------
+
+export interface WidgetConfig {
+  title: string;
+  primary_color: string;
+  theme: "light" | "dark" | "auto";
+  position: "right" | "left";
+  avatar_url: string | null;
+  launcher_label: string | null;
+  greeting: string;
+  suggested_questions: string[];
+  show_orb: boolean;
+  auto_open_seconds: number | null;
+  max_message_chars: number;
+  turnstile_site_key: string | null;
+  owner_first_name: string;
+  paused: boolean;
+}
+
+export async function getWidgetConfig(slug: string): Promise<WidgetConfig> {
+  return json(`/api/public/widget/${encodeURIComponent(slug)}`);
+}
+
+// WIDGET_OPENED analytics; the server keeps the origin only if it is an allowed site.
+export async function widgetOpened(slug: string, sessionId: string | null, origin: string) {
+  await send(`/api/public/widget/${encodeURIComponent(slug)}/opened`, {
+    method: "POST",
+    body: { session_id: sessionId, origin },
+  });
 }
