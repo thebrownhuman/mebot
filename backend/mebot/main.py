@@ -15,7 +15,7 @@ from mebot.errors import error_body, install_error_handlers
 from mebot.limits import counters
 from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
 from mebot.limits.service import ChatLimiter
-from mebot.repos import admin_sessions
+from mebot.repos import admin_sessions, import_jobs
 from mebot.routes import routers
 from mebot.telegram import outbox
 from mebot.telegram.service import TelegramService
@@ -70,6 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         admin_sessions.purge_expired(db)
         counters.purge(db)
         outbox.purge(db)
+        import_jobs.purge_expired(db)
         db.commit()
     install_error_handlers(app)
     app.add_exception_handler(RequestValidationError, _validation_error)
