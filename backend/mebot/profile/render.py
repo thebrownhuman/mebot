@@ -6,6 +6,7 @@ of ProfileData so it can be tested and previewed without a request.
 
 from datetime import date
 
+from mebot import channels
 from mebot.marker import neutralise
 from mebot.persona import display_name
 from mebot.profile.data import ProfileData
@@ -49,14 +50,27 @@ def _identity(p: ProfileData) -> str | None:
         _line("Location", i.get("location")),
         _line("Open to", i.get("open_to")),
         _line("Summary", i.get("summary")),
-        _line("Public email", i.get("email_public")),
-        _line("Public phone", i.get("phone_public")),
         _line("Notice period", i.get("notice_period")),
         _line("Salary expectation", i.get("salary_expectation")),
         _line("Work authorisation", i.get("work_authorization")),
     ]
-    lines += [f"Link ({link['label']}): {link['url']}" for link in p.items("links")]
     return _block("IDENTITY", lines)
+
+
+def _contact(p: ProfileData) -> str | None:
+    """Shared channels only: a non-shared value must never reach the model."""
+    lines = []
+    for c in channels.from_items(p.items("links")):
+        if not c.share:
+            continue
+        text = c.display if c.kind in ("email", "phone") else c.href or c.display
+        if c.kind == "whatsapp":
+            text = f"{c.display} ({c.href})"
+        lines.append(f"- {c.label}: {text}")
+    who = display_name(p.identity)
+    return _block(
+        f"CONTACT CHANNELS (share these when someone wants to reach or meet {who})", lines
+    )
 
 
 def _experience(p: ProfileData) -> str | None:
@@ -239,6 +253,7 @@ def render_profile(profile: ProfileData, as_of: date | None = None) -> str:
     blocks = [
         render_facts(profile, as_of),
         _identity(profile),
+        _contact(profile),
         _experience(profile),
         _education(profile),
         _skills(profile),
