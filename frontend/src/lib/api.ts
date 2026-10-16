@@ -781,3 +781,43 @@ export async function widgetOpened(slug: string, sessionId: string | null, origi
     body: { session_id: sessionId, origin },
   });
 }
+
+export interface WidgetSettings {
+  slug: string;
+  enabled: boolean;
+  allowed_origins: string[];
+  allow_any_origin: boolean;
+  primary_color: string;
+  theme: "light" | "dark" | "auto";
+  position: "right" | "left";
+  title: string | null;
+  avatar_url: string | null;
+  launcher_label: string | null;
+  suggested_questions: string[];
+  show_orb: boolean;
+  auto_open_seconds: number | null;
+  // Widget on, but no allowed sites: only this install's own pages can show it.
+  needs_origins: boolean;
+}
+
+export type WidgetUpdate = Partial<Omit<WidgetSettings, "slug" | "needs_origins">> & {
+  confirm_any_origin?: boolean;
+};
+
+export interface WidgetSnippets {
+  script: string;
+  inline: string;
+  iframe: string;
+}
+
+export async function getWidgetSettings(): Promise<WidgetSettings> {
+  return json("/api/admin/widget", admin);
+}
+
+export async function saveWidgetSettings(body: WidgetUpdate): Promise<WidgetSettings> {
+  return json("/api/admin/widget", { method: "PUT", body, ...admin });
+}
+
+export async function getWidgetSnippets(): Promise<WidgetSnippets> {
+  return json("/api/admin/widget/snippets", admin);
+}

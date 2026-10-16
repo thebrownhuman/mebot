@@ -10,6 +10,7 @@ import NotificationsPage from "./pages/admin/NotificationsPage";
 import ContactsPage from "./pages/admin/ContactsPage";
 import OpenQuestionsPage from "./pages/admin/OpenQuestionsPage";
 import MemoryPage from "./pages/admin/MemoryPage";
+import WidgetPage from "./pages/admin/WidgetPage";
 import ProfilePage from "./pages/admin/ProfilePages";
 import AdminLayout from "./components/admin/AdminLayout";
 import SetupGate from "./components/SetupGate";
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="open-questions" element={<OpenQuestionsPage />} />
           <Route path="memory" element={<MemoryPage />} />
+          <Route path="widget" element={<WidgetPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
         {/* anything else -> public chat */}
