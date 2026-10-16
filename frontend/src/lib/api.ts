@@ -344,6 +344,9 @@ export interface ProfilePreview {
   text: string;
   chars: number;
   approx_tokens: number;
+  // Approved learned facts in the prompt, and size warnings from the server.
+  learned_facts?: number;
+  warnings?: string[];
 }
 
 const P = "/api/admin/profile";
@@ -402,7 +405,7 @@ export async function getProfilePreview(): Promise<ProfilePreview> {
   return json(`${P}/preview`, admin);
 }
 
-// --- admin: computed facts & unanswered questions ---------------------------------------
+// --- admin: computed facts ---------------------------------------
 
 export interface FactsDuration {
   months: number;
@@ -445,19 +448,8 @@ export interface ProfileFacts {
   counts: { projects: number; projects_by_status: Record<string, number>; companies: number };
 }
 
-export interface UnansweredItem {
-  session_id: string | null;
-  question: string | null;
-  created_at: string;
-}
-
 export async function getProfileFacts(): Promise<ProfileFacts> {
   return json(`${P}/facts`, admin);
-}
-
-export async function getUnanswered(limit = 10): Promise<UnansweredItem[]> {
-  const d = await json<{ items: UnansweredItem[] }>(`/api/admin/unanswered?limit=${limit}`, admin);
-  return d?.items ?? [];
 }
 
 // --- limits + usage (Feature 6) ------------------------------------------------
@@ -500,6 +492,8 @@ export interface PublicConfig {
   paused: boolean;
   // Identity full name (or bot name); shown to recruiters.
   owner_name?: string;
+  // The assistant's first chat bubble (rendered by the server, not an AI call).
+  assistant_greeting?: string;
 }
 
 export async function getLimits(): Promise<LimitsView> {
@@ -632,4 +626,116 @@ export async function getSessionUpdates(sid: string, after?: string | null): Pro
     `/api/session/${encodeURIComponent(sid)}/updates${q}`,
   );
   return { messages: d?.messages ?? [], unanswered: Boolean(d?.unanswered) };
+}
+
+// --- learning loop (Feature 7b) -------------------------------------------------------
+
+export type OpenQuestionStatus = "open" | "answered" | "dismissed" | "never";
+
+export interface OpenQuestion {
+  id: string;
+  question: string;
+  ask_count: number;
+  first_asked_at: string;
+  last_asked_at: string;
+  status: OpenQuestionStatus;
+  answered_fact_id: string | null;
+}
+
+export interface OpenQuestionList {
+  items: OpenQuestion[];
+  // Open questions in total (drives the sidebar badge).
+  open_count: number;
+}
+
+export type FactStatus = "pending" | "approved" | "rejected";
+
+export interface LearnedFact {
+  id: string;
+  open_question_id: string | null;
+  question: string;
+  answer_raw: string;
+  fact_text: string;
+  status: FactStatus;
+  source: "admin" | "telegram";
+  suggested_section: "identity" | "learned";
+  suggested_field: string | null;
+  suggested_value: string | null;
+  // What the identity field holds right now (when the suggestion targets one).
+  current_value: string | null;
+  // The AI wording could not be verified, so the fact stays close to the owner's words.
+  needs_review: boolean;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearnedFactList {
+  items: LearnedFact[];
+  active_count: number;
+  max_active: number;
+}
+
+export type ApproveMode = "replace" | "keep_both";
+
+export interface FactEdit {
+  fact_text?: string;
+  field?: string | null;
+  value?: string | null;
+}
+
+const OQ = "/api/admin/open-questions";
+const LF = "/api/admin/learned-facts";
+
+export async function listOpenQuestions(status: OpenQuestionStatus | "all" = "open") {
+  const d = await json<Partial<OpenQuestionList>>(`${OQ}?status=${status}`, admin);
+  return { items: d?.items ?? [], open_count: d?.open_count ?? 0 } as OpenQuestionList;
+}
+
+export async function answerOpenQuestion(id: string, answer: string): Promise<LearnedFact> {
+  return json(`${OQ}/${encodeURIComponent(id)}/answer`, {
+    method: "POST",
+    body: { answer },
+    ...admin,
+  });
+}
+
+export async function dismissOpenQuestion(id: string): Promise<OpenQuestion> {
+  return json(`${OQ}/${encodeURIComponent(id)}/dismiss`, { method: "POST", ...admin });
+}
+
+export async function neverAnswerOpenQuestion(id: string): Promise<OpenQuestion> {
+  return json(`${OQ}/${encodeURIComponent(id)}/never`, { method: "POST", ...admin });
+}
+
+export async function listLearnedFacts(status?: FactStatus): Promise<LearnedFactList> {
+  const d = await json<Partial<LearnedFactList>>(`${LF}${status ? `?status=${status}` : ""}`, admin);
+  return {
+    items: d?.items ?? [],
+    active_count: d?.active_count ?? 0,
+    max_active: d?.max_active ?? 200,
+  };
+}
+
+export async function addLearnedFact(text: string): Promise<LearnedFact> {
+  return json(LF, { method: "POST", body: { text }, ...admin });
+}
+
+export async function approveLearnedFact(
+  id: string,
+  opts: FactEdit & { mode?: ApproveMode } = {},
+): Promise<LearnedFact> {
+  return json(`${LF}/${encodeURIComponent(id)}/approve`, { method: "POST", body: opts, ...admin });
+}
+
+export async function rejectLearnedFact(id: string): Promise<LearnedFact> {
+  return json(`${LF}/${encodeURIComponent(id)}/reject`, { method: "POST", ...admin });
+}
+
+export async function updateLearnedFact(id: string, edit: FactEdit): Promise<LearnedFact> {
+  return json(`${LF}/${encodeURIComponent(id)}`, { method: "PUT", body: edit, ...admin });
+}
+
+export async function deleteLearnedFact(id: string): Promise<void> {
+  await send(`${LF}/${encodeURIComponent(id)}`, { method: "DELETE", ...admin });
 }

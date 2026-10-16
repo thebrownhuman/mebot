@@ -365,31 +365,39 @@ describe("grounded answers", () => {
     expect(within(card).getByText(/internships excluded/i)).toBeInTheDocument();
   });
 
-  it("dashboard lists unanswered questions", async () => {
+  it("dashboard summarises open questions with a link to the inbox", async () => {
     routes({
-      "GET /api/admin/unanswered": () =>
+      "GET /api/admin/open-questions": () =>
         jsonResponse({
           items: [
             {
-              session_id: "s9",
+              id: "q1",
               question: "What is your expected CTC?",
-              created_at: "2026-10-16T09:12:00Z",
+              ask_count: 4,
+              first_asked_at: "2026-10-15T09:12:00Z",
+              last_asked_at: "2026-10-16T09:12:00Z",
+              status: "open",
+              answered_fact_id: null,
             },
           ],
+          open_count: 1,
         }),
-      "GET /api/admin/sessions/s9/messages": () => jsonResponse([]),
     });
     renderAt("/admin");
-    const list = await screen.findByRole("region", { name: /unanswered questions/i });
-    expect(within(list).getByText("What is your expected CTC?")).toBeInTheDocument();
-    expect(within(list).getByText(/add this to your faq or profile/i)).toBeInTheDocument();
-    fireEvent.click(within(list).getByRole("button", { name: /open session/i }));
+    const panel = await screen.findByRole("region", { name: /open questions/i });
+    expect(await within(panel).findByText("What is your expected CTC?")).toBeInTheDocument();
+    expect(within(panel).getByText("4×")).toBeInTheDocument();
+    expect(within(panel).getByText(/1 question the bot couldn.t answer/i)).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: /answer them/i })).toHaveAttribute(
+      "href",
+      "/admin/open-questions",
+    );
   });
 
-  it("dashboard shows an empty state when nothing is unanswered", async () => {
-    routes({ "GET /api/admin/unanswered": () => jsonResponse({ items: [] }) });
+  it("dashboard shows an empty state when nothing is open", async () => {
+    routes({ "GET /api/admin/open-questions": () => jsonResponse({ items: [], open_count: 0 }) });
     renderAt("/admin");
-    const list = await screen.findByRole("region", { name: /unanswered questions/i });
-    expect(await within(list).findByText(/nothing unanswered/i)).toBeInTheDocument();
+    const panel = await screen.findByRole("region", { name: /open questions/i });
+    expect(await within(panel).findByText(/no open questions/i)).toBeInTheDocument();
   });
 });
