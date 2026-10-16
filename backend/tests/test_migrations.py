@@ -1,6 +1,7 @@
 import sqlalchemy as sa
+from alembic import command
 
-from mebot.db import run_migrations
+from mebot.db import alembic_config, run_migrations
 
 NEW_TABLES = {"bots", "profile_notes", "sessions", "messages", "access_log"}
 
@@ -238,3 +239,77 @@ def test_0009_learning_tables(tmp_path):
     assert ["bot_id", "status"] in [i["column_names"] for i in insp.get_indexes("open_questions")]
     for t in ("open_questions", "learned_facts"):
         assert insp.get_foreign_keys(t) == []
+
+
+def _seed_0009(url):
+    command.upgrade(alembic_config(url), "0009")
+    eng = sa.create_engine(url)
+    ts = "'2026-01-01 00:00:00'"
+    with eng.begin() as c:
+        c.execute(
+            sa.text(
+                "INSERT INTO bots (id, slug, name, created_at, updated_at, registration_consent) "
+                f"VALUES ('b1', 'jane', 'Jane', {ts}, {ts}, 0)"
+            )
+        )
+        for i, (label, u) in enumerate(
+            [
+                ("LinkedIn", "https://www.linkedin.com/in/jane"),
+                ("Code", "https://github.com/jane"),
+                ("Insta", "https://instagram.com/jane"),
+                ("Site", "https://jane.dev"),
+            ]
+        ):
+            c.execute(
+                sa.text(
+                    "INSERT INTO profile_links (id, bot_id, sort_order, label, url, created_at, "
+                    f"updated_at) VALUES ('l{i}', 'b1', {i}, '{label}', '{u}', {ts}, {ts})"
+                )
+            )
+        c.execute(
+            sa.text(
+                "INSERT INTO profile_identity (id, bot_id, full_name, headline, location, "
+                "open_to, summary, email_public, phone_public, count_internships, "
+                f"count_freelance, created_at, updated_at) VALUES ('i1', 'b1', 'Jane', '', '', "
+                f"'', '', 'jane@example.com', '+91 98765 43210', 0, 1, {ts}, {ts})"
+            )
+        )
+    return eng
+
+
+def test_0010_maps_links_email_and_phone(tmp_path):
+    url = f"sqlite:///{(tmp_path / 't.db').as_posix()}"
+    eng = _seed_0009(url)
+    command.upgrade(alembic_config(url), "0010")
+    with eng.connect() as c:
+        rows = c.execute(
+            sa.text(
+                "SELECT kind, value, label, share, sort_order FROM profile_links "
+                "WHERE deleted_at IS NULL ORDER BY sort_order"
+            )
+        ).all()
+    assert [(r.kind, r.share) for r in rows] == [
+        ("linkedin", 1), ("github", 1), ("instagram", 1), ("website", 1),
+        ("email", 1), ("phone", 0),
+    ]  # fmt: skip
+    assert rows[0].value == "https://www.linkedin.com/in/jane"
+    assert (rows[4].value, rows[4].label) == ("jane@example.com", "Email")
+    assert rows[5].value == "+91 98765 43210"
+    cols = {c["name"] for c in sa.inspect(eng).get_columns("profile_links")}
+    assert "url" not in cols and {"kind", "value", "share"} <= cols
+    # Old identity columns stay (documented as unused).
+    icols = {c["name"] for c in sa.inspect(eng).get_columns("profile_identity")}
+    assert {"email_public", "phone_public"} <= icols
+
+
+def test_0010_idempotent_and_skips_existing_channels(tmp_path):
+    url = f"sqlite:///{(tmp_path / 't.db').as_posix()}"
+    eng = _seed_0009(url)
+    cfg = alembic_config(url)
+    command.upgrade(cfg, "0010")
+    command.downgrade(cfg, "0009")
+    command.upgrade(cfg, "0010")
+    with eng.connect() as c:
+        n = c.execute(sa.text("SELECT count(*) FROM profile_links")).scalar()
+        kinds = [r[0] for r in c.execute(sa.text("SELECT kind FROM profile_links"))]
+    assert n == 6 and kinds.count("phone") == 1 and kinds.count("email") == 1
