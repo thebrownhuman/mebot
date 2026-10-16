@@ -472,3 +472,27 @@ class LearnedFact(Base):
     __table_args__ = (
         Index("ix_learned_facts_bot_id_status_deleted_at", "bot_id", "status", "deleted_at"),
     )
+
+
+# --- widget (migration 0011) ---------------------------------------------------------
+
+
+class WidgetSettings(Base):
+    __tablename__ = "widget_settings"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    allowed_origins: Mapped[str] = mapped_column(Text, default="[]", nullable=False)  # JSON
+    allow_any_origin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    primary_color: Mapped[str] = mapped_column(Text, default="#0f766e", nullable=False)
+    theme: Mapped[str] = mapped_column(Text, default="auto", nullable=False)
+    position: Mapped[str] = mapped_column(Text, default="right", nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
+    avatar_url: Mapped[str | None] = mapped_column(Text)
+    launcher_label: Mapped[str | None] = mapped_column(Text)
+    suggested_questions: Mapped[str] = mapped_column(Text, default="[]", nullable=False)  # JSON
+    show_orb: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_open_seconds: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ux_widget_settings_bot_id", "bot_id", unique=True),)
