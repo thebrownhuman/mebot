@@ -36,9 +36,12 @@ def enqueue(
     ref_message_id: str | None = None,
     nid: str | None = None,
 ) -> Notification:
-    now = utcnow()
+    due = utcnow()
+    now = due
     # Delivery order is created_at; Windows clocks can repeat a value, so keep it
     # strictly increasing per bot (ids are random and can't break ties in order).
+    # Only created_at is bumped: next_attempt_at stays at the real time, otherwise a
+    # burst queued in one clock tick would sit "in the future" and block the queue.
     last = db.scalar(select(func.max(Notification.created_at)).where(Notification.bot_id == bot_id))
     if last is not None:
         last = last if last.tzinfo else last.replace(tzinfo=UTC)
@@ -51,7 +54,7 @@ def enqueue(
         payload=json.dumps(payload, ensure_ascii=False),
         status="pending",
         attempts=0,
-        next_attempt_at=now,
+        next_attempt_at=due,
         session_id=session_id,
         ref_message_id=ref_message_id,
         created_at=now,
