@@ -62,7 +62,7 @@ def test_requires_auth_and_csrf(client, spy):
 
 
 def test_unknown_kind_404(admin_client, spy):
-    assert up(admin_client, "github", b"x").status_code == 404
+    assert up(admin_client, "gitlab", b"x").status_code == 404
 
 
 def test_resume_pdf_processed_to_ready(admin_client, spy):

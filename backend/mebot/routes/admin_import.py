@@ -106,7 +106,7 @@ async def upload(
     bot: Bot = Depends(get_current_bot),
 ):
     spec = KINDS.get(kind)
-    if spec is None or kind not in request.app.state.import_runners:
+    if spec is None or spec.input != "file" or kind not in request.app.state.import_runners:
         raise ApiError(404, "NOT_FOUND", "Unknown import type")
     resolved = None
     if spec.needs_llm:

@@ -22,11 +22,15 @@ class Kind:
     max_bytes: int
     accept: tuple[str, ...]  # sniffed types: pdf | docx | zip
     needs_llm: bool
+    # "file": multipart upload via POST /import/{kind}; "json": its own endpoint.
+    input: str = "file"
 
 
 KINDS: dict[str, Kind] = {
     "resume": Kind("resume", 10 * MB, ("pdf", "docx"), needs_llm=True),
     "linkedin": Kind("linkedin", 50 * MB, ("zip",), needs_llm=False),
+    # Repo URLs, not a file; the LLM is optional (deterministic fallback).
+    "github": Kind("github", 0, (), needs_llm=False, input="json"),
 }
 
 
@@ -43,6 +47,10 @@ class Item:
     snippet: str | None = None
     # Pre-selected action override (e.g. secondary e-mail addresses start unticked).
     default_skip: bool = False
+    # Drop the item when it matches something already in the profile (skill proposals).
+    only_if_new: bool = False
+    # Why each piece was proposed, e.g. [{"tech": "FastAPI", "file": "requirements.txt"}].
+    evidence: list[dict] | None = None
 
 
 @dataclass
@@ -52,12 +60,17 @@ class Extracted:
     # section slug (experiences, educations, skills, projects, interests, links, notes) -> items
     sections: dict[str, list[Item]] = field(default_factory=dict)
     source_text: str | None = None
+    # Parts of the input that failed on their own, e.g. one repo of several:
+    # [{"source": "owner/repo", "code": "REPO_NOT_FOUND", "message": "..."}]
+    errors: list[dict] = field(default_factory=list)
 
 
 @dataclass
 class RunContext:
     filetype: str
-    llm: object | None = None  # mebot.llm.service.ResolvedLLM for kinds that need it
+    llm: object | None = None  # mebot.llm.service.ResolvedLLM when available
+    # Kind-specific, in memory only (e.g. the GitHub token). Never stored or logged.
+    options: dict = field(default_factory=dict)
 
 
 Runner = Callable[[bytes, RunContext], Awaitable[Extracted]]
