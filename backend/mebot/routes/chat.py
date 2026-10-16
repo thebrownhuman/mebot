@@ -5,11 +5,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
-from mebot import guard, persona
+from mebot import channels, guard, persona
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
 from mebot.guard import personal
+from mebot.guard.channels import ChannelGuard
 from mebot.limits import counters
 from mebot.limits.service import LimitExceeded
 from mebot.llm import service as llm
@@ -103,6 +104,10 @@ async def chat(
     profile = render_profile(profile_data)
     owner = persona.display_name(profile_data.identity, bot.name)
     pronouns = profile_data.identity.get("pronouns") or persona.DEFAULT_PRONOUNS
+    contact_channels = channels.from_items(profile_data.items("links"))
+    legacy_contact = [  # pre-0010 identity columns: unused, but never to be revealed
+        profile_data.identity.get(k) or "" for k in ("email_public", "phone_public")
+    ]
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
     # Telegram notifications are queued in the same transaction as the event.
@@ -143,20 +148,22 @@ async def chat(
         marker = MarkerFilter()
         # Cuts the reply if the canary or a verbatim slice of the rules shows up.
         leak = guard.LeakGuard(canary, system)
+        # Replaces non-shared contact values (and any phone-shaped string) with [hidden].
+        chan = ChannelGuard(contact_channels, legacy_contact)
         produced = 0  # model output chars, for the token estimate
         try:
             async for chunk in client.stream_chat(
                 messages, model=cfg.model, temperature=cfg.temperature, max_tokens=cfg.max_tokens
             ):
                 produced += len(chunk)
-                shown = leak.feed(marker.feed(chunk))
+                shown = leak.feed(chan.feed(marker.feed(chunk)))
                 if leak.tripped:
                     break
                 if shown:
                     acc.append(shown)
                     yield shown
             if not leak.tripped:
-                tail = leak.feed(marker.finish())
+                tail = leak.feed(chan.feed(marker.finish()) + chan.finish())
                 tail += "" if leak.tripped else leak.finish()
                 if tail:
                     acc.append(tail)
@@ -165,7 +172,11 @@ async def chat(
                 yield ("\n\n" if "".join(acc) else "") + guard.SAFE_REPLY
         except Exception as e:  # noqa: BLE001 - visitors get a fixed message
             error = e
-            tail = "" if leak.tripped else leak.feed(marker.finish()) + leak.finish()
+            tail = (
+                ""
+                if leak.tripped
+                else leak.feed(chan.feed(marker.finish()) + chan.finish()) + leak.finish()
+            )
             if not leak.tripped:
                 acc.append(tail)
                 yield tail + ("\n\n" if "".join(acc) else "") + UNAVAILABLE
@@ -191,6 +202,10 @@ async def chat(
                         wdb, bot_id, req.session_id, "assistant", full, unanswered=unanswered
                     )
                 limiter.record_tokens(wdb, bot_id, ip, tokens, estimated=estimated)
+                if chan.redactions:  # the count only, never the value
+                    logs.add(
+                        wdb, bot_id, req.session_id, "CHANNEL_REDACTED", detail=str(chan.redactions)
+                    )
                 if leak.tripped:
                     logs.add(wdb, bot_id, req.session_id, "LEAK_BLOCKED")
                     events.leak_blocked(wdb, bot_id)

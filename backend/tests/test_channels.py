@@ -49,7 +49,9 @@ def test_normalize_rejects(kind, raw):
         normalize(kind, raw)
 
 
-@pytest.mark.parametrize("raw", ["+91 98765 43210", "9876543210", "wa.me/9876543210", "@9876543210"])
+@pytest.mark.parametrize(
+    "raw", ["+91 98765 43210", "9876543210", "wa.me/9876543210", "@9876543210"]
+)
 def test_whatsapp_number_rejected_with_guidance(raw):
     with pytest.raises(ChannelError) as e:
         normalize("whatsapp", raw)
