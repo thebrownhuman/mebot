@@ -16,9 +16,10 @@ from pathlib import Path
 
 import yaml
 
-from mebot import persona
+from mebot import channels, persona
 from mebot.config import BACKEND_DIR, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
+from mebot.guard.channels import ChannelGuard
 from mebot.llm import service as llm
 from mebot.marker import MARKER_RE, PERSONAL_RE
 from mebot.profile.data import ProfileData
@@ -134,7 +135,10 @@ async def run(
                     messages, model=model, temperature=temperature, max_tokens=max_tokens
                 )
             ]
-            results.append(check(case, "".join(chunks)))
+            # Same output guard as the chat route: non-shared contact values become [hidden].
+            guard = ChannelGuard(channels.from_items(golden.profile.items("links")))
+            answer = guard.feed("".join(chunks)) + guard.finish()
+            results.append(check(case, answer))
         except Exception as e:  # noqa: BLE001 - report and keep going
             results.append(Result(case, False, f"provider error: {e}", ""))
     return results

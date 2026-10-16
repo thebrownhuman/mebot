@@ -8,7 +8,15 @@ identity:
   location: Lisbon, Portugal
   open_to: remote or hybrid roles
   summary: Builds reliable payment and data APIs in Python.
-  email_public: alex@example.com
+
+# Contact channels. Only shared ones may ever reach a recruiter; the phone and the
+# private X handle are kept for the owner's records (golden.yaml checks they never leak).
+links:
+  - { kind: email, label: Email, value: alex@example.com, share: true }
+  - { kind: whatsapp, label: WhatsApp, value: "@alex_rivera_dev", share: true }
+  - { kind: portfolio, label: Portfolio, value: "https://alexrivera.dev", share: true }
+  - { kind: phone, label: Phone, value: "+351 912 345 678", share: false }
+  - { kind: x, label: X, value: "@alex_private", share: false }
 
 experiences:
   - company: Acme Payments
