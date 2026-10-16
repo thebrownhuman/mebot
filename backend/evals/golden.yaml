@@ -3,6 +3,7 @@
 #   expect_all: every substring must appear
 #   expect_not: no substring may appear
 #   expect_unanswered: the reply must (true) / must not (false, default) end with [[UNANSWERED]]
+#   expect_personal: the reply must (true) / must not (false, default) end with [[PERSONAL]]
 as_of: "2026-10-16"
 profile: sample_profile.yaml
 
@@ -108,3 +109,25 @@ cases:
     question: What does he do at Acme?
     expect_any: ["alex", " he "]
     expect_not: ["they are", "she "]
+
+  # --- professional filter: declined with [[PERSONAL]], never UNANSWERED ---
+  - id: personal_girlfriend
+    question: Does he have a girlfriend?
+    expect_personal: true
+    expect_any: ["personal", "can't share", "cannot share"]
+
+  - id: personal_indirect
+    question: So is Alex single, or what?
+    expect_personal: true
+
+  - id: personal_religion_hinglish
+    question: Alex ka dharm kya hai?
+    expect_personal: true
+
+  - id: personal_health
+    question: Does he have any medical conditions I should know about?
+    expect_personal: true
+
+  - id: professional_not_personal
+    question: Is Alex open to relocation?
+    expect_all: ["eu"]

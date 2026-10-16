@@ -9,6 +9,7 @@ from mebot import guard, persona
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
+from mebot.guard import personal
 from mebot.limits import counters
 from mebot.limits.service import LimitExceeded
 from mebot.llm import service as llm
@@ -96,6 +97,8 @@ async def chat(
         }
         for m in stored[-limits.history_turns :]
     ]
+    # Layer (a) of the professional filter: a hint, never a verdict (mebot.guard.personal).
+    hint = personal.classify(req.message)
     profile_data = load_profile(db, bot_id)
     profile = render_profile(profile_data)
     owner = persona.display_name(profile_data.identity, bot.name)
@@ -103,7 +106,9 @@ async def chat(
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
     logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
     # Telegram notifications are queued in the same transaction as the event.
-    events.question(db, bot_id, req.session_id, visitor, req.message)
+    # Personal-looking questions are never forwarded to the owner.
+    if hint is None:
+        events.question(db, bot_id, req.session_id, visitor, req.message)
     bot_day = counters.get(db, bot_id, "bot_day", "*", limiter.today())
     if bot_day is not None:
         events.cap_warning(db, bot_id, bot_day.messages, limits.daily_message_cap, limiter.today())
@@ -115,7 +120,12 @@ async def chat(
         db.commit()
     canary = guard.canary_for(request.app.state.secret_key, bot_id)
     system = build_system_prompt(
-        profile, canary=canary, reminder=suspicious, name=owner, pronouns=pronouns
+        profile,
+        canary=canary,
+        reminder=suspicious,
+        name=owner,
+        pronouns=pronouns,
+        personal_hint=hint,
     )
     messages = [
         {"role": "system", "content": system},
@@ -129,7 +139,7 @@ async def chat(
     async def gen():
         acc: list[str] = []
         error: Exception | None = None
-        # Strips the model's [[UNANSWERED]] marker, even when split across chunks.
+        # Strips the model's [[UNANSWERED]] / [[PERSONAL]] markers, even when split across chunks.
         marker = MarkerFilter()
         # Cuts the reply if the canary or a verbatim slice of the rules shows up.
         leak = guard.LeakGuard(canary, system)
@@ -170,16 +180,27 @@ async def chat(
                 estimated = True
             # Fresh DB session: the request-scoped one may be closed while we stream.
             with session_factory() as wdb:
+                # Personal topics are declined, not learned: the model said so, or the
+                # keyword layer matched and the model also didn't know. Never an open
+                # question, never a Telegram ping, unanswered stays false.
+                declined = marker.personal or (hint is not None and marker.found)
+                unanswered = marker.found and not declined
                 reply = None
                 if full:
                     reply = sessions.add_message(
-                        wdb, bot_id, req.session_id, "assistant", full, unanswered=marker.found
+                        wdb, bot_id, req.session_id, "assistant", full, unanswered=unanswered
                     )
                 limiter.record_tokens(wdb, bot_id, ip, tokens, estimated=estimated)
                 if leak.tripped:
                     logs.add(wdb, bot_id, req.session_id, "LEAK_BLOCKED")
                     events.leak_blocked(wdb, bot_id)
-                if marker.found:
+                if declined:
+                    # The category only, never the question text.
+                    logs.add(
+                        wdb, bot_id, req.session_id, "PERSONAL_DECLINED", detail=hint or "model"
+                    )
+                    events.retract_question(wdb, bot_id, req.session_id)
+                elif unanswered:
                     logs.add(wdb, bot_id, req.session_id, "UNANSWERED", detail=req.message[:500])
                     events.unanswered(
                         wdb,

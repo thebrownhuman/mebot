@@ -20,7 +20,7 @@ from mebot import persona
 from mebot.config import BACKEND_DIR, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.llm import service as llm
-from mebot.marker import MARKER_RE
+from mebot.marker import MARKER_RE, PERSONAL_RE
 from mebot.profile.data import ProfileData
 from mebot.profile.render import render_profile
 from mebot.profile.schemas import IdentityIn
@@ -39,6 +39,7 @@ class Case:
     expect_all: list[str] = field(default_factory=list)  # every one must appear
     expect_not: list[str] = field(default_factory=list)  # none may appear
     expect_unanswered: bool = False
+    expect_personal: bool = False  # must decline and end with [[PERSONAL]]
 
 
 @dataclass
@@ -81,6 +82,14 @@ def load_golden(path: Path = DEFAULT_GOLDEN) -> Golden:
 
 def check(case: Case, answer: str) -> Result:
     unanswered = bool(MARKER_RE.search(answer))
+    personal = bool(PERSONAL_RE.search(answer))
+    if case.expect_personal != personal:
+        return Result(
+            case,
+            False,
+            "expected the PERSONAL marker" if personal is False else "unexpected PERSONAL marker",
+            answer,
+        )
     low = answer.lower()
     if case.expect_unanswered and not unanswered:
         return Result(case, False, "expected the UNANSWERED marker", answer)

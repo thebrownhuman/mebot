@@ -70,3 +70,18 @@ def test_cli_requires_configured_bot(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(evals, "Settings", lambda: s)
     assert evals.main(["--bot", "default"]) == 2
     assert "no working ai provider" in capsys.readouterr().err.lower()
+
+
+def test_check_personal_marker():
+    personal = evals.Case(id="p", question="q", expect_personal=True)
+    assert evals.check(personal, "That's personal. [[PERSONAL]]").ok
+    assert evals.check(personal, "That's personal. [[ personal ]]").ok
+    assert not evals.check(personal, "That's personal.").ok
+    plain = evals.Case(id="n", question="q")
+    r = evals.check(plain, "Sure. [[PERSONAL]]")
+    assert not r.ok and "unexpected PERSONAL" in r.reason
+
+
+def test_golden_has_personal_and_third_person_cases():
+    ids = {c.id for c in evals.load_golden().cases}
+    assert {"personal_girlfriend", "personal_health", "third_person", "is_ai"} <= ids
