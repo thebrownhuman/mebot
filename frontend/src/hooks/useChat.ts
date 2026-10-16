@@ -36,6 +36,12 @@ export function useChat() {
   const [cooldown, setCooldown] = useState(0);
 
   const sessionId = useRef<string | null>(null);
+  // Same id as state, for UI that needs to re-render when it changes.
+  const [sid, setSidState] = useState<string | null>(null);
+  const setSid = useCallback((id: string | null) => {
+    sessionId.current = id;
+    setSidState(id);
+  }, []);
   const pendingName = useRef<string | undefined>(undefined);
   const pulseRef = useRef(0);
 
@@ -72,37 +78,37 @@ export function useChat() {
       }
       setReady(true);
       try {
-        sessionId.current = await startSession(recruiterName);
+        setSid(await startSession(recruiterName));
       } catch (e) {
         if (e instanceof ApiError) sysLine(e.message, true);
       }
       return true;
     },
-    [sysLine],
+    [sysLine, setSid],
   );
 
   // Turnstile passed: start the session with its token.
   const verify = useCallback(
     async (token: string) => {
       try {
-        sessionId.current = await startSession(pendingName.current, token);
+        setSid(await startSession(pendingName.current, token));
         setTurnstileKey(null);
         setReady(true);
       } catch (e) {
         sysLine((e as Error).message || "Could not start the chat.", true);
       }
     },
-    [sysLine],
+    [sysLine, setSid],
   );
 
   const newSession = useCallback(async (recruiterName?: string) => {
     try {
-      sessionId.current = await startSession(recruiterName);
+      setSid(await startSession(recruiterName));
       setLines([]);
     } catch (e) {
       setLines((l) => [...l, { kind: "sys", text: "could not start session: " + (e as Error).message, err: true }]);
     }
-  }, []);
+  }, [setSid]);
 
   const send = useCallback(
     async (text: string) => {
@@ -158,7 +164,7 @@ export function useChat() {
 
   const loadSession = useCallback(async (sid: string) => {
     const msgs = await getSessionMessages(sid);
-    sessionId.current = sid;
+    setSid(sid);
     setLines(
       msgs.map((m) =>
         m.role === "user"
@@ -166,9 +172,10 @@ export function useChat() {
           : ({ kind: "me", text: m.content } as Line),
       ),
     );
-  }, []);
+  }, [setSid]);
 
   return {
+    sessionId: sid,
     conn,
     model,
     ready,

@@ -15,6 +15,8 @@ interface Props {
   pulseRef: React.MutableRefObject<number>;
   onSend: (text: string) => void;
   toolbar?: React.ReactNode;
+  // Extra control in the title bar (e.g. "Leave my contact").
+  headerAction?: React.ReactNode;
   drawers?: React.ReactNode;
   // Owner's max_message_chars (from /api/public/config).
   maxChars?: number;
@@ -36,6 +38,7 @@ export default function ChatScreen({
   pulseRef,
   onSend,
   toolbar,
+  headerAction,
   drawers,
   maxChars = 1000,
   cooldown = 0,
@@ -65,16 +68,17 @@ export default function ChatScreen({
             <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
             <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
           </div>
-          <span className="text-term-dim text-xs tracking-wide">{title}</span>
-          <span className="ml-auto flex items-center gap-2 text-xs text-term-dim">
+          <span className="text-term-dim text-xs tracking-wide min-w-0 truncate">{title}</span>
+          <span className="ml-auto flex items-center gap-2 text-xs text-term-dim shrink-0">
             <span
               className={
                 "w-2 h-2 rounded-full " +
                 (conn.ok ? "bg-term-bright shadow-[0_0_8px_#7dffb0]" : "bg-term-err shadow-[0_0_8px_#ff6b6b]")
               }
             />
-            {conn.text}
+            <span className="hidden sm:inline">{conn.text}</span>
           </span>
+          {headerAction}
         </div>
 
         <div
