@@ -4,6 +4,7 @@ import SessionsDrawer from "../components/SessionsDrawer";
 import AdminDrawer from "../components/AdminDrawer";
 import UnansweredPanel from "../components/admin/UnansweredPanel";
 import LimitsBanner from "../components/admin/LimitsBanner";
+import TelegramHint from "../components/admin/TelegramHint";
 import { useChat } from "../hooks/useChat";
 
 // Admin dashboard: activity + sessions, and a chat to try the bot as visitors see it.
@@ -37,6 +38,7 @@ export default function AdminPage() {
   const drawers = (
     <>
       <LimitsBanner />
+      <TelegramHint />
       <UnansweredPanel onOpen={(sid) => void chat.loadSession(sid)} />
       <SessionsDrawer open={open === "sessions"} onPick={(sid) => void chat.loadSession(sid)} />
       <AdminDrawer open={open === "admin"} />

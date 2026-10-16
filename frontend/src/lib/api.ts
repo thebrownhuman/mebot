@@ -498,6 +498,8 @@ export interface PublicConfig {
   turnstile_site_key: string | null;
   max_message_chars: number;
   paused: boolean;
+  // Identity full name (or bot name); shown to recruiters.
+  owner_name?: string;
 }
 
 export async function getLimits(): Promise<LimitsView> {
@@ -514,4 +516,120 @@ export async function getUsage(days = 7): Promise<Usage> {
 
 export async function getPublicConfig(): Promise<PublicConfig> {
   return json<PublicConfig>("/api/public/config");
+}
+
+
+// --- Telegram notifications (Feature 7) -------------------------------------------
+
+export interface TelegramToggles {
+  notify_new_session: boolean;
+  notify_every_question: boolean;
+  notify_unanswered: boolean;
+  notify_contact: boolean;
+  notify_limits: boolean;
+  daily_digest: boolean;
+}
+
+export type TelegramMode = "polling" | "webhook";
+
+export interface TelegramSettings extends TelegramToggles {
+  digest_hour: number;
+  timezone: string;
+  mode: TelegramMode;
+}
+
+export interface TelegramView extends TelegramSettings {
+  configured: boolean;
+  linked: boolean;
+  bot_username: string | null;
+  bot_token_last4: string | null;
+  webhook_available: boolean;
+  error: string | null;
+  outbox: { pending: number; failed: number; dead: number; last_sent_at: string | null };
+}
+
+const TG = "/api/admin/telegram";
+
+export async function getTelegram(): Promise<TelegramView> {
+  return json<TelegramView>(TG, admin);
+}
+
+export async function saveTelegramToken(botToken: string): Promise<TelegramView> {
+  return json<TelegramView>(TG, { method: "PUT", body: { bot_token: botToken.trim() }, ...admin });
+}
+
+export async function patchTelegram(body: Partial<TelegramSettings>): Promise<TelegramView> {
+  return json<TelegramView>(TG, { method: "PATCH", body, ...admin });
+}
+
+export async function createTelegramLink(): Promise<{ deep_link: string; expires_at: string }> {
+  return json(`${TG}/link`, { method: "POST", ...admin });
+}
+
+export async function sendTelegramTest(): Promise<void> {
+  await send(`${TG}/test`, { method: "POST", ...admin });
+}
+
+export async function unlinkTelegram(): Promise<void> {
+  await send(TG, { method: "DELETE", ...admin });
+}
+
+// --- contacts (Feature 7, req 9) -----------------------------------------------------
+
+export interface ContactIn {
+  session_id?: string | null;
+  name: string;
+  email: string;
+  company?: string;
+  role?: string;
+  note?: string;
+  // Honeypot: always empty from real visitors.
+  website?: string;
+}
+
+export interface ContactItem {
+  id: string;
+  session_id: string | null;
+  name: string;
+  email: string;
+  company: string | null;
+  role: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export async function leaveContact(body: ContactIn): Promise<void> {
+  await send("/api/contact", { method: "POST", body });
+}
+
+export async function listContacts(): Promise<ContactItem[]> {
+  const d = await json<{ items: ContactItem[] }>("/api/admin/contacts", admin);
+  return d?.items ?? [];
+}
+
+export async function deleteContact(id: string): Promise<void> {
+  await send(`/api/admin/contacts/${encodeURIComponent(id)}`, { method: "DELETE", ...admin });
+}
+
+// --- owner replies (Feature 7, req 7) -------------------------------------------------
+
+export interface OwnerMessage {
+  role: "assistant";
+  from_owner: true;
+  content: string;
+  created_at: string;
+}
+
+export interface SessionUpdates {
+  messages: OwnerMessage[];
+  // The bot's latest reply in this session couldn't answer the question.
+  unanswered: boolean;
+}
+
+export async function getSessionUpdates(sid: string, after?: string | null): Promise<SessionUpdates> {
+  const q = after ? `?after=${encodeURIComponent(after)}` : "";
+  const d = await json<Partial<SessionUpdates>>(
+    `/api/session/${encodeURIComponent(sid)}/updates${q}`,
+  );
+  return { messages: d?.messages ?? [], unanswered: Boolean(d?.unanswered) };
 }
