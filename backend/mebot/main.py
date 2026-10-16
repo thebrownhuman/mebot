@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
@@ -19,6 +20,7 @@ from mebot.routes import routers
 from mebot.telegram import outbox
 from mebot.telegram.service import TelegramService
 from mebot.telegram.updates import TgContext
+from mebot.widget.frames import frame_headers
 
 
 def _validation_error(_, exc: RequestValidationError):
@@ -78,9 +80,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Outermost, so error responses and CORS preflights carry the frame headers too.
+    app.middleware("http")(frame_headers)
     for r in routers:
         app.include_router(r)
+    _mount_frontend(app, settings)
     return app
+
+
+def _mount_frontend(app: FastAPI, settings: Settings) -> None:
+    # The embed bundle and its shared chunks, when no nginx serves them (dev / one process).
+    for prefix in ("embed-app", "assets"):
+        d = settings.frontend_dist / prefix
+        if d.is_dir():
+            app.mount(f"/{prefix}", StaticFiles(directory=d), name=prefix)
 
 
 def __getattr__(name: str):

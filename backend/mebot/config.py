@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     public_url: str | None = None
     # Background Telegram tasks (poller, outbox, digest). Tests turn them off.
     telegram_workers: bool = True
+    # Built frontend (npm run build). The backend serves the widget loader and the embed
+    # bundle from here when nginx doesn't (single-process / dev setups).
+    frontend_dist: Path = REPO_ROOT / "frontend" / "dist"
 
     @model_validator(mode="after")
     def _default_db(self) -> "Settings":
