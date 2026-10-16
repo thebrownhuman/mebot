@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
-from mebot.imports import linkedin, pipelines, resume  # noqa: F401 - importing registers the runner
+from mebot.imports import github_import, linkedin, pipelines, resume  # noqa: F401 - importing registers the runner
 from mebot.limits import counters
 from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
 from mebot.limits.service import ChatLimiter
