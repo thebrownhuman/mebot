@@ -231,21 +231,6 @@ export const SECTIONS: SectionConfig[] = [
   },
 ];
 
-export const LINKS: SectionConfig = {
-  route: "links",
-  api: "links",
-  title: "Links",
-  noun: "link",
-  intro: "GitHub, LinkedIn, portfolio, blog…",
-  empty: "Add a link — GitHub, LinkedIn or your site.",
-  fields: [
-    { name: "label", label: "Label", kind: "text", required: true, maxLength: SHORT },
-    { name: "url", label: "URL", kind: "url", required: true, placeholder: "https://" },
-  ],
-  cardTitle: (i) => str(i.label),
-  cardMeta: (i) => str(i.url),
-};
-
 export function sectionByRoute(route: string | undefined): SectionConfig | undefined {
   return SECTIONS.find((s) => s.route === route);
 }
