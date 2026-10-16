@@ -7,6 +7,7 @@ import LlmPage from "./pages/LlmPage";
 import AccountPage from "./pages/admin/AccountPage";
 import LimitsPage from "./pages/admin/LimitsPage";
 import NotificationsPage from "./pages/admin/NotificationsPage";
+import ContactsPage from "./pages/admin/ContactsPage";
 import ProfilePage from "./pages/admin/ProfilePages";
 import AdminLayout from "./components/admin/AdminLayout";
 import SetupGate from "./components/SetupGate";
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="llm" element={<LlmPage />} />
           <Route path="limits" element={<LimitsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="contacts" element={<ContactsPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
         {/* anything else -> public chat */}
