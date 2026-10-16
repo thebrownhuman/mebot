@@ -172,3 +172,20 @@ def test_enqueue_order_survives_equal_clock(admin_client, app, monkeypatch):
     got = rows(app)
     assert [json.loads(r.payload)["text"] for r in got] == ["a", "b", "c"]
     assert got[0].created_at < got[1].created_at < got[2].created_at
+
+
+@respx.mock
+async def test_equal_clock_burst_is_all_due_now(admin_client, app, monkeypatch):
+    # Regression: the created_at tie-break must not push next_attempt_at into the
+    # future, or a burst queued in one clock tick blocks behind itself.
+    routes = mock_telegram()
+    bot_id = link(app)
+    frozen = utcnow()
+    monkeypatch.setattr(outbox, "utcnow", lambda: frozen)
+    for t in ("a", "b", "c"):
+        enqueue(app, bot_id, t)
+    naive = frozen.replace(tzinfo=None)
+    assert all(r.next_attempt_at.replace(tzinfo=None) <= naive for r in rows(app))
+    c = tctx(app, now=lambda: frozen)
+    assert await outbox.send_due(c) == 3
+    assert sent_texts(routes) == ["a", "b", "c"]
