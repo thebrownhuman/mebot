@@ -4,7 +4,7 @@ import re
 from html import escape
 
 from fastapi import APIRouter, Depends, Request, Response
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -96,6 +96,41 @@ def public_widget(slug: str, request: Request, db: Session = Depends(get_db)):
         "owner_first_name": first,
         "paused": limits.paused,
     }
+
+
+@router.get("/api/public/widget/{slug}/launcher")
+def launcher_settings(slug: str, request: Request, db: Session = Depends(get_db)):
+    """The few fields the loader needs to draw the launcher on the host page.
+
+    The only cross-origin read in the widget: CORS is granted to allowed sites only (no
+    credentials), so a site that may not frame the chat gets no launcher either."""
+    found = resolve(db, slug)
+    if found is None:
+        raise ApiError(404, "WIDGET_UNAVAILABLE", "This chat is unavailable")
+    bot, row = found
+    origin = request.headers.get("origin")
+    headers = {"Vary": "Origin", "Cache-Control": "no-cache"}
+    if origin and origin != base_origin(request):
+        if row.allow_any_origin:
+            headers["Access-Control-Allow-Origin"] = "*"
+        elif matches(origin, widget_repo.origins(row)):
+            headers["Access-Control-Allow-Origin"] = origin
+        else:
+            raise ApiError(403, "WIDGET_NOT_ALLOWED", "This site may not embed the chat")
+    first = persona.display_name(load_profile(db, bot.id).identity, bot.name)
+    body = {
+        "title": row.title or f"{first}'s assistant",
+        "primary_color": row.primary_color,
+        "position": row.position,
+        "theme": row.theme,
+        "launcher_label": row.launcher_label,
+        "auto_open_seconds": row.auto_open_seconds,
+    }
+    return JSONResponse(body, headers=headers)
+
+
+def base_origin(request: Request) -> str:
+    return f"{request.url.scheme}://{request.url.netloc}"
 
 
 class OpenedIn(BaseModel):
