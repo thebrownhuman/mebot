@@ -414,3 +414,54 @@ class Contact(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     __table_args__ = (Index("ix_contacts_bot_id_deleted_at", "bot_id", "deleted_at"),)
+
+
+# --- learning loop (migration 0009) --------------------------------------------------
+
+
+class OpenQuestion(Base):
+    """A professional question the bot couldn't answer, grouped with its rephrasings."""
+
+    __tablename__ = "open_questions"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)  # first-seen wording
+    normalized: Mapped[str] = mapped_column(Text, nullable=False)
+    ask_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    first_asked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    last_asked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    last_session_id: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, default="open", nullable=False)
+    answered_fact_id: Mapped[str | None] = mapped_column(Text)
+    # Telegram ping throttle: first ask, then at most once per 24h.
+    last_notified_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ix_open_questions_bot_id_status", "bot_id", "status"),)
+
+
+class LearnedFact(Base):
+    """An owner-taught fact. Only ``approved`` and not soft-deleted facts reach the bot."""
+
+    __tablename__ = "learned_facts"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    open_question_id: Mapped[str | None] = mapped_column(Text)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    answer_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    fact_text: Mapped[str] = mapped_column(Text, nullable=False)
+    suggested_section: Mapped[str] = mapped_column(Text, default="learned", nullable=False)
+    suggested_field: Mapped[str | None] = mapped_column(Text)
+    suggested_value: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, default="pending", nullable=False)
+    source: Mapped[str] = mapped_column(Text, default="admin", nullable=False)
+    needs_review: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    __table_args__ = (
+        Index("ix_learned_facts_bot_id_status_deleted_at", "bot_id", "status", "deleted_at"),
+    )

@@ -13,7 +13,17 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from mebot.guard import personal
-from mebot.models import ChatSession, Contact, Message, Notification, TelegramConfig, new_id, utcnow
+from mebot.models import (
+    ChatSession,
+    Contact,
+    Message,
+    Notification,
+    OpenQuestion,
+    TelegramConfig,
+    new_id,
+    utcnow,
+)
+from mebot.repos import open_questions
 from mebot.telegram import outbox, repo
 
 MAX_TEXT = 800
@@ -104,11 +114,22 @@ def unanswered(
     text: str,
     ref_message_id: str | None,
     public_url: str | None,
+    group: OpenQuestion | None = None,
+    now: datetime | None = None,
 ) -> None:
+    """Ping the owner about an unanswered question. With an open-question ``group`` the
+    ping is throttled: the group's first ask, then at most once per 24h ("asked 3x")."""
     row = _active(db, bot_id, "notify_unanswered")
     if row is None:
         return
+    now = now or utcnow()
+    if group is not None:
+        if not open_questions.should_notify(group, now):
+            return
+        group.last_notified_at = now
     nid = new_id()
+    repeat = f" (asked {group.ask_count}×)" if group is not None and group.ask_count > 1 else ""
+
     buttons = [{"text": "Reply", "callback_data": f"reply:{nid}"}]
     if public_url:
         buttons.append(
@@ -119,12 +140,13 @@ def unanswered(
         bot_id,
         "unanswered",
         {
-            "text": f"❓ Unanswered from <b>{_name(name)}</b>:\n{esc(text)}\n\n"
+            "text": f"❓ Unanswered{repeat} from <b>{_name(name)}</b>:\n{esc(text)}\n\n"
             "<i>Reply to this message to answer them.</i>",
             "reply_markup": {"inline_keyboard": [buttons]},
             # For the reply loop: the visitor's own words and name (raw; escaped on use).
             "question": text[:2000],
             "name": name,
+            "open_question_id": group.id if group is not None else None,
         },
         session_id=session_id,
         ref_message_id=ref_message_id,
