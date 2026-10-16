@@ -25,6 +25,7 @@ export const LEAVE_MESSAGE = "You have unsaved changes. Leave without saving?";
 
 const NAV: { to: string; label: string; end?: boolean; group?: string }[] = [
   { to: "/admin", label: "Dashboard", end: true },
+  { to: "/admin/contacts", label: "Contacts" },
   { to: "/admin/profile/identity", label: "Identity", group: "Your data" },
   { to: "/admin/profile/experience", label: "Experience" },
   { to: "/admin/profile/education", label: "Education" },
