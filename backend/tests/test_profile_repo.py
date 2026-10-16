@@ -63,8 +63,8 @@ def test_end_before_start_rejected_on_end_field():
 @pytest.mark.parametrize("url", ["javascript:alert(1)", "ftp://x.com", "example.com", "http://"])
 def test_urls_http_only(url):
     with pytest.raises(ValidationError) as e:
-        LinkIn(label="x", url=url)
-    assert "url" in fields(e.value)
+        LinkIn(kind="website", label="x", value=url)
+    assert "value" in fields(e.value)
 
 
 def test_length_limits():
@@ -148,9 +148,9 @@ def test_bot_isolation(db):
 def test_reorder_requires_exact_id_set(db):
     sec = get_section("links")
     ids = [
-        repo.create(db, sec, "b1", LinkIn(label=str(i), url="https://x.com")).id for i in range(3)
+        repo.create(db, sec, "b1", LinkIn(label=str(i), value="https://x.com")).id for i in range(3)
     ]
-    other = repo.create(db, sec, "b2", LinkIn(label="o", url="https://x.com")).id
+    other = repo.create(db, sec, "b2", LinkIn(label="o", value="https://x.com")).id
     db.commit()
     assert not repo.reorder(db, sec, "b1", ids[:2])
     assert not repo.reorder(db, sec, "b1", [*ids, other])

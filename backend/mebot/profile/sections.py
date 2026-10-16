@@ -17,6 +17,7 @@ from mebot.models import (
 from mebot.profile import schemas as s
 
 MAX_ITEMS = 200
+MAX_CHANNELS = 30
 
 
 @dataclass(frozen=True)
@@ -25,12 +26,17 @@ class Section:
     model: type
     schema: type[BaseModel]
     json_fields: tuple[str, ...] = ()
+    max_items: int | None = None  # None: the module-wide MAX_ITEMS
+
+    @property
+    def limit(self) -> int:
+        return self.max_items or MAX_ITEMS
 
 
 SECTIONS: dict[str, Section] = {
     sec.slug: sec
     for sec in (
-        Section("links", ProfileLink, s.LinkIn),
+        Section("links", ProfileLink, s.LinkIn, max_items=MAX_CHANNELS),
         Section("experiences", Experience, s.ExperienceIn, ("highlights", "tech")),
         Section("educations", Education, s.EducationIn),
         Section("skills", Skill, s.SkillIn),

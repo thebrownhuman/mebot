@@ -218,8 +218,15 @@ class ProfileNotes(_ProfileRow, Base):
 
 class ProfileLink(_ListRow, Base):
     __tablename__ = "profile_links"
+    # A contact channel (migration 0010): value is canonical for its kind (mebot.channels).
     label: Mapped[str] = mapped_column(Text, nullable=False)
-    url: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(
+        Text, default="website", server_default="website", nullable=False
+    )
+    share: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=true(), nullable=False
+    )
     __table_args__ = _bot_ix("profile_links")
 
 
