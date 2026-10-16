@@ -15,7 +15,7 @@ deploy/     docker-compose, example Ollama Modelfile
 All configuration is via environment variables. Copy `.env.example` to `.env` and
 edit; you never need to change source code. Key settings: `MODE`, `SECRET_KEY`,
 `DATABASE_URL`, `OLLAMA_HOST`, `CORS_ORIGINS`, `SETUP_TOKEN`,
-`COOKIE_SECURE`, `TRUST_PROXY`, `PUBLIC_URL`.
+`COOKIE_SECURE`, `TRUST_PROXY`, `PUBLIC_URL`, `GITHUB_TOKEN`.
 
 ## Run bare-metal (development)
 
@@ -395,6 +395,43 @@ updated file only proposes what's new or changed.
 its name, size and a SHA-256 hash, so uploading the same file twice returns the same
 review). The extracted draft is kept for 7 days for you to review, then deleted (or as
 soon as you apply or discard it). Limits: 10 imports per hour and one at a time.
+
+## Import projects from GitHub
+
+Admin → Import → **GitHub** turns public repos into project entries, through the same
+review screen as resume / LinkedIn imports. Paste up to 10 repo URLs (one per line), or
+enter your username and tick repos in the picker (sorted by stars, forks hidden unless
+you ask).
+
+**What's read.** Only `api.github.com`: the repo's metadata, language stats, README
+(first 30,000 characters), the file list of the root plus one level into `frontend/`,
+`backend/`, `client/`, `server/`, `web/`, `api/`, `apps/*`, `packages/*`, and the
+contents of dependency manifests only (`package.json`, `requirements*.txt`,
+`pyproject.toml`, `Pipfile`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle`,
+`composer.json`, `Gemfile`, `pubspec.yaml`, `Dockerfile`, `docker-compose*.yml`,
+`prisma/schema.prisma`; at most 15 files of 200 KB each). Config files like
+`vercel.json`, `*.tf` or `.github/workflows/*` count by name alone. Source code is never
+read, and links in READMEs are never followed. Private repos can't be imported.
+
+**How the entry is built.** Tech is detected from the manifests, not guessed: each tech
+has *Evidence* (the file and key that showed it), and languages over 5% of the code are
+included. Name, tagline, links, start month (repo created), end month (only for
+archived repos) and status (archived / active if pushed in the last 6 months /
+completed) come straight from GitHub. If you have an AI provider set up, it writes the
+summary and the frontend / backend / infra / data-AI paragraphs from the README only.
+The README is treated as data, not instructions. Any number or tech the text mentions
+that isn't in the README or the manifests marks the entry **Check this**. Without an AI
+provider the summary is the repo description, also flagged. Detected tech you don't
+already list is offered as skills, unticked. Re-importing a repo matches the existing
+project by its repo URL and shows only what changed.
+
+**Rate limits and the token.** Without a token GitHub allows 60 requests an hour, enough
+for about 5 repos. If you hit it, the import says when to try again. For more, create a
+[fine-grained token](https://github.com/settings/personal-access-tokens/new) with **no
+permissions** (public repositories, read-only is the default) and paste it under *GitHub
+token* on the card, or set `GITHUB_TOKEN` on the server. A saved token is encrypted with
+your `SECRET_KEY`, shown as its last 4 characters, never logged, and only sent to
+`api.github.com`.
 
 ## Embed on your site
 
