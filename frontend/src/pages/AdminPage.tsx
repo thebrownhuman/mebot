@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import ChatScreen from "../components/ChatScreen";
 import SessionsDrawer from "../components/SessionsDrawer";
 import AdminDrawer from "../components/AdminDrawer";
-import UnansweredPanel from "../components/admin/UnansweredPanel";
+import OpenQuestionsPanel from "../components/admin/OpenQuestionsPanel";
 import LimitsBanner from "../components/admin/LimitsBanner";
 import TelegramHint from "../components/admin/TelegramHint";
 import { useChat } from "../hooks/useChat";
@@ -39,7 +39,7 @@ export default function AdminPage() {
     <>
       <LimitsBanner />
       <TelegramHint />
-      <UnansweredPanel onOpen={(sid) => void chat.loadSession(sid)} />
+      <OpenQuestionsPanel />
       <SessionsDrawer open={open === "sessions"} onPick={(sid) => void chat.loadSession(sid)} />
       <AdminDrawer open={open === "admin"} />
     </>

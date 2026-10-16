@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { getLlm, logout, type LlmConfigView, type Me } from "../../lib/api";
+import { getLlm, listOpenQuestions, logout, type LlmConfigView, type Me } from "../../lib/api";
 
 // Admin shell: sidebar (top menu on small screens), AI-provider banner, toasts and
 // an unsaved-changes guard shared by every admin page.
@@ -11,6 +11,8 @@ interface AdminCtx {
   // true if it's fine to navigate away (not dirty, or the owner confirmed).
   confirmLeave: () => boolean;
   toast: (message: string) => void;
+  // Re-count open questions (sidebar badge) after a page changed them.
+  refreshOpenCount: () => void;
 }
 
 const Ctx = createContext<AdminCtx | null>(null);
@@ -23,8 +25,9 @@ export function useAdmin(): AdminCtx {
 
 export const LEAVE_MESSAGE = "You have unsaved changes. Leave without saving?";
 
-const NAV: { to: string; label: string; end?: boolean; group?: string }[] = [
+const NAV: { to: string; label: string; end?: boolean; group?: string; badge?: "open" }[] = [
   { to: "/admin", label: "Dashboard", end: true },
+  { to: "/admin/open-questions", label: "Open questions", badge: "open" },
   { to: "/admin/contacts", label: "Contacts" },
   { to: "/admin/profile/identity", label: "Identity", group: "Your data" },
   { to: "/admin/profile/experience", label: "Experience" },
@@ -35,6 +38,7 @@ const NAV: { to: string; label: string; end?: boolean; group?: string }[] = [
   { to: "/admin/profile/faq", label: "FAQ" },
   { to: "/admin/profile/avoid-topics", label: "Avoid topics" },
   { to: "/admin/profile/notes", label: "Notes" },
+  { to: "/admin/memory", label: "Memory" },
   { to: "/admin/profile/preview", label: "Preview" },
   { to: "/admin/llm", label: "AI Provider", group: "Settings" },
   { to: "/admin/limits", label: "Limits" },
@@ -69,12 +73,23 @@ export default function AdminLayout({ me }: { me: Me }) {
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [llm, setLlm] = useState<LlmConfigView | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [openCount, setOpenCount] = useState(0);
 
   useEffect(() => {
     getLlm()
       .then(setLlm)
       .catch(() => setLlm(null));
   }, [pathname]);
+
+  const refreshOpenCount = useCallback(() => {
+    listOpenQuestions("open")
+      .then((r) => setOpenCount(r.open_count))
+      .catch(() => setOpenCount(0));
+  }, []);
+
+  useEffect(() => {
+    refreshOpenCount();
+  }, [pathname, refreshOpenCount]);
 
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
@@ -139,6 +154,14 @@ export default function AdminLayout({ me }: { me: Me }) {
               }
             >
               {n.label}
+              {n.badge === "open" && openCount > 0 && (
+                <span
+                  aria-label={`${openCount} open`}
+                  className="ml-2 rounded-full bg-term-amber/20 text-term-amber px-1.5 py-px text-[10px]"
+                >
+                  {openCount}
+                </span>
+              )}
             </NavLink>
           </li>
         ))}
@@ -160,7 +183,7 @@ export default function AdminLayout({ me }: { me: Me }) {
   );
 
   return (
-    <Ctx.Provider value={{ me, setDirty, confirmLeave, toast }}>
+    <Ctx.Provider value={{ me, setDirty, confirmLeave, toast, refreshOpenCount }}>
       <div className="relative z-10 min-h-screen md:flex">
         {/* small screens: top bar with a menu toggle */}
         <header className="md:hidden flex items-center gap-3 border-b border-term-line bg-term-panel/95 px-4 py-3 sticky top-0 z-30">

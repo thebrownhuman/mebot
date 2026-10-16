@@ -14,6 +14,7 @@ import {
   type FormValues,
 } from "../../components/admin/fields";
 import { LINKS, sectionByRoute } from "../../components/admin/sections";
+import { DEFAULT_GREETING, PRONOUNS, renderGreeting } from "../../lib/greeting";
 import {
   getIdentity,
   getNotes,
@@ -58,6 +59,14 @@ export default function ProfilePage() {
 const IDENTITY_FIELDS: FieldDef[] = [
   { name: "full_name", label: "Full name", kind: "text", maxLength: 200 },
   {
+    name: "pronouns",
+    label: "Pronouns",
+    kind: "select",
+    required: true,
+    options: PRONOUNS.map((p) => [p, p]),
+    hint: "How the bot refers to you. With they/them it uses your name or “they”.",
+  },
+  {
     name: "headline",
     label: "Headline",
     kind: "text",
@@ -80,6 +89,14 @@ const IDENTITY_FIELDS: FieldDef[] = [
   { name: "work_authorization", label: "Work authorisation", kind: "text", maxLength: 200 },
   { name: "photo_url", label: "Photo URL", kind: "url", placeholder: "https://" },
   {
+    name: "assistant_greeting",
+    label: "Assistant greeting",
+    kind: "textarea",
+    maxLength: 300,
+    placeholder: DEFAULT_GREETING,
+    hint: "The first message recruiters see. Placeholders: {first_name} {name} {pronoun_subj} {pronoun_obj}. Leave empty for the default.",
+  },
+  {
     name: "count_internships",
     label: "Count internships in my total experience",
     kind: "checkbox",
@@ -95,6 +112,12 @@ const IDENTITY_FIELDS: FieldDef[] = [
 // The backend stores the five main identity fields as "" rather than null.
 const NON_NULL = new Set(["full_name", "headline", "location", "open_to", "summary"]);
 
+const withDefaults = (v: FormValues): FormValues => ({ ...v, pronouns: v.pronouns || "they/them" });
+
+function str(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
 function IdentityPage() {
   const { setDirty, toast } = useAdmin();
   const [values, setValues] = useState<FormValues | null>(null);
@@ -104,9 +127,9 @@ function IdentityPage() {
 
   useEffect(() => {
     getIdentity()
-      .then((d) => setValues(fromItem(IDENTITY_FIELDS, d)))
+      .then((d) => setValues(withDefaults(fromItem(IDENTITY_FIELDS, d))))
       .catch((e: Error) => {
-        setValues(fromItem(IDENTITY_FIELDS, null));
+        setValues(withDefaults(fromItem(IDENTITY_FIELDS, null)));
         setError(e.message || "Could not load.");
       });
     return () => setDirty(false);
@@ -129,7 +152,7 @@ function IdentityPage() {
     try {
       const body = toBody(IDENTITY_FIELDS, values);
       for (const k of NON_NULL) body[k] = body[k] ?? "";
-      setValues(fromItem(IDENTITY_FIELDS, await saveIdentity(body)));
+      setValues(withDefaults(fromItem(IDENTITY_FIELDS, await saveIdentity(body))));
       setDirty(false);
       toast("Saved");
     } catch (e) {
@@ -162,6 +185,16 @@ function IdentityPage() {
                 />
               </div>
             ))}
+          </div>
+          <div className="mb-4 border border-term-line2 rounded px-3 py-2 text-xs">
+            <div className="text-term-dim mb-1">Greeting preview (what recruiters see first)</div>
+            <p data-testid="greeting-preview" className="text-term-fg leading-relaxed">
+              {renderGreeting(
+                str(values.assistant_greeting),
+                str(values.full_name),
+                str(values.pronouns) || "they/them",
+              )}
+            </p>
           </div>
           <button type="submit" disabled={saving} className={primary}>
             {saving ? "saving…" : "save identity"}
@@ -345,6 +378,15 @@ function PreviewPage() {
     >
       <FactsCard />
       <FormError message={error} />
+      {preview?.warnings?.map((w) => (
+        <div
+          key={w}
+          role="alert"
+          className="border border-term-amber text-term-amber rounded px-3 py-2 mb-3 text-xs"
+        >
+          {w}
+        </div>
+      ))}
       {!preview && !error && <Loading />}
       {preview && (
         <>

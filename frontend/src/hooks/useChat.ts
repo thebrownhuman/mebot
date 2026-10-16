@@ -103,6 +103,10 @@ export function useChat() {
         return false;
       }
       setConn({ ok: true, text: "online · " + h.model });
+      // The assistant introduces itself first (a server-rendered line, not an AI call).
+      if (remember.current && cfg?.assistant_greeting) {
+        setLines([{ kind: "me", text: cfg.assistant_greeting }]);
+      }
       const stored = remember.current ? readStoredSession() : null;
       if (stored) {
         try {

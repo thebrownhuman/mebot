@@ -21,6 +21,10 @@ def test_public_config_defaults(admin_client):
         "max_message_chars": 1000,
         "paused": False,
         "owner_name": "Shivansh",
+        "assistant_greeting": (
+            "Hi! I'm Shivansh's assistant. Ask me anything about their work, "
+            "experience or projects."
+        ),
     }
 
 
@@ -32,6 +36,10 @@ def test_public_config_reflects_limits(admin_client, ts_app):
         "max_message_chars": 500,
         "paused": True,
         "owner_name": "Shivansh",
+        "assistant_greeting": (
+            "Hi! I'm Shivansh's assistant. Ask me anything about their work, "
+            "experience or projects."
+        ),
     }
     set_limits(ts_app, turnstile_enabled=True)
     assert admin_client.get("/api/public/config").json()["turnstile_site_key"] == "site-key-1"
