@@ -496,3 +496,29 @@ class WidgetSettings(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     __table_args__ = (Index("ux_widget_settings_bot_id", "bot_id", unique=True),)
+
+
+# --- imports (migration 0012) --------------------------------------------------------
+
+
+class ImportJob(Base):
+    __tablename__ = "import_jobs"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)  # resume | linkedin | later github
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    filename: Mapped[str | None] = mapped_column(Text)
+    sha256: Mapped[str | None] = mapped_column(Text)
+    size_bytes: Mapped[int | None] = mapped_column(Integer)
+    draft: Mapped[str | None] = mapped_column(Text)  # JSON
+    source_text: Mapped[str | None] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    applied_summary: Mapped[str | None] = mapped_column(Text)  # JSON
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    __table_args__ = (
+        Index("ix_import_jobs_bot_id_created_at", "bot_id", "created_at"),
+        Index("ix_import_jobs_bot_id_sha256", "bot_id", "sha256"),
+    )

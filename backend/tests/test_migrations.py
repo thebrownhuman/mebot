@@ -329,3 +329,17 @@ def test_0011_widget_settings(tmp_path):
     assert ix["ux_widget_settings_bot_id"]["unique"]
     command.downgrade(alembic_config(url), "0010")
     assert "widget_settings" not in sa.inspect(sa.create_engine(url)).get_table_names()
+
+
+def test_0012_import_jobs(tmp_path):
+    url = f"sqlite:///{(tmp_path / 'i.db').as_posix()}"
+    run_migrations(url)
+    insp = sa.inspect(sa.create_engine(url))
+    cols = {c["name"] for c in insp.get_columns("import_jobs")}
+    assert cols >= {
+        "id", "bot_id", "kind", "status", "filename", "sha256", "size_bytes", "draft",
+        "source_text", "error_code", "error_message", "applied_summary", "created_at",
+        "updated_at", "expires_at",
+    }  # fmt: skip
+    command.downgrade(alembic_config(url), "0011")
+    assert "import_jobs" not in sa.inspect(sa.create_engine(url)).get_table_names()
