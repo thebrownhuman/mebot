@@ -11,6 +11,7 @@ import {
   type PublicConfig,
   type SessionUpdates,
 } from "../lib/api";
+import { splitStream } from "../lib/stream";
 
 export type Line =
   | { kind: "recruiter"; text: string }
@@ -194,15 +195,18 @@ export function useChat() {
           }
           acc += chunk;
           pulseRef.current = Math.min(pulseRef.current + 0.5, 1.2);
+          const shown = splitStream(acc).text;
           setLines((l) => {
             const c = l.slice();
-            c[c.length - 1] = { kind: "me", text: acc, streaming: true };
+            c[c.length - 1] = { kind: "me", text: shown, streaming: true };
             return c;
           });
         });
+        // A replace frame (leak-block / redaction) swaps the whole bubble.
+        const { text: streamed, replace } = splitStream(acc);
         setLines((l) => {
           const c = l.slice();
-          c[c.length - 1] = { kind: "me", text: acc.trim() };
+          c[c.length - 1] = { kind: "me", text: (replace ?? streamed).trim() };
           return c;
         });
       } catch (e) {
