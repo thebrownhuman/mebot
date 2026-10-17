@@ -342,6 +342,8 @@ export interface ConversationMessage {
   created_at: string;
   unanswered: boolean;
   from_owner: boolean;
+  // Retrieval mode only: the profile chunks the model saw for this reply.
+  chunks?: { id: string; section: string; title: string }[];
 }
 
 export interface ConversationDetail {
@@ -640,6 +642,58 @@ export interface PublicConfig {
   assistant_greeting?: string;
   // Chips shown before the first message (admin Widget page).
   suggested_questions?: string[];
+}
+
+// --- admin: knowledge (retrieval for large profiles) ---------------------------
+
+export type KnowledgeMode = "auto" | "always" | "off";
+
+export interface KnowledgeStatus {
+  mode: KnowledgeMode;
+  effective: "full" | "retrieval";
+  reason: string;
+  profile_tokens: number;
+  threshold_tokens: number;
+  budget_tokens: number;
+  chunk_count: number;
+  last_indexed_at: string | null;
+  index_stale: boolean;
+  usage: {
+    days: number;
+    questions: number;
+    retrieval_replies: number;
+    avg_prompt_tokens: number;
+    avg_profile_tokens: number;
+    saved_percent: number;
+  };
+  embeddings: {
+    supported: boolean;
+    reason: string | null;
+    enabled: boolean;
+    model: string | null;
+    default_model: string | null;
+    embedded: number;
+    total: number;
+    last_error: string | null;
+  };
+}
+
+export interface KnowledgeUpdate {
+  mode?: KnowledgeMode;
+  embeddings_enabled?: boolean;
+  embedding_model?: string | null;
+}
+
+export async function getKnowledge(): Promise<KnowledgeStatus> {
+  return json<KnowledgeStatus>("/api/admin/knowledge", admin);
+}
+
+export async function saveKnowledge(body: KnowledgeUpdate): Promise<KnowledgeStatus> {
+  return json<KnowledgeStatus>("/api/admin/knowledge", { method: "PUT", body, ...admin });
+}
+
+export async function rebuildKnowledge(): Promise<KnowledgeStatus> {
+  return json<KnowledgeStatus>("/api/admin/knowledge/rebuild", { method: "POST", ...admin });
 }
 
 export async function getLimits(): Promise<LimitsView> {

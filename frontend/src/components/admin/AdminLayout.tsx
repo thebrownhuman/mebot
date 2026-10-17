@@ -52,6 +52,7 @@ const NAV: { to: string; label: string; end?: boolean; group?: string; badge?: "
   { to: "/admin/memory", label: "Memory" },
   { to: "/admin/profile/preview", label: "Preview" },
   { to: "/admin/llm", label: "AI Provider", group: "Settings" },
+  { to: "/admin/knowledge", label: "Knowledge" },
   { to: "/admin/limits", label: "Limits" },
   { to: "/admin/notifications", label: "Notifications" },
   { to: "/admin/widget", label: "Widget" },

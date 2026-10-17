@@ -182,6 +182,7 @@ async def test_chat_reindexes_lazily_when_stale(db):
     p = large_profile()
     first = await ask(db, p, "Kafka")
     assert repo.count(db, "b1") == len(chunker.build_chunks(p))
+    assert repo.get_settings(db, "b1").last_indexed_at is not None  # lazy sync stamps it
     p.learned.append("Sam also climbs.")
     second = await ask(db, p, "climbs")
     assert repo.count(db, "b1") == len(chunker.build_chunks(p))
