@@ -15,9 +15,9 @@ import re
 from datetime import timedelta
 
 import pytest
+from conftest import csrf
 from fastapi.testclient import TestClient
 
-from conftest import csrf
 from mebot import models as m
 
 MARK = "ZQXBOBBYSECRET"  # only in tenant B's data
