@@ -46,6 +46,13 @@ class OllamaClient(HttpAdapter):
         payload = self._payload([{"role": "user", "content": "ping"}], model, 0, 1, False)
         return await self._timed(self._post_json("/api/chat", payload))
 
+    async def embed(self, texts: list[str], *, model: str) -> list[list[float]]:
+        data = await self._post_json("/api/embed", {"model": model, "input": texts}, timeout=60.0)
+        vectors = data.get("embeddings") if isinstance(data, dict) else None
+        tokens = data.get("prompt_eval_count") if isinstance(data, dict) else None
+        self.embed_tokens = int(tokens) if tokens else None
+        return self._check_vectors(texts, vectors if isinstance(vectors, list) else [])
+
     async def list_models(self) -> list[str]:
         try:
             data = await self._get_json("/api/tags")

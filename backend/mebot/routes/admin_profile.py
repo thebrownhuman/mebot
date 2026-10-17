@@ -20,6 +20,7 @@ from mebot.profile.render import approx_tokens, render_profile
 from mebot.profile.schemas import IdentityIn, NotesIn, OrderIn
 from mebot.repos import learned_facts, logs
 from mebot.repos import profile_items as repo
+from mebot.retrieval.hooks import Reindexer, get_reindexer
 
 router = APIRouter(
     prefix="/api/admin/profile",
@@ -61,9 +62,10 @@ def _confirm_phone_share(data: BaseModel, was_shared: bool) -> None:
             )
 
 
-def _changed(db: Session, bot: Bot, section: str) -> None:
+def _changed(db: Session, bot: Bot, section: str, reindex: Reindexer) -> None:
     logs.add(db, bot.id, None, "profile_updated", detail=section)
     db.commit()
+    reindex(bot.id, section)  # background: keeps the retrieval index in step
 
 
 # --- singletons (declared before /{section} so they win the match) ---------------------
@@ -77,10 +79,13 @@ def read_identity(db: Session = Depends(get_db), bot: Bot = Depends(get_current_
 
 @router.put("/identity")
 def write_identity(
-    payload: dict = Body(...), db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     row = repo.put_identity(db, bot.id, _parse(IdentityIn, payload))
-    _changed(db, bot, "identity")
+    _changed(db, bot, "identity", reindex)
     return repo.serialize(None, row)
 
 
@@ -92,10 +97,13 @@ def read_notes(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot
 
 @router.put("/notes")
 def write_notes(
-    payload: dict = Body(...), db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     row = repo.put_notes(db, bot.id, _parse(NotesIn, payload))
-    _changed(db, bot, "notes")
+    _changed(db, bot, "notes", reindex)
     return {"content": row.content}
 
 
@@ -160,6 +168,7 @@ def create_item(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     sec = _section(section)
     data = _parse(sec.schema, payload)
@@ -167,7 +176,7 @@ def create_item(
         raise ApiError(422, "LIMIT_REACHED", f"A section can hold at most {sec.limit} items.")
     _confirm_phone_share(data, was_shared=False)
     row = repo.create(db, sec, bot.id, data)
-    _changed(db, bot, section)
+    _changed(db, bot, section, reindex)
     return repo.serialize(sec, row)
 
 
@@ -177,6 +186,7 @@ def reorder(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     sec = _section(section)
     order = _parse(OrderIn, payload)
@@ -184,7 +194,7 @@ def reorder(
         db.rollback()
         msg = "ids must list every item in this section exactly once"
         raise ApiError(422, "VALIDATION_ERROR", msg, details=[{"field": "ids", "message": msg}])
-    _changed(db, bot, section)
+    _changed(db, bot, section, reindex)
     return Response(status_code=204)
 
 
@@ -195,6 +205,7 @@ def update_item(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     sec = _section(section)
     row = repo.get(db, sec, bot.id, item_id)
@@ -207,18 +218,22 @@ def update_item(
     data = _parse(sec.schema, payload)
     _confirm_phone_share(data, was_shared=bool(getattr(row, "share", False)))
     repo.update(db, sec, row, data)
-    _changed(db, bot, section)
+    _changed(db, bot, section, reindex)
     return repo.serialize(sec, row)
 
 
 @router.delete("/{section}/{item_id}", status_code=204)
 def delete_item(
-    section: str, item_id: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+    section: str,
+    item_id: str,
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     sec = _section(section)
     row = repo.get(db, sec, bot.id, item_id)
     if row is None:
         raise _not_found()
     repo.soft_delete(db, row)
-    _changed(db, bot, section)
+    _changed(db, bot, section, reindex)
     return Response(status_code=204)
