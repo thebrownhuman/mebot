@@ -4,6 +4,8 @@ Producers call ``enqueue`` inside the transaction of the event that causes it, s
 notification exists iff the event was committed. ``send_due`` (a background loop)
 delivers rows per bot in creation order: a row that must wait (backoff, 429) holds
 back the later rows of that bot, so the owner never sees messages out of order.
+Each round takes at most PER_BOT_ROUND rows per bot, oldest bots' rows interleaved,
+so one tenant's backlog can't starve the others. Inactive tenants are skipped.
 """
 
 import asyncio
@@ -13,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from mebot.models import Notification, new_id, utcnow
+from mebot.models import Bot, Notification, new_id, utcnow
 from mebot.telegram import repo
 from mebot.telegram.client import TelegramError
 from mebot.telegram.updates import TgContext
@@ -24,6 +26,7 @@ MAX_DELAY = 3600.0
 PER_CHAT_GAP = 1.0  # Telegram: about one message per second per chat
 RETENTION = timedelta(days=30)
 LIVE = ("pending", "failed")
+PER_BOT_ROUND = 5
 
 
 def enqueue(
@@ -91,11 +94,26 @@ async def send_due(ctx: TgContext, limit: int = 50) -> int:
     now = ctx.now()
     sent = 0
     with ctx.session_factory() as db:
+        rank = (
+            func.row_number()
+            .over(
+                partition_by=Notification.bot_id,
+                order_by=(Notification.created_at, Notification.id),
+            )
+            .label("rank")
+        )
+        ranked = (
+            select(Notification.id, rank)
+            .join(Bot, Bot.id == Notification.bot_id)
+            .where(Notification.status.in_(LIVE), Bot.status == "active")
+            .subquery()
+        )
         live = list(
             db.scalars(
                 select(Notification)
-                .where(Notification.status.in_(LIVE))
-                .order_by(Notification.created_at, Notification.id)
+                .join(ranked, ranked.c.id == Notification.id)
+                .where(ranked.c.rank <= PER_BOT_ROUND)
+                .order_by(ranked.c.rank, Notification.created_at, Notification.id)
                 .limit(limit)
             )
         )

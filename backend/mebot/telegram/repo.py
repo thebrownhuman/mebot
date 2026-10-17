@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from mebot.crypto import TELEGRAM_INFO, decrypt_secret, encrypt_secret
-from mebot.models import TelegramConfig, utcnow
+from mebot.models import Bot, TelegramConfig, utcnow
 from mebot.telegram.client import TelegramClient
 
 LINK_TTL = timedelta(minutes=10)
@@ -20,8 +20,17 @@ def get(db: Session, bot_id: str) -> TelegramConfig | None:
 
 
 def all_configured(db: Session) -> list[TelegramConfig]:
+    """Linked bots whose tenant is active (suspended / deleted tenants get nothing)."""
     return list(
-        db.scalars(select(TelegramConfig).where(TelegramConfig.bot_token_encrypted.is_not(None)))
+        db.scalars(
+            select(TelegramConfig)
+            .join(Bot, Bot.id == TelegramConfig.bot_id)
+            .where(
+                TelegramConfig.bot_token_encrypted.is_not(None),
+                Bot.status == "active",
+                Bot.deleted_at.is_(None),
+            )
+        )
     )
 
 

@@ -121,3 +121,14 @@ def test_purge_after_grace_erases_tenant_only(tenants, hosted_app):
 
 def test_account_routes_404_in_single_mode(admin_client):
     assert admin_client.get("/api/hosted/account").status_code == 404
+
+
+def test_slug_changes_rate_limited(tenants):
+    a, _ = tenants
+    codes = [
+        a.client.put(
+            "/api/hosted/account/slug", json={"slug": f"alice-{i}"}, headers=csrf(a.client)
+        ).status_code
+        for i in range(6)
+    ]
+    assert codes[:5] == [200] * 5 and codes[5] == 429

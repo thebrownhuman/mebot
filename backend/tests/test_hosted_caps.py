@@ -82,3 +82,17 @@ def test_daily_import_cap(hosted_settings):
     r = up(2)
     assert r.status_code == 429 and "today" in r.json()["error"]["message"]
     assert calls[0] == (t.bot_id, 1)
+
+
+def test_upload_size_cap(hosted_settings):
+    from mebot.main import create_app
+
+    app = create_app(hosted_settings.model_copy(update={"hosted_max_upload_bytes": 1000}))
+    t = make_tenant(app, "alice")
+    big = io.BytesIO(b"PK\x03\x04" + b"x" * 5000)
+    r = t.client.post(
+        "/api/admin/import/linkedin",
+        files={"file": ("big.zip", big, "application/zip")},
+        headers=csrf(t.client),
+    )
+    assert r.status_code == 413 and r.json()["error"]["code"] == "FILE_TOO_LARGE"
