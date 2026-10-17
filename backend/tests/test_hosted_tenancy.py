@@ -168,3 +168,27 @@ def test_hosted_telemetry_is_platform_only(tenants, hosted_app):
     assert calls[0] == "heartbeat" and "register" not in calls
     with hosted_app.state.session_factory() as db:
         assert db.query(Bot).count() == before  # no "default" bot conjured up
+
+
+def test_health_platform_and_per_tenant(tenants, hosted_app):
+    a, b = tenants
+    with TestClient(hosted_app) as anon:
+        r = anon.get("/api/health")
+        assert r.status_code == 200 and r.json()["ready"] is True and r.json()["model"] is None
+        assert "alice" not in r.text and "bobby" not in r.text
+        r = anon.get(f"/b/{a.slug}/api/health")
+        assert r.status_code == 200 and r.json()["model"] == "gpt-4o-mini"
+        assert anon.get("/b/nobody/api/health").status_code == 404
+
+
+def test_unknown_bot_page_serves_spa_but_api_is_404(hosted_settings, tmp_path):
+    from mebot.main import create_app
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html>SPA</html>")
+    app = create_app(hosted_settings.model_copy(update={"frontend_dist": dist}))
+    with TestClient(app) as anon:
+        r = anon.get("/b/nobody")
+        assert r.status_code == 200 and "SPA" in r.text
+        assert anon.get("/b/nobody/api/public/config").status_code == 404

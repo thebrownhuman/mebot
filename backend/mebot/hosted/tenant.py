@@ -74,6 +74,10 @@ class TenantMiddleware:
             target = f"/b/{new_slug}{'' if rest == '/' else rest}" + (f"?{query}" if query else "")
             return await RedirectResponse(target, status_code=301)(scope, receive, send)
         if bot_id is None:
+            if not rest.startswith("/api") and scope["method"] in ("GET", "HEAD"):
+                # A page: let the SPA render its neutral "unavailable" screen (its own API
+                # calls under /b/{ref} get the JSON 404).
+                return await self.app(scope, receive, send)
             return await _not_found()(scope, receive, send)
 
         scope = dict(scope)

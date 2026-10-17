@@ -132,7 +132,7 @@ interface ReqOpts {
 // --- hosted mode: which bot a public call is for ----------------------------
 // A recruiter page at /b/{slug} (or an embed at /embed/pk_...) talks to the backend
 // under the same /b/{ref} prefix, which picks the tenant. Owner APIs never get it.
-const TENANT_API = ["/api/public", "/api/session", "/api/chat", "/api/contact"];
+const TENANT_API = ["/api/public", "/api/session", "/api/chat", "/api/contact", "/api/health"];
 
 export function tenantPrefix(pathname: string): string {
   const b = /^\/b\/([^/]+)/.exec(pathname);
@@ -183,7 +183,7 @@ const admin = { notifyUnauthorized: true };
 
 export async function getHealth(): Promise<HealthResp> {
   try {
-    const r = await fetch("/api/health");
+    const r = await fetch(withTenant("/api/health", window.location.pathname));
     return (await r.json()) as HealthResp;
   } catch {
     return { ready: false, model: null, message: "backend not reachable" };
