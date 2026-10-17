@@ -12,9 +12,7 @@ def test_0020_billing_tables_and_seed(tmp_path):
     insp = sa.inspect(eng)
     tables = set(insp.get_table_names())
     assert {"plans", "subscriptions", "billing_events", "invoices", "trial_claims"} <= tables
-    assert {"terms_version", "terms_accepted_at"} <= {
-        c["name"] for c in insp.get_columns("admins")
-    }
+    assert {"terms_version", "terms_accepted_at"} <= {c["name"] for c in insp.get_columns("admins")}
     for t in ("subscriptions", "invoices", "billing_events"):
         assert insp.get_foreign_keys(t) == []
     with eng.connect() as c:
