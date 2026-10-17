@@ -9,6 +9,7 @@ import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request, Response
@@ -23,6 +24,7 @@ from app.db import Database, iso
 from app.limits import DailyCounter, SlidingWindow
 from app.releases import ReleasesFile
 
+PRIVACY_FILE = Path(__file__).resolve().parent.parent / "PRIVACY.md"
 _VERSION = re.compile(r"^\d{1,4}\.\d{1,4}\.\d{1,4}([-+][0-9A-Za-z.+-]{1,30})?$")
 _MODE = re.compile(r"^[a-z][a-z_-]{0,15}$")
 _EMAIL = re.compile(r"^[^@\s<>]{1,64}@[^@\s<>]{1,190}\.[^@\s<>]{2,}$")
@@ -229,6 +231,15 @@ def create_app(
     @app.get("/healthz")
     def healthz():
         return {"ok": True}
+
+    @app.get("/privacy")
+    def privacy():
+        """PRIVACY.md as plain text, so mebot's Account page can link to a stable URL."""
+        try:
+            text = PRIVACY_FILE.read_text("utf-8")
+        except OSError:
+            raise ApiError(404, "NOT_FOUND", "Privacy notice not available.") from None
+        return Response(text, media_type="text/markdown; charset=utf-8")
 
     @app.post("/v1/heartbeat", status_code=204)
     async def heartbeat(request: Request):

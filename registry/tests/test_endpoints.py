@@ -319,6 +319,12 @@ class TestStats:
         assert body["registrations"] == 1 and body["total_installs"] == 3
 
 
+def test_privacy_notice_is_served_as_text(client):
+    r = client.get("/privacy")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/markdown")
+    assert "registry: privacy" in r.text and "Not stored" in r.text
+
+
 def test_healthz(client):
     assert client.get("/healthz").json() == {"ok": True}
 

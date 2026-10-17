@@ -20,6 +20,7 @@ backend and shares no code with it.
 | `DELETE /v1/register` | signed | deletes the registration → 204 |
 | `GET /v1/latest` | none | `{latest, min_supported, released_at, notes_url, advisories[]}` |
 | `GET /v1/stats` | `Authorization: Bearer $REGISTRY_ADMIN_TOKEN` | active installs, versions, registrations |
+| `GET /privacy` | none | PRIVACY.md as text (linked from mebot's Account page) |
 | `GET /healthz` | none | `{"ok": true}` |
 
 Signed requests carry `X-Mebot-Install`, `X-Mebot-Timestamp` (Unix seconds) and
