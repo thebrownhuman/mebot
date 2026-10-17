@@ -94,9 +94,7 @@ def export_conversations(
 
 
 @router.get("/conversations/{sid}")
-def get_conversation(
-    sid: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
-):
+def get_conversation(sid: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     found = conv.detail(db, bot.id, sid)
     if found is None:
         raise ApiError(404, "NOT_FOUND", "This conversation no longer exists.")

@@ -31,9 +31,7 @@ INDEXES = (
 
 
 def upgrade() -> None:
-    op.add_column(
-        "bots", sa.Column("timezone", sa.Text, nullable=False, server_default="UTC")
-    )
+    op.add_column("bots", sa.Column("timezone", sa.Text, nullable=False, server_default="UTC"))
     op.add_column("bots", sa.Column("retention_days", sa.Integer, nullable=True))
     op.execute(
         "UPDATE bots SET timezone = COALESCE("

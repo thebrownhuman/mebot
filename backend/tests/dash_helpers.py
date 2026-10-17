@@ -64,9 +64,7 @@ def seed_session(
                     from_owner=True,
                 )
             )
-            db.add(
-                AccessLog(bot_id=bid, session_id=sid, event="OWNER_REPLIED", created_at=t)
-            )
+            db.add(AccessLog(bot_id=bid, session_id=sid, event="OWNER_REPLIED", created_at=t))
         if origin:
             db.add(
                 AccessLog(
@@ -79,9 +77,7 @@ def seed_session(
             )
         for ev, detail in events or []:
             db.add(
-                AccessLog(
-                    bot_id=bid, session_id=sid, event=ev, detail=detail, created_at=started
-                )
+                AccessLog(bot_id=bid, session_id=sid, event=ev, detail=detail, created_at=started)
             )
         if contact:
             db.add(
@@ -93,11 +89,7 @@ def seed_session(
                     created_at=started,
                 )
             )
-            db.add(
-                AccessLog(
-                    bot_id=bid, session_id=sid, event="CONTACT_LEFT", created_at=started
-                )
-            )
+            db.add(AccessLog(bot_id=bid, session_id=sid, event="CONTACT_LEFT", created_at=started))
         db.commit()
     return sid
 

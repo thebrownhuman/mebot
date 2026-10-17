@@ -14,7 +14,8 @@ def test_0014_copies_telegram_timezone_and_adds_columns(tmp_path):
         for bid in ("b1", "b2"):
             c.execute(
                 sa.text(
-                    "INSERT INTO bots (id, slug, name, created_at, updated_at, registration_consent)"
+                    "INSERT INTO bots (id, slug, name, created_at, updated_at,"
+                    " registration_consent)"
                     " VALUES (:i, :i, 'n', '2026-01-01', '2026-01-01', 0)"
                 ),
                 {"i": bid},
@@ -35,8 +36,11 @@ def test_0014_copies_telegram_timezone_and_adds_columns(tmp_path):
         # existing bots keep their data: retention starts as "forever"
         assert c.execute(sa.text("SELECT retention_days FROM bots")).scalars().all() == [None, None]
     insp = sa.inspect(eng)
-    ix = {tuple(i["column_names"]) for t in ("sessions", "messages", "access_log")
-          for i in insp.get_indexes(t)}
+    ix = {
+        tuple(i["column_names"])
+        for t in ("sessions", "messages", "access_log")
+        for i in insp.get_indexes(t)
+    }
     assert ("bot_id", "started_at") in ix
     assert ("bot_id", "created_at") in ix
     assert ("bot_id", "event", "created_at") in ix
@@ -51,8 +55,9 @@ def test_new_bot_defaults(admin_client, app):
 
 
 def test_telegram_timezone_patch_writes_bot(admin_client, app):
-    from mebot.models import Bot, TelegramConfig
     from sqlalchemy import select
+
+    from mebot.models import Bot, TelegramConfig
 
     link(app)
     r = admin_client.patch(

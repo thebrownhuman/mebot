@@ -82,9 +82,7 @@ class AccountIn(BaseModel):
 
 
 @router.put("/account")
-def put_account(
-    req: AccountIn, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
-):
+def put_account(req: AccountIn, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     sent = req.model_fields_set
     changed = []
     if "timezone" in sent and req.timezone is not None:

@@ -32,7 +32,9 @@ def test_purge_deletes_only_older_than_window(admin_client, app):
     c = counts(app)
     assert c["sessions"] == 2 and c["messages"] == 4 and c["contacts"] == 1
     with app.state.session_factory() as db:
-        linked = set(db.scalars(select(AccessLog.session_id).where(AccessLog.session_id.is_not(None))))
+        linked = set(
+            db.scalars(select(AccessLog.session_id).where(AccessLog.session_id.is_not(None)))
+        )
     assert old not in linked and new in linked
 
 
@@ -73,7 +75,9 @@ def test_counters_and_outbox_untouched(admin_client, app):
     bid = bot_id(app)
     seed_session(app, NOW - timedelta(days=400), CHAT)
     with app.state.session_factory() as db:
-        db.add(UsageCounter(bot_id=bid, scope="bot", key="-", window_start="2020-01-01", messages=3))
+        db.add(
+            UsageCounter(bot_id=bid, scope="bot", key="-", window_start="2020-01-01", messages=3)
+        )
         db.add(Notification(bot_id=bid, kind="x", payload="{}", status="sent"))
         db.commit()
         retention.purge_bot(db, bid, 30, NOW)
