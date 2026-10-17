@@ -5,6 +5,7 @@ import contextlib
 import logging
 import sys
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +16,7 @@ from mebot import retention
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
+from mebot.hosted import purge
 from mebot.hosted.mailer import make_mailer
 from mebot.hosted.tenant import TenantMiddleware
 from mebot.imports import github_import, linkedin, pipelines, resume  # noqa: F401 - importing registers the runner
@@ -46,14 +48,22 @@ def _validation_error(_, exc: RequestValidationError):
 
 
 RETENTION_EVERY = 24 * 3600
+# Hosted: deleted tenants are erased this long after the owner asked.
+PURGE_AFTER = timedelta(days=7)
 
 
-async def _retention_loop(factory) -> None:
+def _daily_purge(factory, hosted: bool) -> None:
+    retention.purge_all_bots(factory)
+    if hosted:
+        purge.purge_deleted(factory, PURGE_AFTER)
+
+
+async def _retention_loop(factory, hosted: bool = False) -> None:
     """Daily purge; the startup purge runs in create_app."""
     while True:
         await asyncio.sleep(RETENTION_EVERY)
         try:
-            await asyncio.to_thread(retention.purge_all_bots, factory)
+            await asyncio.to_thread(_daily_purge, factory, hosted)
         except Exception:  # a failed purge must not take the app down; retry next round
             logging.getLogger("mebot.retention").exception("retention purge failed")
 
@@ -70,7 +80,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Poller / outbox / digest workers; off in tests unless a test turns them on.
         if settings.telegram_workers:
             await app.state.telegram.start()
-        purge_task = asyncio.create_task(_retention_loop(app.state.session_factory))
+        purge_task = asyncio.create_task(
+            _retention_loop(app.state.session_factory, settings.hosted)
+        )
         # Only with TELEMETRY=on: otherwise nothing is scheduled and no request is ever made.
         telemetry = app.state.telemetry
         tele_task = (
@@ -118,7 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         outbox.purge(db)
         import_jobs.purge_expired(db)
         db.commit()
-    retention.purge_all_bots(app.state.session_factory)
+    _daily_purge(app.state.session_factory, settings.hosted)
     install_error_handlers(app)
     app.add_exception_handler(RequestValidationError, _validation_error)
     # Inside CORS: rewrites /b/{ref}/... and picks the tenant (hosted mode).
