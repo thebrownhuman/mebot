@@ -105,6 +105,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.import_limiter = SlidingWindowLimiter(limit=10, window_seconds=3600)
     app.state.import_runners = pipelines.RUNNERS
     app.state.mailer = make_mailer(settings)
+    # Hosted sign-up / mail endpoints, per hashed IP and bucket.
+    app.state.account_limiter = SlidingWindowLimiter(limit=5, window_seconds=3600)
     app.state.telemetry = Telemetry(settings, app.state.session_factory, install_key)
     app.state.telegram_ctx = TgContext(app.state.session_factory, secret_key, settings)
     app.state.telegram = TelegramService(app.state.telegram_ctx)

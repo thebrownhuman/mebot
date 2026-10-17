@@ -15,6 +15,7 @@ from mebot.routes import (
     chat,
     contact,
     health,
+    hosted_accounts,
     public,
     sessions,
     setup,
@@ -44,4 +45,5 @@ routers = [
     telegram_webhook.router,
     admin_profile.router,
     widget.router,
+    hosted_accounts.router,
 ]
