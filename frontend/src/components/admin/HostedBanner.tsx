@@ -27,6 +27,14 @@ export default function HostedBanner() {
           </Link>{" "}
         </>
       )}
+      {acct.setup_done && acct.email_verified && acct.billing_enabled && !acct.serving && (
+        <>
+          Your plan isn't active.{" "}
+          <Link to="/admin/billing" className="text-term-bright underline">
+            Choose a plan
+          </Link>
+        </>
+      )}
       {!acct.email_verified && (
         <>
           Confirm your e-mail ({acct.email}).{" "}

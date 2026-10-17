@@ -3,19 +3,26 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { CenteredCard, Field, FormError, SubmitButton } from "../../components/AuthForm";
 import {
   ApiError,
+  formatMoney,
   platformAudit,
+  platformBilling,
+  platformComp,
   platformCreateInvite,
   platformInvites,
   platformLogin,
   platformLogout,
   platformMe,
+  platformReconcile,
   platformRevokeInvite,
   platformSignups,
   platformTenantAction,
   platformTenants,
+  type PlatformBilling,
   type PlatformTenant,
   type TenantAction,
 } from "../../lib/api";
+
+type CardAction = TenantAction | "comp";
 
 // Operator console (hosted mode). Metadata and account actions only: the API has no way
 // to show tenants' keys, profiles or conversations, and neither does this page.
@@ -64,10 +71,11 @@ export function PlatformLoginPage() {
   );
 }
 
-type Tab = "tenants" | "signups" | "invites" | "audit";
+type Tab = "tenants" | "signups" | "billing" | "invites" | "audit";
 const TABS: { id: Tab; label: string }[] = [
   { id: "tenants", label: "Tenants" },
   { id: "signups", label: "Sign-ups" },
+  { id: "billing", label: "Billing" },
   { id: "invites", label: "Invites" },
   { id: "audit", label: "Audit log" },
 ];
@@ -110,7 +118,7 @@ function TenantCard({
   busy,
 }: {
   t: PlatformTenant;
-  onAction: (t: PlatformTenant, a: TenantAction) => void;
+  onAction: (t: PlatformTenant, a: CardAction) => void;
   busy: boolean;
 }) {
   return (
@@ -130,7 +138,15 @@ function TenantCard({
           {t.owner_email ?? "—"} {t.email_verified ? "" : "(unverified)"}
         </dd>
         <dt className="text-term-dim">plan</dt>
-        <dd className="text-term-fg">{t.plan}</dd>
+        <dd className="text-term-fg">{t.billing_plan ?? t.plan}</dd>
+        {t.billing_status !== undefined && (
+          <>
+            <dt className="text-term-dim">billing</dt>
+            <dd className={t.billing_status === "past_due" ? "text-term-amber" : "text-term-fg"}>
+              {t.billing_status ?? "none"}
+            </dd>
+          </>
+        )}
         <dt className="text-term-dim">msgs 7d / 30d</dt>
         <dd className="text-term-fg">
           {t.messages_7d} / {t.messages_30d}
@@ -163,6 +179,11 @@ function TenantCard({
             resend verification
           </button>
         )}
+        {t.billing_status !== undefined && t.status !== "deleted" && (
+          <button type="button" className={btn} disabled={busy} onClick={() => onAction(t, "comp")}>
+            comp days…
+          </button>
+        )}
         {t.status !== "deleted" && (
           <button type="button" className={danger} disabled={busy} onClick={() => onAction(t, "delete")}>
             delete…
@@ -178,7 +199,27 @@ function TenantList({ load, empty }: { load: () => Promise<PlatformTenant[]>; em
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  async function act(t: PlatformTenant, a: TenantAction) {
+  async function comp(t: PlatformTenant) {
+    const d = window.prompt(`Free days for /b/${t.slug} (1-365):`, "30");
+    const days = Number(d);
+    if (!d || !Number.isInteger(days) || days < 1 || days > 365) return;
+    const r = window.prompt("Reason (audited):");
+    if (!r || !r.trim()) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await platformComp(t.id, days, r.trim());
+      setNote(`comp: /b/${t.slug} +${days} days.`);
+      reload();
+    } catch (e) {
+      setNote(errText(e, "That didn't work."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function act(t: PlatformTenant, a: CardAction) {
+    if (a === "comp") return comp(t);
     let reason: string | undefined;
     if (a === "suspend" || a === "delete") {
       const r = window.prompt(
@@ -304,6 +345,134 @@ function Audit() {
   );
 }
 
+const STATUS_ORDER = ["trialing", "active", "past_due", "cancelled", "inactive", "none"] as const;
+
+// Paid plans: MRR by currency, status counts, past-due list, plans, reconcile now.
+function Billing() {
+  const { data, error, reload } = useLoad<PlatformBilling>(platformBilling);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function reconcile() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await platformReconcile();
+      setNote(`Checked ${r.checked}, fixed ${r.fixed}, errors ${r.errors}.`);
+      reload();
+    } catch (e) {
+      setNote(errText(e, "Reconcile failed."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (error) return <Failed message={error} />;
+  if (!data) return <Loading />;
+  if (!data.enabled) {
+    return (
+      <p className="text-term-dim text-sm">
+        Paid plans are off on this server (BILLING_PROVIDERS is empty).
+      </p>
+    );
+  }
+  const mrr = Object.entries(data.mrr);
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className={btn} disabled={busy} onClick={() => void reconcile()}>
+          {busy ? "reconciling…" : "reconcile now"}
+        </button>
+        {note && (
+          <span role="status" className="text-term-amber text-xs">
+            {note}
+          </span>
+        )}
+      </div>
+      <section aria-label="revenue and subscriptions" className="grid gap-3 sm:grid-cols-2">
+        <div className="border border-term-line2 rounded-lg p-3 bg-term-panel">
+          <h2 className="text-term-dim text-xs mb-1">MRR</h2>
+          {mrr.length === 0 ? (
+            <p className="text-term-fg text-sm">No paying subscriptions yet.</p>
+          ) : (
+            <ul className="text-term-bright text-lg font-mono">
+              {mrr.map(([cur, minor]) => (
+                <li key={cur}>{formatMoney(minor, cur)}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="border border-term-line2 rounded-lg p-3 bg-term-panel">
+          <h2 className="text-term-dim text-xs mb-1">Subscriptions</h2>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+            {STATUS_ORDER.map((st) => (
+              <div key={st} className="contents">
+                <dt className="text-term-dim">{st}</dt>
+                <dd className="text-term-fg">{data.counts[st] ?? 0}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+      <section aria-labelledby="pb-due">
+        <h2 id="pb-due" className="text-term-fg text-sm mb-2">
+          Past due
+        </h2>
+        {data.past_due.length === 0 ? (
+          <p className="text-term-dim text-xs">Nobody is past due.</p>
+        ) : (
+          <ul className="space-y-1 text-xs">
+            {data.past_due.map((p) => (
+              <li key={p.bot_id} className="flex flex-wrap gap-x-3">
+                <span className="text-term-bright break-all">/b/{p.slug ?? p.bot_id}</span>
+                <span className="text-term-dim">{p.provider ?? "—"}</span>
+                <span className="text-term-amber">grace until {fmt(p.grace_until)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section aria-labelledby="pb-plans">
+        <h2 id="pb-plans" className="text-term-fg text-sm mb-1">
+          Plans
+        </h2>
+        <p className="text-term-dim text-xs mb-2">
+          Edit with <code>python -m mebot.cli plans …</code> or{" "}
+          <code>PUT /api/platform/plans/&lt;code&gt;</code>.
+        </p>
+        <ul className="space-y-2">
+          {data.plans.map((p) => (
+            <li key={p.code} className="border border-term-line2 rounded-lg p-3 bg-term-panel text-xs">
+              <div className="flex flex-wrap justify-between gap-2 mb-1">
+                <span className="text-term-bright">
+                  {p.name} <span className="text-term-dim">({p.code})</span>
+                </span>
+                <span className={p.active ? "text-term-fg" : "text-term-dim"}>
+                  {p.is_trial ? "trial" : p.active ? "on sale" : "inactive"}
+                </span>
+              </div>
+              <div className="text-term-fg break-all">
+                {Object.keys(p.prices).length === 0
+                  ? "no prices"
+                  : Object.entries(p.prices)
+                      .map(([cur, pr]) => `${formatMoney(pr.amount_minor, cur)} via ${pr.provider}`)
+                      .join(" · ")}
+              </div>
+              <div className="text-term-dim break-all">
+                {Object.keys(p.limits).length === 0
+                  ? "no plan limits (server caps apply)"
+                  : Object.entries(p.limits)
+                      .map(([k, n]) => `${k}=${n}`)
+                      .join(" · ")}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
 export default function PlatformPage() {
   const [me, setMe] = useState<{ email: string } | null | "anon">(null);
   const [tab, setTab] = useState<Tab>("tenants");
@@ -355,6 +524,7 @@ export default function PlatformPage() {
         <section role="tabpanel">
           {tab === "tenants" && <TenantList load={platformTenants} empty="No tenants yet." />}
           {tab === "signups" && <TenantList load={platformSignups} empty="Nobody is waiting for approval." />}
+          {tab === "billing" && <Billing />}
           {tab === "invites" && <Invites />}
           {tab === "audit" && <Audit />}
         </section>

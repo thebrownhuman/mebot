@@ -1256,6 +1256,10 @@ export interface HostedConfig {
   signup_mode: "open" | "invite" | "closed";
   turnstile_site_key: string | null;
   hosted_domain: string | null;
+  billing_enabled?: boolean;
+  terms_version?: string;
+  trial_days?: number;
+  trial_messages?: number;
 }
 
 export interface SignupReq {
@@ -1265,6 +1269,7 @@ export interface SignupReq {
   slug: string;
   invite_code?: string;
   turnstile_token?: string;
+  accept_terms?: boolean;
 }
 
 export interface HostedAccount {
@@ -1276,6 +1281,8 @@ export interface HostedAccount {
   plan: string;
   setup_done: boolean;
   live: boolean;
+  billing_enabled?: boolean;
+  serving?: boolean;
   public_path: string;
   hosted_domain: string | null;
 }
@@ -1334,6 +1341,97 @@ export async function deleteHostedAccount(password: string): Promise<void> {
   await send(`${H}/account/delete`, { method: "POST", body: { password }, ...admin });
 }
 
+// --- hosted mode: paid plans (owner) ------------------------------------------------
+
+export type BillingStatus = "none" | "trialing" | "active" | "past_due" | "cancelled" | "inactive";
+
+export interface BillingOffer {
+  code: string;
+  name: string;
+  prices: Record<string, { amount_minor: number }>;
+}
+
+export interface BillingView {
+  status: BillingStatus;
+  serving: boolean;
+  plan_code: string | null;
+  plan_name: string | null;
+  provider: string | null;
+  currency: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  grace_until: string | null;
+  comp_until: string | null;
+  trial: {
+    ends_at: string | null;
+    days_left: number;
+    messages_used: number;
+    messages_total: number;
+  } | null;
+  usage: { since: string; messages: number; tokens: number };
+  offers: BillingOffer[];
+  providers: string[];
+  can_checkout: boolean;
+  can_manage: boolean;
+  can_cancel: boolean;
+  platform_gstin: string | null;
+  owner_gstin: string | null;
+}
+
+export interface BillingInvoice {
+  id: string;
+  amount_minor: number;
+  currency: string;
+  status: string;
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string | null;
+  hosted_url: string | null;
+  pdf_url: string | null;
+}
+
+const B = "/api/hosted/billing";
+
+export async function getBilling(): Promise<BillingView> {
+  return json(B, admin);
+}
+
+export async function getInvoices(): Promise<BillingInvoice[]> {
+  return (await json<{ items: BillingInvoice[] }>(`${B}/invoices`, admin)).items;
+}
+
+export async function startCheckout(planCode: string, currency: string): Promise<string> {
+  const d = await json<{ url: string }>(`${B}/checkout`, {
+    method: "POST",
+    body: { plan_code: planCode, currency },
+    ...admin,
+  });
+  return d.url;
+}
+
+export async function billingPortal(): Promise<string> {
+  return (await json<{ url: string }>(`${B}/portal`, { method: "POST", ...admin })).url;
+}
+
+export async function cancelSubscription(): Promise<BillingView> {
+  return json(`${B}/cancel`, { method: "POST", body: { confirm: true }, ...admin });
+}
+
+export async function saveGstin(gstin: string): Promise<BillingView> {
+  return json(`${B}/gstin`, { method: "PUT", body: { gstin }, ...admin });
+}
+
+// Money in minor units (paise / cents) for display, in the viewer's locale.
+export function formatMoney(amountMinor: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(
+      amountMinor / 100,
+    );
+  } catch {
+    return `${(amountMinor / 100).toFixed(2)} ${currency}`;
+  }
+}
+
 // --- hosted mode: platform operator ---------------------------------------------
 
 export interface PlatformTenant {
@@ -1345,6 +1443,8 @@ export interface PlatformTenant {
   status: "active" | "suspended" | "deleted" | "pending";
   status_reason: string | null;
   plan: string;
+  billing_status?: BillingStatus | null;
+  billing_plan?: string | null;
   setup_done: boolean;
   messages_7d: number;
   messages_30d: number;
@@ -1422,4 +1522,38 @@ export async function platformRevokeInvite(id: string): Promise<void> {
 
 export async function platformAudit(): Promise<PlatformAuditEntry[]> {
   return (await json<{ items: PlatformAuditEntry[] }>(`${P_}/audit`)).items;
+}
+
+// --- operator: paid plans --------------------------------------------------------
+
+export interface PlatformPlan {
+  code: string;
+  name: string;
+  active: boolean;
+  is_trial: boolean;
+  prices: Record<string, { amount_minor: number; provider: string; provider_plan_id: string }>;
+  limits: Record<string, number>;
+}
+
+export interface PlatformBilling {
+  enabled: boolean;
+  mrr: Record<string, number>;
+  counts: Partial<Record<BillingStatus, number>>;
+  past_due: { bot_id: string; slug: string | null; provider: string | null; grace_until: string | null }[];
+  plans: PlatformPlan[];
+}
+
+export async function platformBilling(): Promise<PlatformBilling> {
+  return json(`${P_}/billing`);
+}
+
+export async function platformReconcile(): Promise<{ checked: number; fixed: number; errors: number }> {
+  return json(`${P_}/billing/reconcile`, { method: "POST" });
+}
+
+export async function platformComp(botId: string, days: number, reason: string): Promise<void> {
+  await send(`${P_}/tenants/${encodeURIComponent(botId)}/comp`, {
+    method: "POST",
+    body: { days, reason },
+  });
 }

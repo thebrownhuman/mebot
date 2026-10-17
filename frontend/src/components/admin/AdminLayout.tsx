@@ -1,8 +1,10 @@
 import HostedBanner from "./HostedBanner";
+import { useSetup } from "../SetupGate";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   dismissUpdate,
+  getHostedConfig,
   getLlm,
   getTelemetry,
   listOpenQuestions,
@@ -35,7 +37,9 @@ export function useAdmin(): AdminCtx {
 
 export const LEAVE_MESSAGE = "You have unsaved changes. Leave without saving?";
 
-const NAV: { to: string; label: string; end?: boolean; group?: string; badge?: "open" }[] = [
+type NavItem = { to: string; label: string; end?: boolean; group?: string; badge?: "open" };
+
+const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", end: true },
   { to: "/admin/conversations", label: "Conversations" },
   { to: "/admin/open-questions", label: "Open questions", badge: "open" },
@@ -59,6 +63,8 @@ const NAV: { to: string; label: string; end?: boolean; group?: string; badge?: "
   { to: "/admin/widget", label: "Widget" },
   { to: "/admin/account", label: "Account" },
 ];
+// Hosted mode with paid plans only.
+const BILLING_NAV: NavItem = { to: "/admin/billing", label: "Billing" };
 
 function Banner({ llm }: { llm: LlmConfigView | null }) {
   if (!llm || (llm.configured && llm.last_test_ok !== false)) return null;
@@ -125,6 +131,16 @@ export default function AdminLayout({ me }: { me: Me }) {
   const [update, setUpdate] = useState<TelemetryView["update"] | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [openCount, setOpenCount] = useState(0);
+  const { hosted } = useSetup();
+  const [billingOn, setBillingOn] = useState(false);
+
+  useEffect(() => {
+    if (!hosted) return;
+    getHostedConfig()
+      .then((c) => setBillingOn(Boolean(c?.billing_enabled)))
+      .catch(() => setBillingOn(false));
+  }, [hosted]);
+  const navItems = billingOn ? [...NAV, BILLING_NAV] : NAV;
 
   useEffect(() => {
     getLlm()
@@ -189,12 +205,12 @@ export default function AdminLayout({ me }: { me: Me }) {
     navigate("/admin/login", { replace: true });
   }
 
-  const current = NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)));
+  const current = navItems.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)));
 
   const nav = (
     <nav aria-label="admin" className="text-sm">
       <ul className="space-y-0.5">
-        {NAV.map((n) => (
+        {navItems.map((n) => (
           <li key={n.to}>
             {n.group && (
               <div className="text-[10px] uppercase tracking-widest text-term-dim mt-4 mb-1 px-2">

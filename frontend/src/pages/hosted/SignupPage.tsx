@@ -23,7 +23,9 @@ function suggestSlug(name: string): string {
     .slice(0, 32);
 }
 
-type Errors = Partial<Record<"email" | "password" | "bot_name" | "slug" | "invite_code", string>>;
+type Errors = Partial<
+  Record<"email" | "password" | "bot_name" | "slug" | "invite_code" | "accept_terms", string>
+>;
 
 export default function SignupPage() {
   const [cfg, setCfg] = useState<HostedConfig | null>(null);
@@ -35,6 +37,7 @@ export default function SignupPage() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [invite, setInvite] = useState("");
   const [token, setToken] = useState<string | null>(null);
+  const [terms, setTerms] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,6 +108,10 @@ export default function SignupPage() {
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length) return;
+    if (cfg?.billing_enabled && !terms) {
+      setErrors({ accept_terms: "Please accept the terms and privacy policy." });
+      return;
+    }
     if (!token) {
       setError("Please complete the bot check.");
       return;
@@ -118,6 +125,7 @@ export default function SignupPage() {
         slug,
         invite_code: invite.trim() || undefined,
         turnstile_token: token,
+        accept_terms: cfg?.billing_enabled ? terms : undefined,
       });
       setQueued(Boolean(res?.approval_required));
       setDone(true);
@@ -188,6 +196,39 @@ export default function SignupPage() {
             error={errors.invite_code}
             onChange={(e) => setInvite(e.target.value)}
           />
+        )}
+        {cfg.billing_enabled && (
+          <div className="mb-4 text-xs">
+            <label className="flex items-start gap-2 text-term-fg min-h-[44px] sm:min-h-0">
+              <input
+                type="checkbox"
+                checked={terms}
+                onChange={(e) => setTerms(e.target.checked)}
+                aria-describedby={errors.accept_terms ? "su-terms-err" : undefined}
+                aria-invalid={Boolean(errors.accept_terms)}
+                className="mt-0.5"
+              />
+              <span>
+                I accept the{" "}
+                <a href="/legal/terms" target="_blank" rel="noopener" className="text-term-bright underline">
+                  terms of service
+                </a>{" "}
+                and{" "}
+                <a href="/legal/privacy" target="_blank" rel="noopener" className="text-term-bright underline">
+                  privacy policy
+                </a>
+                .
+                {cfg.trial_days
+                  ? ` Includes a free ${cfg.trial_days}-day trial (${cfg.trial_messages} messages), no card needed.`
+                  : ""}
+              </span>
+            </label>
+            {errors.accept_terms && (
+              <p id="su-terms-err" role="alert" className="text-term-err mt-1">
+                {errors.accept_terms}
+              </p>
+            )}
+          </div>
         )}
         {cfg.turnstile_site_key && (
           <div className="mb-4">
