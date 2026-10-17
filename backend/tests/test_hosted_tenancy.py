@@ -121,3 +121,19 @@ def test_chat_via_prefix_lands_in_right_bot(tenants, hosted_app):
         from mebot.models import ChatSession
 
         assert db.get(ChatSession, sid).bot_id == b.bot_id
+
+
+def test_hosted_refuses_sqlite_without_override(hosted_settings, caplog):
+    import pytest
+
+    from mebot.config import ConfigError
+    from mebot.main import create_app
+
+    sqlite = hosted_settings.model_copy(
+        update={"database_url": f"sqlite:///{(hosted_settings.data_dir / 'x.db').as_posix()}"}
+    )
+    with pytest.raises(ConfigError, match="Postgres"):
+        create_app(sqlite.model_copy(update={"allow_sqlite_hosted": False}))
+    caplog.clear()
+    create_app(sqlite)  # override: starts, with a warning
+    assert "development only" in caplog.text

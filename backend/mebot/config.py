@@ -1,5 +1,6 @@
 """Runtime configuration. Everything comes from env vars (or a .env file)."""
 
+import logging
 import secrets
 from pathlib import Path
 from typing import Literal
@@ -72,6 +73,10 @@ class Settings(BaseSettings):
     retrieval_budget_tokens: int = 2500
 
     # --- Hosted mode (MODE=hosted) only; ignored in single mode. ---
+
+    # Hosted mode needs Postgres (DATABASE_URL=postgresql+psycopg://...). Set to 1 to run
+    # hosted on SQLite anyway: development only, one process, a warning on every start.
+    allow_sqlite_hosted: bool = False
     # Optional wildcard domain: {slug}.HOSTED_DOMAIN serves that bot's recruiter page.
     # Without it, bots live at /b/{slug}.
     hosted_domain: str | None = None
@@ -140,6 +145,20 @@ def ensure_data_dir(settings: Settings) -> None:
             "Create it, fix its permissions (Docker: chown -R 10001:10001 the host dir "
             "mounted at /data), or set DATA_DIR."
         ) from e
+
+
+def check_database(settings: Settings) -> None:
+    """Hosted mode serves many tenants: SQLite's single writer is not enough."""
+    if not settings.hosted or not settings.database_url.startswith("sqlite"):
+        return
+    if not settings.allow_sqlite_hosted:
+        raise ConfigError(
+            "MODE=hosted needs Postgres: set DATABASE_URL=postgresql+psycopg://user:pass@host/db "
+            "(or ALLOW_SQLITE_HOSTED=1 for local development only)."
+        )
+    logging.getLogger("mebot").warning(
+        "MODE=hosted on SQLite (ALLOW_SQLITE_HOSTED=1): development only, not for production."
+    )
 
 
 def resolve_secret_key(settings: Settings) -> str:

@@ -13,7 +13,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from mebot import retention
-from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
+from mebot.config import (
+    ConfigError,
+    Settings,
+    check_database,
+    ensure_data_dir,
+    resolve_secret_key,
+)
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
 from mebot.hosted import purge
@@ -71,6 +77,7 @@ async def _retention_loop(factory, hosted: bool = False) -> None:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     ensure_data_dir(settings)
+    check_database(settings)
     secret_key = resolve_secret_key(settings)
     install_key = identity.load_or_create(settings.data_dir)
     run_migrations(settings.database_url, secret_key)

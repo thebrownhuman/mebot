@@ -27,7 +27,8 @@ All settings are environment variables (or lines in `.env`). In the Docker image
 | `GITHUB_TOKEN` | *(unset)* | Optional token for GitHub imports (public data only; raises the 60/hour limit). A token saved in Admin -> Import takes precedence. |
 | `RETRIEVAL_THRESHOLD_TOKENS` | `6000` | Profiles above this many (estimated) tokens are not sent whole: only the parts relevant to each question are. Per-bot override in Admin -> Knowledge (auto / always / off). |
 | `RETRIEVAL_BUDGET_TOKENS` | `2500` | Token budget for the retrieved profile excerpts in one prompt. |
-| `HOSTED_DOMAIN` | *(unset)* | --- Hosted mode (MODE=hosted) only; ignored in single mode. --- Optional wildcard domain: {slug}.HOSTED_DOMAIN serves that bot's recruiter page. Without it, bots live at /b/{slug}. |
+| `ALLOW_SQLITE_HOSTED` | `false` | Hosted mode needs Postgres (DATABASE_URL=postgresql+psycopg://...). Set to 1 to run hosted on SQLite anyway: development only, one process, a warning on every start. |
+| `HOSTED_DOMAIN` | *(unset)* | Optional wildcard domain: {slug}.HOSTED_DOMAIN serves that bot's recruiter page. Without it, bots live at /b/{slug}. |
 | `SIGNUP_MODE` | `invite` | Who may sign up: open (anyone), invite (needs an invite code), closed (nobody). |
 | `SMTP_HOST` | *(unset)* | Outgoing mail (verification, password reset). Without SMTP_HOST mails are printed to the log instead (development only). |
 | `SMTP_PORT` | `587` | SMTP port; 587 uses STARTTLS, 465 implicit TLS. |

@@ -102,12 +102,18 @@ def claim_setup(db: Session, bot: Bot) -> bool:
     """Atomically mark setup done for bot, only while no active admin exists.
 
     The conditional UPDATE takes the write lock first, so of two concurrent setups only
-    one sees "no admin" and updates a row; the other gets rowcount 0.
+    one sees "no admin" (SQLite) / an unchanged row (Postgres) and updates it; the other
+    gets rowcount 0.
     """
     no_admin = ~exists().where(Admin.deleted_at.is_(None))
+    # Postgres (READ COMMITTED) re-checks only the locked row's own columns after waiting
+    # for a concurrent claim, not the subquery: so also require the row to be unchanged
+    # since we read it (optimistic check on setup_completed_at).
+    seen = bot.setup_completed_at
+    unchanged = Bot.setup_completed_at.is_(None) if seen is None else Bot.setup_completed_at == seen
     result = db.execute(
         update(Bot)
-        .where(Bot.id == bot.id, no_admin)
+        .where(Bot.id == bot.id, no_admin, unchanged)
         .values(setup_completed_at=utcnow(), updated_at=utcnow())
         .execution_options(synchronize_session=False)
     )
