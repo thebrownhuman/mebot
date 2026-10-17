@@ -291,6 +291,35 @@ def render_profile(profile: ProfileData, as_of: date | None = None) -> str:
     return neutralise("\n\n".join(b for b in blocks if b))
 
 
+def render_retrieval(
+    profile: ProfileData,
+    outline: str,
+    excerpts: list[str],
+    as_of: date | None = None,
+) -> str:
+    """The retrieval-mode knowledge block: everything that must always be present (FACTS,
+    identity, contact rules, avoid list), an outline of what exists, and only the excerpts
+    selected for this question, in profile order."""
+    as_of = as_of or today_utc()
+    who = display_name(profile.identity)
+    shown = (
+        "=== PROFILE EXCERPTS (the parts of "
+        f"{who}'s profile relevant to this question; not the whole profile) ===\n"
+        + "\n\n".join(excerpts)
+        if excerpts
+        else None
+    )
+    blocks = [
+        render_facts(profile, as_of),
+        _identity(profile),
+        _contact(profile),
+        outline or None,
+        shown,
+        _avoid(profile),
+    ]
+    return neutralise("\n\n".join(b for b in blocks if b))
+
+
 def approx_tokens(text: str) -> int:
     """Rough estimate (~4 chars/token) for size warnings, not billing."""
     return (len(text) + 3) // 4
