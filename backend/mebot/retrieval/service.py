@@ -11,6 +11,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from mebot.models import utcnow
 from mebot.profile.data import ProfileData
 from mebot.profile.render import approx_tokens, render_profile, render_retrieval
 from mebot.repos import retrieval as repo
@@ -63,6 +64,7 @@ async def knowledge_for(
     stored = repo.rows(db, bot_id)
     if repo.is_stale(stored, chunks):  # a save/import/approve hook hasn't run (yet)
         repo.sync(db, bot_id, chunks)
+        repo.get_or_create_settings(db, bot_id).last_indexed_at = utcnow()
         db.commit()
         stored = repo.rows(db, bot_id)
 
