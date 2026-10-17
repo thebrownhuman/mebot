@@ -19,6 +19,19 @@ body,
   --mb-line: #e3e7ec;
   --mb-bot: #f1f3f6;
   --mb-err: #b42318;
+  /* Shared components (contact panel/modal) use the app's term-* palette; in the
+     embed those channels follow the widget theme. --term-bright is set from the
+     brand colour at runtime when it is readable on white. */
+  --term-bg: 255 255 255;
+  --term-panel: 246 247 249;
+  --term-line: 227 231 236;
+  --term-line2: 205 212 220;
+  --term-fg: 31 41 51;
+  --term-dim: 95 107 122;
+  --term-bright: 31 41 51;
+  --term-amber: 146 64 14;
+  --term-recruiter: 29 78 216;
+  --term-err: 180 35 24;
 }
 .mb-dark {
   --mb-bg: #0c1016;
@@ -28,6 +41,16 @@ body,
   --mb-line: #243140;
   --mb-bot: #182230;
   --mb-err: #ff8a80;
+  --term-bg: 12 16 22;
+  --term-panel: 18 24 33;
+  --term-line: 36 49 64;
+  --term-line2: 48 63 80;
+  --term-fg: 219 228 238;
+  --term-dim: 139 152 168;
+  --term-bright: 125 255 176;
+  --term-amber: 255 204 102;
+  --term-recruiter: 111 180 255;
+  --term-err: 255 138 128;
 }
 body {
   background: var(--mb-bg);

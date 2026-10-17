@@ -32,6 +32,11 @@ export function onColor(hex: string): string {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? "#111111" : "#ffffff";
 }
 
+function channels(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+}
+
 function prefersDark(): boolean {
   try {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -47,6 +52,9 @@ function applyTheme(cfg: WidgetConfig) {
   root.style.setProperty("--mb-on-primary", onColor(color));
   const dark = cfg.theme === "dark" || (cfg.theme === "auto" && prefersDark());
   root.classList.toggle("mb-dark", dark);
+  // Light theme: brand colour becomes the panel accent when it reads on white, else ink.
+  if (dark) root.style.removeProperty("--term-bright");
+  else root.style.setProperty("--term-bright", onColor(color) === "#ffffff" ? channels(color) : "31 41 51");
   document.title = cfg.title;
 }
 
