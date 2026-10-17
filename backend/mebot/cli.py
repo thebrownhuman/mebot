@@ -79,6 +79,53 @@ def create_platform_admin(email: str) -> int:
     return 0
 
 
+def plans_cmd(args) -> int:
+    """Paid plans: list, set a price per currency, set a limit (hosted only)."""
+    import json
+
+    from mebot.billing import service
+    from mebot.models import Plan, utcnow
+
+    settings = Settings()
+    if not settings.hosted:
+        return _err("plans exist only with MODE=hosted")
+    ensure_data_dir(settings)
+    run_migrations(settings.database_url, settings.secret_key)
+    with make_session_factory(settings.database_url)() as db:
+        if args.action == "list":
+            for p in service.plans(db):
+                print(json.dumps(service.plan_view(p)))
+            return 0
+        plan = db.get(Plan, args.code)
+        if plan is None:
+            return _err(f"no plan {args.code!r}")
+        if args.action == "set-price":
+            cur = args.currency.upper()
+            want = "razorpay" if cur == "INR" else "stripe"
+            if args.provider != want:
+                return _err(f"{cur} is sold through {want}")
+            prices = json.loads(plan.prices or "{}")
+            prices[cur] = {
+                "amount_minor": args.amount_minor,
+                "provider": args.provider,
+                "provider_plan_id": args.provider_plan_id,
+            }
+            plan.prices = json.dumps(prices)
+        else:  # set-limit
+            if args.key not in service.LIMIT_KEYS:
+                return _err(f"unknown limit {args.key!r} ({', '.join(service.LIMIT_KEYS)})")
+            limits = json.loads(plan.limits or "{}")
+            if args.value <= 0:
+                limits.pop(args.key, None)
+            else:
+                limits[args.key] = args.value
+            plan.limits = json.dumps(limits)
+        plan.updated_at = utcnow()
+        db.commit()
+        print(json.dumps(service.plan_view(plan)))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m mebot.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -93,11 +140,26 @@ def main(argv: list[str] | None = None) -> int:
     pa_sub = pa.add_subparsers(dest="action", required=True)
     pc = pa_sub.add_parser("create", help="create an operator (asks for a password)")
     pc.add_argument("email")
+    pl = sub.add_parser("plans", help="paid plans (hosted)")
+    pl_sub = pl.add_subparsers(dest="action", required=True)
+    pl_sub.add_parser("list", help="print every plan as JSON")
+    sp = pl_sub.add_parser("set-price", help="price for one currency")
+    sp.add_argument("code")
+    sp.add_argument("currency", help="INR (razorpay) or USD/EUR/GBP (stripe)")
+    sp.add_argument("amount_minor", type=int, help="e.g. 49900 = INR 499.00")
+    sp.add_argument("provider", choices=["razorpay", "stripe"])
+    sp.add_argument("provider_plan_id", help="Razorpay plan_... or Stripe price_...")
+    sl = pl_sub.add_parser("set-limit", help="plan limit (0 removes it)")
+    sl.add_argument("code")
+    sl.add_argument("key")
+    sl.add_argument("value", type=int)
     args = parser.parse_args(argv)
     if args.command == "reset-password":
         return reset_password(args.email)
     if args.command == "platform-admin":
         return create_platform_admin(args.email)
+    if args.command == "plans":
+        return plans_cmd(args)
     if args.command == "invite":
         return create_invite(args.note, args.days)
     return 2
