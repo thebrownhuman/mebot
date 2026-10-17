@@ -2,9 +2,9 @@
 
 from datetime import timedelta
 
+from conftest import csrf, make_tenant
 from fastapi.testclient import TestClient
 
-from conftest import csrf, make_tenant
 from mebot.models import SlugRedirect, utcnow
 from mebot.repos import bots
 

@@ -15,6 +15,7 @@ from mebot import retention
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
+from mebot.hosted.mailer import make_mailer
 from mebot.hosted.tenant import TenantMiddleware
 from mebot.imports import github_import, linkedin, pipelines, resume  # noqa: F401 - importing registers the runner
 from mebot.limits import counters
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Imports: 10 uploads per hour per bot; runners by kind (tests swap them).
     app.state.import_limiter = SlidingWindowLimiter(limit=10, window_seconds=3600)
     app.state.import_runners = pipelines.RUNNERS
+    app.state.mailer = make_mailer(settings)
     app.state.telemetry = Telemetry(settings, app.state.session_factory, install_key)
     app.state.telegram_ctx = TgContext(app.state.session_factory, secret_key, settings)
     app.state.telegram = TelegramService(app.state.telegram_ctx)
