@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from mebot.auth import passwords
 from mebot.auth.cookies import clear_session_cookie
+from mebot.billing import jobs as billing_jobs
 from mebot.billing import service as billing
 from mebot.config import Settings
 from mebot.db import get_db
@@ -218,17 +219,21 @@ def export(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
 @router.post("/delete", status_code=204)
 async def delete_account(
     req: DeleteReq,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
     current: CurrentAdmin = Depends(get_current_admin),
 ):
-    """Soft delete: offline at once, hard purge after PURGE_AFTER (hosted.purge)."""
+    """Soft delete: offline at once, hard purge after PURGE_AFTER (hosted.purge). Invoices
+    are kept (anonymised) for tax records."""
     ok = await run_in_threadpool(
         passwords.verify_password, current.admin.password_hash, req.password
     )
     if not ok:
         raise ApiError(400, "INVALID_PASSWORD", "Password is incorrect")
+    # Paid plans: cancel at the provider first; if that fails, nothing is deleted.
+    await billing_jobs.cancel_now_for_deletion(request.app, db, bot.id)
     now = utcnow()
     bot.status = "deleted"
     bot.deletion_requested_at = now

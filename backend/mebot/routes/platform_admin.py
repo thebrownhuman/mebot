@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from mebot.auth import passwords
 from mebot.auth.cookies import is_secure, set_csrf_cookie
 from mebot.auth.csrf import CSRF_COOKIE, require_csrf
+from mebot.billing import jobs as billing_jobs
 from mebot.billing import service as billing
 from mebot.config import Settings
 from mebot.db import get_db
@@ -203,14 +204,17 @@ def unsuspend(
 
 
 @router.post("/tenants/{bot_id}/delete", dependencies=operator_only)
-def delete_tenant(
+async def delete_tenant(
     bot_id: str,
     req: ReasonReq,
+    request: Request,
     db: Session = Depends(get_db),
     actor: PlatformAdmin = Depends(current_operator),
 ):
-    """Same path as an owner's own deletion: offline now, purged after the grace period."""
+    """Same path as an owner's own deletion: offline now, purged after the grace period.
+    A paid subscription is cancelled at the provider first (or the delete is refused)."""
     bot = _tenant(db, bot_id)
+    await billing_jobs.cancel_now_for_deletion(request.app, db, bot.id)
     now = utcnow()
     bot.status = "deleted"
     bot.status_reason = req.reason.strip()
