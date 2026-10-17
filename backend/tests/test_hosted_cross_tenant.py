@@ -37,6 +37,7 @@ PUBLIC_WITH_IDS = {
     "/api/telegram/webhook/{bot_id}",  # secret-header authenticated, see telegram tests
     "/api/billing/webhook/{provider}",  # signature authenticated, see test_billing_webhook
     "/legal/{name}",  # static platform documents, no tenant data
+    "/sdk/{version}/mebot.js",  # static SDK file, no tenant data
     "/embed/{slug}",
     "/api/public/widget/{slug}",
     "/api/public/widget/{slug}/launcher",

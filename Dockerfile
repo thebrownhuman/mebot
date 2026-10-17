@@ -9,6 +9,14 @@ RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
+# --- 1b: plugin SDK CDN file (/sdk/v1/mebot.js) -----------------------------------
+FROM node:22-alpine AS sdk
+WORKDIR /src
+COPY packages/sdk/package.json packages/sdk/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY packages/sdk/ ./
+RUN npx vite build -c vite.cdn.config.ts
+
 # --- 2: runtime --------------------------------------------------------------------
 FROM python:3.11-slim
 
@@ -18,7 +26,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     TZ=UTC \
     DATA_DIR=/data \
-    FRONTEND_DIST=/app/static \n    LEGAL_DIR=/app/legal
+    FRONTEND_DIST=/app/static \n    LEGAL_DIR=/app/legal \n    SDK_DIST=/app/sdk
 
 WORKDIR /app/backend
 COPY backend/requirements.txt ./
@@ -29,6 +37,7 @@ COPY backend/migrations ./migrations
 COPY backend/mebot ./mebot
 COPY --from=frontend /src/dist /app/static
 COPY docs/legal /app/legal
+COPY --from=sdk /src/dist/cdn /app/sdk
 COPY deploy/docker/entrypoint.sh /usr/local/bin/mebot-entrypoint
 
 RUN chmod 0755 /usr/local/bin/mebot-entrypoint \

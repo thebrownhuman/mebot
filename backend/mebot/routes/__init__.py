@@ -23,6 +23,7 @@ from mebot.routes import (
     legal,
     platform_admin,
     public,
+    sdk,
     sessions,
     setup,
     telegram_webhook,
@@ -58,4 +59,5 @@ routers = [
     platform_admin.router,
     billing_webhook.router,
     legal.router,
+    sdk.router,
 ]
