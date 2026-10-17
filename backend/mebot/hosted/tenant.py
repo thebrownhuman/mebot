@@ -9,7 +9,8 @@ works the same without the prefix.
 Only public paths may carry a tenant: admin and account APIs always use the logged-in
 owner's bot (see deps.get_current_bot), so ``/b/{other}/api/admin/...`` is a 404.
 Unknown, suspended, deleted, not-yet-live and (with paid plans) unpaid bots are all the
-same neutral 404.
+same neutral 404. So is a public API call from a site that isn't the platform itself and
+isn't on the bot's allowed-sites list (Origin check; requests without Origin pass).
 In single mode ``/b/...`` is always a 404.
 """
 
@@ -41,6 +42,13 @@ def _not_found() -> JSONResponse:
     return JSONResponse(
         error_body(404, UNAVAILABLE, "This assistant is unavailable."), status_code=404
     )
+
+
+def _header(scope: Scope, name: bytes) -> str | None:
+    for k, v in scope.get("headers") or []:
+        if k == name:
+            return v.decode("latin-1")
+    return None
 
 
 class TenantMiddleware:
@@ -82,6 +90,12 @@ class TenantMiddleware:
                 return await self.app(scope, receive, send)
             return await _not_found()(scope, receive, send)
 
+        origin = _header(scope, b"origin")
+        if rest.startswith("/api") and origin and not self._own_origin(scope, origin):
+            allowed = await anyio.to_thread.run_sync(self._origin_allowed, bot_id, origin)
+            if not allowed:
+                return await _not_found()(scope, receive, send)
+
         scope = dict(scope)
         scope["path"] = rest
         scope["raw_path"] = rest.encode()
@@ -89,6 +103,24 @@ class TenantMiddleware:
         state["tenant_bot_id"] = bot_id
         scope["state"] = state
         await self.app(scope, receive, send)
+
+    def _own_origin(self, scope: Scope, origin: str) -> bool:
+        """The platform's own pages (recruiter page, embed iframe) call from here."""
+        host = _header(scope, b"host")
+        own = {f"{scope.get('scheme', 'http')}://{host}"} if host else set()
+        if self.settings.public_url:
+            own.add(self.settings.public_url.rstrip("/"))
+        own.update(self.settings.cors_origin_list)
+        return origin.rstrip("/") in own
+
+    def _origin_allowed(self, bot_id: str, origin: str) -> bool:
+        """Another site: only one the owner allowed in Admin -> Widget."""
+        from mebot.repos import widget as widget_repo
+        from mebot.widget.origins import matches
+
+        with self.session_factory() as db:
+            row = widget_repo.get_or_create(db, bot_id)
+            return bool(row.allow_any_origin or matches(origin, widget_repo.origins(row)))
 
     def _subdomain(self, scope: Scope) -> str | None:
         host = ""
