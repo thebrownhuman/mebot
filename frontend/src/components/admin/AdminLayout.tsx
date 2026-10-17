@@ -27,6 +27,7 @@ export const LEAVE_MESSAGE = "You have unsaved changes. Leave without saving?";
 
 const NAV: { to: string; label: string; end?: boolean; group?: string; badge?: "open" }[] = [
   { to: "/admin", label: "Dashboard", end: true },
+  { to: "/admin/conversations", label: "Conversations" },
   { to: "/admin/open-questions", label: "Open questions", badge: "open" },
   { to: "/admin/contacts", label: "Contacts" },
   { to: "/admin/import", label: "Import", group: "Your data" },
@@ -241,15 +242,17 @@ export function AdminSection({
   title,
   intro,
   actions,
+  wide,
   children,
 }: {
   title: string;
   intro?: React.ReactNode;
   actions?: React.ReactNode;
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section className="max-w-3xl px-4 pb-10 md:px-6">
+    <section className={`${wide ? "max-w-5xl" : "max-w-3xl"} px-4 pb-10 md:px-6`}>
       <div className="flex flex-wrap items-start gap-3 mb-4">
         <div className="flex-1 min-w-[12rem]">
           <h1 className="text-term-bright text-lg">{title}</h1>

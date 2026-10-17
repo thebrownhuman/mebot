@@ -49,23 +49,9 @@ export interface LlmTestResult {
   latency_ms: number;
 }
 
-export interface SessionSummary {
-  id: string;
-  recruiter_name: string | null;
-  started_at: number;
-  turns: number;
-}
-
 export interface StoredMessage {
   role: "user" | "assistant";
   content: string;
-  ts: number;
-}
-
-export interface LogEntry {
-  event: string;
-  detail: string | null;
-  ip: string | null;
   ts: number;
 }
 
@@ -273,16 +259,172 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 // --- admin -------------------------------------------------------------------
 
-export async function listSessions(): Promise<SessionSummary[]> {
-  return json("/api/admin/sessions", admin);
-}
-
+// Deprecated endpoint, still used by the chat hook's loadSession.
 export async function getSessionMessages(sid: string): Promise<StoredMessage[]> {
   return json(`/api/admin/sessions/${encodeURIComponent(sid)}/messages`, admin);
 }
 
-export async function getLog(limit = 100): Promise<LogEntry[]> {
-  return json(`/api/admin/log?limit=${limit}`, admin);
+// --- admin: dashboard, conversations, account ----------------------------------
+
+export type RangeKey = "7d" | "30d" | "90d";
+
+export interface Kpi {
+  value: number | null;
+  previous: number | null;
+  estimated?: boolean;
+}
+
+export interface SeriesDay {
+  date: string;
+  chats: number;
+  visitor_messages: number;
+  unanswered: number;
+}
+
+export interface Overview {
+  range: { key: RangeKey; from: string; to: string; timezone: string };
+  kpis: {
+    chats: Kpi;
+    visitor_messages: Kpi;
+    avg_messages_per_chat: Kpi;
+    unanswered_rate: Kpi;
+    open_questions: Kpi;
+    contacts: Kpi;
+    owner_replies: Kpi;
+    tokens: Kpi;
+  };
+  series: SeriesDay[];
+  top_questions: { question: string; count: number }[];
+  sources: { origin: string; chats: number }[];
+  status: {
+    llm: { configured: boolean; ok: boolean; last_tested_at: string | null };
+    telegram: { linked: boolean; dead: number };
+    widget: { enabled: boolean; origins: number; any_origin: boolean };
+    paused: boolean;
+    today: { messages: number; cap: number; tokens: number; token_cap: number | null };
+  };
+}
+
+export async function getOverview(range: RangeKey): Promise<Overview> {
+  return json(`/api/admin/analytics/overview?range=${range}`, admin);
+}
+
+export type ConversationFlag =
+  | "unanswered"
+  | "contact"
+  | "owner_reply"
+  | "leak_blocked"
+  | "redacted";
+
+export interface ConversationFilters {
+  range?: RangeKey | "";
+  from?: string;
+  to?: string;
+  q?: string;
+  has?: string[];
+  origin?: string;
+}
+
+export interface ConversationItem {
+  id: string;
+  recruiter_name: string | null;
+  started_at: string;
+  last_message_at: string;
+  messages: number;
+  origin: string;
+  flags: ConversationFlag[];
+  preview: string;
+}
+
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  unanswered: boolean;
+  from_owner: boolean;
+}
+
+export interface ConversationDetail {
+  id: string;
+  recruiter_name: string | null;
+  started_at: string;
+  origin: string;
+  messages: ConversationMessage[];
+  events: { event: string; created_at: string; detail?: string }[];
+  contact: {
+    id: string;
+    name: string;
+    email: string;
+    company: string | null;
+    role: string | null;
+    note: string | null;
+    created_at: string;
+  } | null;
+}
+
+export function conversationQuery(f: ConversationFilters): string {
+  const p = new URLSearchParams();
+  if (f.from || f.to) {
+    if (f.from) p.set("from", f.from);
+    if (f.to) p.set("to", f.to);
+  } else if (f.range) {
+    p.set("range", f.range);
+  }
+  if (f.q?.trim()) p.set("q", f.q.trim());
+  if (f.has?.length) p.set("has", f.has.join(","));
+  if (f.origin) p.set("origin", f.origin);
+  return p.toString();
+}
+
+export async function listConversations(
+  f: ConversationFilters,
+  cursor?: string | null,
+): Promise<{ items: ConversationItem[]; next_cursor: string | null }> {
+  const qs = conversationQuery(f);
+  const extra = cursor ? `cursor=${encodeURIComponent(cursor)}` : "";
+  const query = [qs, extra].filter(Boolean).join("&");
+  return json(`/api/admin/conversations${query ? `?${query}` : ""}`, admin);
+}
+
+export async function getConversation(id: string): Promise<ConversationDetail> {
+  return json(`/api/admin/conversations/${encodeURIComponent(id)}`, admin);
+}
+
+export async function deleteConversation(id: string): Promise<void> {
+  await send(`/api/admin/conversations/${encodeURIComponent(id)}`, { method: "DELETE", ...admin });
+}
+
+// A plain link: the session cookie authenticates the download and the browser saves it.
+export function conversationExportUrl(f: ConversationFilters, format: "csv" | "json"): string {
+  const qs = conversationQuery(f);
+  return `/api/admin/conversations/export?format=${format}${qs ? `&${qs}` : ""}`;
+}
+
+export interface AccountSettings {
+  timezone: string;
+  retention_days: number | null;
+  retention_choices: number[];
+  will_delete?: number;
+}
+
+export async function getAccount(previewDays?: number): Promise<AccountSettings> {
+  const q = previewDays === undefined ? "" : `?preview_days=${previewDays}`;
+  return json(`/api/admin/account${q}`, admin);
+}
+
+export async function saveAccount(body: {
+  timezone?: string;
+  retention_days?: number | null;
+}): Promise<AccountSettings> {
+  return json("/api/admin/account", { method: "PUT", body, ...admin });
+}
+
+export async function deleteAllConversations(confirm: string): Promise<{ deleted_sessions: number }> {
+  return json("/api/admin/account/delete-conversations", {
+    method: "POST",
+    body: { confirm },
+    ...admin,
+  });
 }
 
 // --- admin: AI provider -------------------------------------------------------
