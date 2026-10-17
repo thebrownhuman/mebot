@@ -55,3 +55,20 @@ def test_reset_mismatch_and_short(setup_done, monkeypatch, capsys):
         run(setup_done, monkeypatch, ["reset-password", "--email", ADMIN_EMAIL], ["short", "short"])
         == 1
     )
+
+
+def test_invite_create_hosted(hosted_settings, monkeypatch, capsys):
+    from mebot.db import make_session_factory
+    from mebot.repos import invites
+
+    monkeypatch.setattr(cli, "Settings", lambda: hosted_settings)
+    assert cli.main(["invite", "create", "--note", "for sam", "--days", "7"]) == 0
+    code = capsys.readouterr().out.strip().rsplit(" ", 1)[-1]
+    with make_session_factory(hosted_settings.database_url)() as db:
+        assert invites.valid(db, code)
+
+
+def test_invite_create_refused_in_single_mode(settings, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "Settings", lambda: settings)
+    assert cli.main(["invite", "create"]) == 1
+    assert "MODE=hosted" in capsys.readouterr().err

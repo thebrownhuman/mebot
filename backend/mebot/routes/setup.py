@@ -87,11 +87,18 @@ def _check_setup_token(request: Request, settings: Settings, given: str | None) 
         raise ApiError(403, "SETUP_TOKEN_INVALID", "Invalid setup token")
 
 
+def _not_hosted(settings: Settings) -> None:
+    # Hosted mode has no global setup: owners sign up, then set up their own bot.
+    if settings.hosted:
+        raise ApiError(404, "SETUP_DISABLED", "Setup isn't used on this server.")
+
+
 def _probe_guard(request: Request, db: Session, settings: Settings, token: str | None) -> None:
     """Pre-setup LLM probes: only while setup is pending, token-gated, rate limited.
 
     They make the server call an owner-supplied URL, so keep the window narrow.
     """
+    _not_hosted(settings)
     _check_setup_token(request, settings, token)
     if admins.exists(db):
         raise _completed()
@@ -108,6 +115,8 @@ def status(
     # Hand out the CSRF cookie early so the setup form can double-submit it.
     if CSRF_COOKIE not in request.cookies:
         set_csrf_cookie(response, request, settings)
+    if settings.hosted:
+        return {"setup_required": False, "mode": "hosted"}
     return {"setup_required": not admins.exists(db)}
 
 
@@ -148,6 +157,7 @@ async def setup(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
+    _not_hosted(settings)
     _check_setup_token(request, settings, req.setup_token)
     if admins.exists(db):
         raise _completed()
