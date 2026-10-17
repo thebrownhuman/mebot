@@ -73,36 +73,49 @@ def _contact(p: ProfileData) -> str | None:
     )
 
 
+def experience_lines(e: dict) -> list[str | None]:
+    meta = _join(e.get("employment_type"), e.get("location"))
+    head = f"- {e['title']} at {e['company']}" + (f" ({meta})" if meta else "")
+    return [
+        f"{head}, {_period(e['start_month'], e.get('end_month'))}",
+        *_indent(
+            [e.get("description"), _line("Highlights", e["highlights"]), _line("Tech", e["tech"])]
+        ),
+    ]
+
+
 def _experience(p: ProfileData) -> str | None:
     lines: list[str | None] = []
     for e in p.items("experiences"):
-        meta = _join(e.get("employment_type"), e.get("location"))
-        head = f"- {e['title']} at {e['company']}" + (f" ({meta})" if meta else "")
-        lines.append(f"{head}, {_period(e['start_month'], e.get('end_month'))}")
-        lines += _indent(
-            [e.get("description"), _line("Highlights", e["highlights"]), _line("Tech", e["tech"])]
-        )
+        lines += experience_lines(e)
     return _block("EXPERIENCE", lines)
+
+
+def education_lines(e: dict) -> list[str | None]:
+    degree = e["degree"] + (f" in {e['field']}" if e.get("field") else "")
+    period = _period(e["start_month"], e.get("end_month"))
+    return [
+        f"- {degree}, {e['institution']}, {period}",
+        *_indent([_line("Grade", e.get("grade")), e.get("description")]),
+    ]
 
 
 def _education(p: ProfileData) -> str | None:
     lines: list[str | None] = []
     for e in p.items("educations"):
-        degree = e["degree"] + (f" in {e['field']}" if e.get("field") else "")
-        period = _period(e["start_month"], e.get("end_month"))
-        lines.append(f"- {degree}, {e['institution']}, {period}")
-        lines += _indent([_line("Grade", e.get("grade")), e.get("description")])
+        lines += education_lines(e)
     return _block("EDUCATION", lines)
 
 
+def skill_line(s: dict) -> str:
+    years = s.get("years_override")
+    meta = _join(s.get("category"), s.get("level"), f"{years:g} years" if years else None)
+    line = f"- {s['name']}" + (f" ({meta})" if meta else "")
+    return line + (f": {s['notes']}" if s.get("notes") else "")
+
+
 def _skills(p: ProfileData) -> str | None:
-    lines = []
-    for s in p.items("skills"):
-        years = s.get("years_override")
-        meta = _join(s.get("category"), s.get("level"), f"{years:g} years" if years else None)
-        line = f"- {s['name']}" + (f" ({meta})" if meta else "")
-        lines.append(line + (f": {s['notes']}" if s.get("notes") else ""))
-    return _block("SKILLS", lines)
+    return _block("SKILLS", [skill_line(s) for s in p.items("skills")])
 
 
 def _projects(p: ProfileData) -> str | None:
