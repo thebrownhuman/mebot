@@ -45,12 +45,36 @@ function prefersDark(): boolean {
   }
 }
 
+// Overrides from the plugin SDK (?theme=&accent=&font=): allow-listed values only, never
+// raw CSS. The owner's saved settings apply when a param is missing or invalid.
+const FONTS: Record<string, string> = {
+  system: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  serif: "Georgia, serif",
+  mono: "ui-monospace, monospace",
+  rounded: 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif',
+};
+
+export function themeParams(search: string): { theme?: string; accent?: string; font?: string } {
+  const q = new URLSearchParams(search);
+  const out: { theme?: string; accent?: string; font?: string } = {};
+  const theme = q.get("theme");
+  if (theme === "light" || theme === "dark" || theme === "auto") out.theme = theme;
+  const accent = q.get("accent");
+  if (accent && /^[0-9a-f]{6}$/i.test(accent)) out.accent = "#" + accent.toLowerCase();
+  const font = q.get("font");
+  if (font && font in FONTS) out.font = font;
+  return out;
+}
+
 function applyTheme(cfg: WidgetConfig) {
   const root = document.documentElement;
-  const color = HEX.test(cfg.primary_color) ? cfg.primary_color : "#0f766e";
+  const over = themeParams(window.location.search);
+  const color = over.accent ?? (HEX.test(cfg.primary_color) ? cfg.primary_color : "#0f766e");
   root.style.setProperty("--mb-primary", color);
   root.style.setProperty("--mb-on-primary", onColor(color));
-  const dark = cfg.theme === "dark" || (cfg.theme === "auto" && prefersDark());
+  if (over.font) document.body.style.fontFamily = FONTS[over.font];
+  const mode = over.theme ?? cfg.theme;
+  const dark = mode === "dark" || (mode === "auto" && prefersDark());
   root.classList.toggle("mb-dark", dark);
   // Light theme: brand colour becomes the panel accent when it reads on white, else ink.
   if (dark) root.style.removeProperty("--term-bright");

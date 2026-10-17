@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import EmbedApp, { onColor, parseLocation } from "./embed/EmbedApp";
+import EmbedApp, { onColor, parseLocation, themeParams } from "./embed/EmbedApp";
 import { errorResponse, jsonResponse, mockApi, type Handler } from "./test/fetchMock";
 
 const orbFactory = vi.hoisted(() => vi.fn());
@@ -227,5 +227,17 @@ describe("embed postMessage", () => {
       { source: "mebot", v: 1, type: "open-link", payload: { href: "https://jane.dev/" } },
       "*",
     );
+  });
+});
+
+describe("themeParams (plugin SDK overrides)", () => {
+  it("keeps allow-listed values only", () => {
+    expect(themeParams("?mode=floating&theme=dark&accent=AA0000&font=serif")).toEqual({
+      theme: "dark",
+      accent: "#aa0000",
+      font: "serif",
+    });
+    expect(themeParams("?theme=neon&accent=red;x:y&font=expression(1)")).toEqual({});
+    expect(themeParams("")).toEqual({});
   });
 });
