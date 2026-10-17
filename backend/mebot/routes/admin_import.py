@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
+from mebot.hosted import caps
 from mebot.imports import apply as applier
 from mebot.imports.filetype import ImportFailure, check_pdf, sniff
 from mebot.imports.pipelines import KINDS, RunContext, process
@@ -122,7 +123,7 @@ async def upload(
         raise ApiError(409, "IMPORT_IN_PROGRESS", "Another import is still running.")
     db.commit()  # a stale job may have been failed above
 
-    data, filename = await _read_upload(request, spec.max_bytes)
+    data, filename = await _read_upload(request, caps.upload_cap(request, spec.max_bytes))
     try:
         ftype = sniff(data)
         if ftype not in spec.accept:
@@ -143,6 +144,7 @@ async def upload(
     if same is not None:
         return JSONResponse(job_summary(same), status_code=200)
 
+    caps.hosted_daily_import_limit(request, bot.id)
     wait = request.app.state.import_limiter.hit(bot.id)
     if wait is not None:
         raise ApiError(

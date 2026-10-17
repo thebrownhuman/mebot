@@ -1,8 +1,7 @@
 """Hosted embeds address bots by public key, never by slug."""
 
-from fastapi.testclient import TestClient
-
 from conftest import make_tenant
+from fastapi.testclient import TestClient
 
 
 def test_public_widget_by_public_key_only(tenants, hosted_app):

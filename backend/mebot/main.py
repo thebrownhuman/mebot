@@ -104,6 +104,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Imports: 10 uploads per hour per bot; runners by kind (tests swap them).
     app.state.import_limiter = SlidingWindowLimiter(limit=10, window_seconds=3600)
     app.state.import_runners = pipelines.RUNNERS
+    # Hosted: imports per tenant per day (limit from HOSTED_MAX_IMPORTS_PER_DAY).
+    app.state.import_day_limiter = SlidingWindowLimiter(limit=10, window_seconds=86400)
     app.state.mailer = make_mailer(settings)
     # Hosted sign-up / mail endpoints, per hashed IP and bucket.
     app.state.account_limiter = SlidingWindowLimiter(limit=5, window_seconds=3600)

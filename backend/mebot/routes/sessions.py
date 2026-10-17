@@ -8,6 +8,7 @@ from mebot import turnstile
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot
 from mebot.errors import ApiError
+from mebot.hosted import caps
 from mebot.limits import counters
 from mebot.limits.service import LimitExceeded
 from mebot.models import Bot
@@ -87,7 +88,7 @@ async def start_session(
 ):
     ip = client_ip(request)
     settings = request.app.state.settings
-    limits = limits_repo.get_or_create(db, bot.id)
+    limits = caps.clamp(limits_repo.get_or_create(db, bot.id), settings)
     limiter = request.app.state.chat_limiter
     wait = limiter.session_start_wait(limits, ip)
     if wait is not None:
