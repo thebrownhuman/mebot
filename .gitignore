@@ -23,3 +23,9 @@ deploy/data/*
 .env.*
 !.env.example
 *.tsbuildinfo
+
+# install identity + registry data (never commit)
+install.key
+registry/data/*
+!registry/data/.gitkeep
+registry/releases.local.json
