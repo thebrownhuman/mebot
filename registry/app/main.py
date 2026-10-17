@@ -157,7 +157,9 @@ def create_app(
         if settings.trust_proxy:
             fwd = request.headers.get("x-forwarded-for", "")
             if fwd.strip():
-                return fwd.split(",")[0].strip()
+                # The last entry is the one our own proxy appended; earlier ones are
+                # client-controlled and could be forged.
+                return fwd.split(",")[-1].strip()
         return request.client.host if request.client else "?"
 
     def limited(scope: str, request: Request) -> None:

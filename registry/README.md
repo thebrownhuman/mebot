@@ -93,8 +93,8 @@ way the Mealie one does (a tunnel or a reverse proxy); adapt the last step to yo
    - **Reverse proxy** (Caddy): `registry.shivanshmishra.in { reverse_proxy 127.0.0.1:8100 }`
      (nginx: `proxy_pass http://127.0.0.1:8100;` plus `proxy_set_header X-Forwarded-For $remote_addr;`).
    Either way, keep `REGISTRY_TRUST_PROXY=1` and make sure only the proxy can reach port 8100
-   (the compose file binds it to localhost for that reason). Your proxy must set
-   `X-Forwarded-For` to the real client address and overwrite any value the client sent.
+   (the compose file binds it to localhost for that reason). Exactly one proxy should sit in front: the
+   registry trusts the last `X-Forwarded-For` entry, which that proxy appends.
 5. In Telegram, message your bot `/stats` from the configured chat to confirm it answers.
 6. Optional: `curl -H "Authorization: Bearer $REGISTRY_ADMIN_TOKEN" https://registry.shivanshmishra.in/v1/stats`.
 
