@@ -44,7 +44,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 11 | Dashboard + conversations + analytics | review | [spec](../specs/dashboard-analytics.md) | — | #4, #7 | M |
 | 12 | Install registry + opt-in telemetry | review | [spec](../specs/install-registry.md) | — | #2 | M |
 | 13 | Open-source packaging: single image, docs, CI, deploy buttons | review | [spec](../specs/packaging-release.md) | — | #1–#12 | M |
-| 14 | Retrieval (embeddings) for large profiles | todo | — | — | #5 | M |
+| 14 | Retrieval (embeddings) for large profiles | building | [spec](../specs/retrieval.md) | — | #5 | M |
 | 15 | Hosted mode (MODE=hosted, signups, per-user bots) | todo | — | — | #1–#13 | L |
 | 16 | **LAST** — Paid plans: plugin library (JS/CSS SDK) + monthly subscription | todo | — | — | #15 | L+ (split at spec) |
 
