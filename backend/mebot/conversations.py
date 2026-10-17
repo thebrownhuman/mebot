@@ -112,10 +112,11 @@ def like_pattern(q: str) -> str:
 
 
 def _ev(bot_id: str, event: str):
+    # No bot_id here: the outer sessions.bot_id filter scopes it, and leaving it out lets
+    # the planner look rows up by session_id instead of scanning the whole bot.
     return (
         select(AccessLog.id)
         .where(
-            AccessLog.bot_id == bot_id,
             AccessLog.session_id == ChatSession.id,
             AccessLog.event == event,
         )
@@ -133,7 +134,6 @@ def conditions(bot_id: str, f: Filters) -> list:
         c.append(
             select(Message.id)
             .where(
-                Message.bot_id == bot_id,
                 Message.session_id == ChatSession.id,
                 func.lower(Message.content).like(like_pattern(f.q), escape="\\"),
             )
@@ -144,8 +144,7 @@ def conditions(bot_id: str, f: Filters) -> list:
             c.append(
                 select(Message.id)
                 .where(
-                    Message.bot_id == bot_id,
-                    Message.session_id == ChatSession.id,
+                        Message.session_id == ChatSession.id,
                     Message.unanswered.is_(True),
                 )
                 .exists()
@@ -154,8 +153,7 @@ def conditions(bot_id: str, f: Filters) -> list:
             c.append(
                 select(Message.id)
                 .where(
-                    Message.bot_id == bot_id,
-                    Message.session_id == ChatSession.id,
+                        Message.session_id == ChatSession.id,
                     Message.from_owner.is_(True),
                 )
                 .exists()
@@ -164,7 +162,6 @@ def conditions(bot_id: str, f: Filters) -> list:
             c.append(
                 select(Contact.id)
                 .where(
-                    Contact.bot_id == bot_id,
                     Contact.session_id == ChatSession.id,
                     Contact.deleted_at.is_(None),
                 )
@@ -176,8 +173,7 @@ def conditions(bot_id: str, f: Filters) -> list:
         opened = (
             select(AccessLog.id)
             .where(
-                AccessLog.bot_id == bot_id,
-                AccessLog.session_id == ChatSession.id,
+                    AccessLog.session_id == ChatSession.id,
                 AccessLog.event == "WIDGET_OPENED",
             )
         )
