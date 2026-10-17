@@ -149,6 +149,15 @@ def change_slug(
     old = bot.slug
     if req.slug == old:
         return _view(db, bot, current, request.app.state.settings)
+    # Each change parks the old slug for 30 days: cap how many a tenant can hoard.
+    wait = request.app.state.account_limiter.hit(f"slug:{bot.id}")
+    if wait is not None:
+        raise ApiError(
+            429,
+            "RATE_LIMITED",
+            "Too many address changes. Try again later.",
+            headers={"Retry-After": str(wait)},
+        )
     own = db.scalar(
         select(SlugRedirect).where(SlugRedirect.old_slug == req.slug, SlugRedirect.bot_id == bot.id)
     )

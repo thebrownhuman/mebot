@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from mebot.models import Notification, utcnow
 from mebot.telegram import outbox
-from tests.tg_helpers import BASE, ctx, link, mock_telegram, ok, sent_texts
+from tests.tg_helpers import BASE, TOKEN, ctx, link, mock_telegram, ok, sent_texts
 
 
 def enqueue(app, bot_id, text, **kw):
@@ -189,3 +189,47 @@ async def test_equal_clock_burst_is_all_due_now(admin_client, app, monkeypatch):
     c = tctx(app, now=lambda: frozen)
     assert await outbox.send_due(c) == 3
     assert sent_texts(routes) == ["a", "b", "c"]
+
+
+def _second_bot(app, status="active"):
+    from mebot.repos import bots
+    from mebot.telegram import repo
+
+    with app.state.session_factory() as db:
+        bot = bots.create(db, "other-bot", "Other")
+        bot.status = status
+        row = repo.save_token(db, bot.id, app.state.secret_key, TOKEN, "other_bot")
+        row.chat_id = "555"
+        db.commit()
+        return bot.id
+
+
+@respx.mock
+async def test_one_backlogged_bot_does_not_starve_another(admin_client, app):
+    routes = mock_telegram()
+    busy = link(app)
+    for i in range(12):
+        enqueue(app, busy, f"busy-{i}")
+    quiet = _second_bot(app)
+    enqueue(app, quiet, "quiet-0")
+    c = tctx(app)
+    c.clock = lambda: 100.0
+    n = await outbox.send_due(c, limit=4)
+    assert n == 4, sent_texts(routes)
+    assert "quiet-0" in sent_texts(routes)
+    assert sent_texts(routes)[:2] == ["busy-0", "quiet-0"]  # interleaved by rank
+
+
+@respx.mock
+async def test_suspended_tenant_gets_nothing(admin_client, app):
+    routes = mock_telegram()
+    other = _second_bot(app, status="suspended")
+    enqueue(app, other, "hidden")
+    c = tctx(app)
+    c.clock = lambda: 100.0
+    assert await outbox.send_due(c) == 0
+    assert "hidden" not in sent_texts(routes)
+    from mebot.telegram import repo
+
+    with app.state.session_factory() as db:
+        assert other not in {r.bot_id for r in repo.all_configured(db)}
