@@ -7,11 +7,12 @@ or the system prompt. Nothing is queued unless Telegram is linked and the toggle
 import html
 from collections import Counter
 from datetime import UTC, date, datetime, time, timedelta
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from mebot import tz
 from mebot.guard import personal
 from mebot.models import (
     ChatSession,
@@ -38,11 +39,9 @@ def esc(text: str | None, limit: int = MAX_TEXT) -> str:
     return html.escape(text, quote=False)
 
 
-def zone(row: TelegramConfig) -> ZoneInfo:
-    try:
-        return ZoneInfo(row.timezone or "UTC")
-    except (ZoneInfoNotFoundError, ValueError):
-        return ZoneInfo("UTC")
+def zone(db: Session, bot_id: str) -> ZoneInfo:
+    """The owner's zone: ``bots.timezone`` (the old telegram_configs column is unused)."""
+    return tz.bot_zone(db, bot_id)
 
 
 def _active(db: Session, bot_id: str, toggle: str | None = None) -> TelegramConfig | None:
@@ -62,7 +61,7 @@ def new_session(db: Session, bot_id: str, session_id: str, name: str | None) -> 
     row = _active(db, bot_id, "notify_new_session")
     if row is None:
         return
-    local = utcnow().astimezone(zone(row)).strftime("%H:%M")
+    local = utcnow().astimezone(zone(db, bot_id)).strftime("%H:%M")
     outbox.enqueue(
         db,
         bot_id,
@@ -214,9 +213,9 @@ def leak_blocked(db: Session, bot_id: str, now: datetime | None = None) -> None:
 # --- digest / today -------------------------------------------------------------------
 
 
-def _local_day_bounds(tz: ZoneInfo, local_day: date) -> tuple[datetime, datetime]:
-    start = datetime.combine(local_day, time.min, tz).astimezone(UTC)
-    end = datetime.combine(local_day + timedelta(days=1), time.min, tz).astimezone(UTC)
+def _local_day_bounds(zn: ZoneInfo, local_day: date) -> tuple[datetime, datetime]:
+    start = datetime.combine(local_day, time.min, zn).astimezone(UTC)
+    end = datetime.combine(local_day + timedelta(days=1), time.min, zn).astimezone(UTC)
     return start, end
 
 
@@ -270,9 +269,9 @@ def summary_text(title: str, a: dict) -> str:
 
 
 def today_so_far(db: Session, row: TelegramConfig, now: datetime | None = None) -> str:
-    tz = zone(row)
-    local = (now or utcnow()).astimezone(tz)
-    start, _ = _local_day_bounds(tz, local.date())
+    zn = zone(db, row.bot_id)
+    local = (now or utcnow()).astimezone(zn)
+    start, _ = _local_day_bounds(zn, local.date())
     return summary_text(
         f"📊 Today so far ({local.date().isoformat()})",
         activity(db, row.bot_id, start, now or utcnow()),
@@ -284,13 +283,13 @@ def maybe_digest(db: Session, row: TelegramConfig, now: datetime) -> bool:
     Zero-activity days are skipped (but still marked done)."""
     if not row.daily_digest or not row.chat_id or not row.bot_token_encrypted:
         return False
-    tz = zone(row)
-    local = now.astimezone(tz)
+    zn = zone(db, row.bot_id)
+    local = now.astimezone(zn)
     today = local.date().isoformat()
     if local.hour < row.digest_hour or row.last_digest_date == today:
         return False
     row.last_digest_date = today
-    start, end = _local_day_bounds(tz, local.date())
+    start, end = _local_day_bounds(zn, local.date())
     a = activity(db, row.bot_id, start, min(end, now))
     if not (a["chats"] or a["messages"] or a["contacts"]):
         return False

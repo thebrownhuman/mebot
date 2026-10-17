@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
+from mebot import tz
 from mebot.models import ChatSession, Contact, Message, Notification, TelegramConfig
 from mebot.telegram import events
 from tests.conftest import csrf
@@ -205,5 +206,4 @@ def test_digest_disabled(admin_client, app):
 
 
 def test_bad_timezone_falls_back_to_utc():
-    row = TelegramConfig(timezone="Mars/Olympus")
-    assert str(events.zone(row)) == "UTC"
+    assert str(tz.safe_zone("Mars/Olympus")) == "UTC"

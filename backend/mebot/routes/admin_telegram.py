@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
+from mebot import tz
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
@@ -65,7 +66,7 @@ def view(row: TelegramConfig | None, request: Request, db: Session) -> dict:
         "webhook_available": bool(request.app.state.settings.public_url),
         "error": row.error if row else None,
         "digest_hour": row.digest_hour if row else 21,
-        "timezone": row.timezone if row else "UTC",
+        "timezone": tz.bot_zone(db, row.bot_id).key if row else "UTC",
         "outbox": _outbox(db, row),
     }
     for t in TOGGLES:
@@ -168,6 +169,9 @@ async def patch_settings(
         raise ApiError(409, "TELEGRAM_NOT_CONFIGURED", "Save your bot token first.")
     values = req.model_dump(exclude_unset=True)
     mode = values.pop("mode", None)
+    zone_name = values.pop("timezone", None)
+    if zone_name:  # the zone lives on the bot now; telegram_configs.timezone is unused
+        bot.timezone = zone_name
     for k, v in values.items():
         setattr(row, k, v)
     if mode and mode != row.mode:
