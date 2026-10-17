@@ -10,7 +10,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
-COPY releases.json ./releases.json
+COPY releases.json PRIVACY.md ./
 
 # Run as an unprivileged user; /app/data is the only writable path.
 RUN useradd --system --uid 10001 registry && mkdir -p /app/data && chown registry /app/data
