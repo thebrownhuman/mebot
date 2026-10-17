@@ -1,6 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { getLlm, listOpenQuestions, logout, type LlmConfigView, type Me } from "../../lib/api";
+import {
+  dismissUpdate,
+  getLlm,
+  getTelemetry,
+  listOpenQuestions,
+  logout,
+  type LlmConfigView,
+  type Me,
+  type TelemetryView,
+} from "../../lib/api";
 
 // Admin shell: sidebar (top menu on small screens), AI-provider banner, toasts and
 // an unsaved-changes guard shared by every admin page.
@@ -68,6 +77,42 @@ function Banner({ llm }: { llm: LlmConfigView | null }) {
   );
 }
 
+// A security advisory for this version (red, can't be dismissed) or a new release
+// (dismissible per version). Quiet when the registry can't be reached or telemetry is off.
+function UpdateBanner({ info, onDismiss }: { info: TelemetryView["update"] | null; onDismiss: (v: string) => void }) {
+  if (!info) return null;
+  const { advisory, latest, current } = info;
+  if (advisory) {
+    const link = advisory.url && /^https?:\/\//.test(advisory.url) ? advisory.url : null;
+    return (
+      <div role="alert" className="border border-term-err text-term-err rounded px-3 py-2 mb-3 text-xs">
+        <b>Security advisory affects your version ({current}):</b> {advisory.title}.
+        {latest && info.available ? ` Update to mebot ${latest}.` : ""}{" "}
+        {link && (
+          <a href={link} target="_blank" rel="noreferrer" className="underline text-term-bright">
+            Details
+          </a>
+        )}
+      </div>
+    );
+  }
+  if (!info.available || info.dismissed || !latest) return null;
+  return (
+    <div role="status" className="border border-term-amber text-term-amber rounded px-3 py-2 mb-3 text-xs flex flex-wrap items-center gap-2">
+      <span className="flex-1 min-w-[12rem]">
+        Update available: mebot {latest} (you have {current}).
+      </span>
+      <button
+        type="button"
+        onClick={() => onDismiss(latest)}
+        className="font-mono px-2 py-0.5 rounded border border-term-line2 text-term-dim hover:text-term-fg hover:border-term-bright"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
 export default function AdminLayout({ me }: { me: Me }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -75,6 +120,7 @@ export default function AdminLayout({ me }: { me: Me }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [llm, setLlm] = useState<LlmConfigView | null>(null);
+  const [update, setUpdate] = useState<TelemetryView["update"] | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [openCount, setOpenCount] = useState(0);
 
@@ -83,6 +129,17 @@ export default function AdminLayout({ me }: { me: Me }) {
       .then(setLlm)
       .catch(() => setLlm(null));
   }, [pathname]);
+
+  useEffect(() => {
+    getTelemetry()
+      .then((t) => setUpdate(t?.update ?? null))
+      .catch(() => setUpdate(null));
+  }, [pathname]);
+
+  const dismiss = useCallback((version: string) => {
+    setUpdate((u) => (u ? { ...u, dismissed: true } : u));
+    dismissUpdate(version).catch(() => undefined);
+  }, []);
 
   const refreshOpenCount = useCallback(() => {
     listOpenQuestions("open")
@@ -216,6 +273,7 @@ export default function AdminLayout({ me }: { me: Me }) {
         <main className="flex-1 min-w-0 md:h-screen md:overflow-y-auto flex flex-col">
           <div className="px-4 pt-4 md:px-6">
             <Banner llm={llm} />
+            <UpdateBanner info={update} onDismiss={dismiss} />
           </div>
           <div className="flex-1 min-h-0">
             <Outlet />

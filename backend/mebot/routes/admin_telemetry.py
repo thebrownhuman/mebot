@@ -35,6 +35,8 @@ def view(request: Request, db: Session, bot: Bot) -> dict:
     st = get_state(db)
     db.commit()
     upd = update_info(st, bot)
+    if settings.telemetry != "on":  # nothing is checked any more: don't keep old banners alive
+        upd = {**upd, "available": False, "dismissed": False, "advisory": None}
     adv = upd["advisory"]
     last = None
     if st.last_heartbeat_at and st.last_heartbeat_payload:

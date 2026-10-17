@@ -28,3 +28,30 @@ export function emptyOverview(): Overview {
     },
   };
 }
+
+// The "mebot project" payload: not registered, nothing to update.
+export function quietTelemetry() {
+  return {
+    telemetry: "on",
+    registry_url: "https://registry.shivanshmishra.in",
+    consent: false,
+    status: "not_registered",
+    registered_at: null,
+    last_register_error: null,
+    install_id_prefix: "9f2c41aa",
+    update_contact_email: null,
+    effective_email: "o@example.com",
+    public_url: null,
+    last_heartbeat: null,
+    payload_preview: null,
+    last_check_at: null,
+    update: {
+      current: "0.9.0",
+      latest: null,
+      available: false,
+      dismissed: false,
+      unsupported: false,
+      advisory: null,
+    },
+  };
+}

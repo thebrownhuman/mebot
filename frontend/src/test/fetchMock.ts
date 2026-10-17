@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { emptyOverview } from "./overview";
+import { emptyOverview, quietTelemetry } from "./overview";
 
 export type Handler = (init: RequestInit | undefined) => Response | Promise<Response>;
 
@@ -14,9 +14,11 @@ export function errorResponse(status: number, code: string, message: string, det
   return jsonResponse({ error: { code, message, status, ...(details ? { details } : {}) } }, status);
 }
 
-// Every admin page hosts the dashboard at /admin, so it gets a quiet default payload.
+// Every admin page hosts the dashboard at /admin, and the layout asks about updates, so
+// both get a quiet default payload.
 const DEFAULTS: Record<string, Handler> = {
   "GET /api/admin/analytics/overview": () => jsonResponse(emptyOverview()),
+  "GET /api/admin/telemetry": () => jsonResponse(quietTelemetry()),
 };
 
 // Routes fetch calls by "METHOD /path" (query string ignored). Unmatched -> 404.

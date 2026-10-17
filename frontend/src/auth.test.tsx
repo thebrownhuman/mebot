@@ -185,6 +185,27 @@ describe("first-run setup wizard", () => {
     expect(calls.some((c) => c.key === "POST /api/setup")).toBe(false);
   });
 
+  it("What's sent? opens the explanation inline and links the README anchor", async () => {
+    setupRoutes();
+    renderAt("/setup");
+    await fillAccount();
+    await passProviderStep();
+    fireEvent.click(screen.getByRole("button", { name: /^next/i }));
+    const toggle = await screen.findByRole("button", { name: /what's sent\?/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/never sent:/i)).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/never sent:/i)).toBeInTheDocument();
+    expect(screen.getByText(/random install id/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /details in the readme/i })).toHaveAttribute(
+      "href",
+      "README.md#telemetry",
+    );
+    // The consent checkbox keeps its wording and stays unchecked.
+    expect(screen.getByLabelText(/register this install with the mebot project/i)).not.toBeChecked();
+  });
+
   it("submits everything and lands in the admin panel", async () => {
     let done = false;
     const { calls } = setupRoutes({
