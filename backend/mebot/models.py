@@ -67,6 +67,12 @@ class Bot(Base):
         Boolean, default=False, server_default=false(), nullable=False
     )
     setup_completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # IANA zone for "today" / per-day buckets (migration 0014).
+    timezone: Mapped[str] = mapped_column(
+        Text, default="UTC", server_default="UTC", nullable=False
+    )
+    # Conversations older than this many days are hard-deleted; NULL keeps them forever.
+    retention_days: Mapped[int | None] = mapped_column(Integer, default=180, nullable=True)
 
 
 class ChatSession(Base):
@@ -76,7 +82,10 @@ class ChatSession(Base):
     recruiter_name: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
-    __table_args__ = (Index("ix_sessions_bot_id", "bot_id"),)
+    __table_args__ = (
+        Index("ix_sessions_bot_id", "bot_id"),
+        Index("ix_sessions_bot_id_started_at", "bot_id", "started_at"),
+    )
 
 
 class Message(Base):
@@ -98,6 +107,7 @@ class Message(Base):
     __table_args__ = (
         Index("ix_messages_bot_id", "bot_id"),
         Index("ix_messages_session_id_created_at", "session_id", "created_at"),
+        Index("ix_messages_bot_id_created_at", "bot_id", "created_at"),
     )
 
 
@@ -110,7 +120,11 @@ class AccessLog(Base):
     detail: Mapped[str | None] = mapped_column(Text)
     ip: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
-    __table_args__ = (Index("ix_access_log_bot_id", "bot_id"),)
+    __table_args__ = (
+        Index("ix_access_log_bot_id", "bot_id"),
+        Index("ix_access_log_bot_id_event_created_at", "bot_id", "event", "created_at"),
+        Index("ix_access_log_session_id", "session_id"),
+    )
 
 
 class Admin(Base):

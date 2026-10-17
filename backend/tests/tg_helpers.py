@@ -59,6 +59,8 @@ def link(app, chat_id: str = OWNER_CHAT, **over):
         bot = bots.get_primary(db)
         row = repo.save_token(db, bot.id, app.state.secret_key, TOKEN, "jane_mebot")
         row.chat_id = chat_id
+        if "timezone" in over:  # the zone lives on the bot (migration 0014)
+            bot.timezone = over.pop("timezone")
         for k, v in over.items():
             setattr(row, k, v)
         db.commit()
