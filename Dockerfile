@@ -2,7 +2,7 @@
 # widget loader. Build: docker build -t mebot .   Run: see docker-compose.yml
 
 # --- 1: frontend (app + embed + loader) -------------------------------------------
-FROM node:22-alpine AS frontend
+FROM node:25-alpine AS frontend
 WORKDIR /src
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -10,7 +10,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # --- 1b: plugin SDK CDN file (/sdk/v1/mebot.js) -----------------------------------
-FROM node:22-alpine AS sdk
+FROM node:25-alpine AS sdk
 WORKDIR /src
 COPY packages/sdk/package.json packages/sdk/package-lock.json ./
 RUN npm ci --no-audit --no-fund
