@@ -27,4 +27,4 @@ client (`src/lib/api.ts`) sends cookies plus an `X-CSRF-Token` header on writes.
 ## Notes
 - The frontend never calls an LLM provider directly; API keys go to the backend once
   (setup / AI Provider page) and are never sent back.
-- SPA routing: Vite handles deep links in dev; `nginx.conf` has `try_files` for Docker.
+- SPA routing: Vite handles deep links in dev; the backend falls back to `index.html` for app routes in the Docker image (`mebot/static.py`).
