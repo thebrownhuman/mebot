@@ -1,5 +1,6 @@
 from mebot.routes import (
     admin,
+    admin_analytics,
     admin_github,
     admin_import,
     admin_learning,
@@ -28,6 +29,7 @@ routers = [
     chat.router,
     contact.router,
     admin.router,
+    admin_analytics.router,
     admin_github.router,  # before admin_import: /import/github vs /import/{kind}
     admin_import.router,
     admin_llm.router,
