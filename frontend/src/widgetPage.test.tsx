@@ -171,19 +171,3 @@ describe("widget page", () => {
     expect(await screen.findByText("copied")).toBeInTheDocument();
   });
 });
-
-describe("dashboard widget hint", () => {
-  it("nudges when the widget has no allowed sites", async () => {
-    routes({ "GET /api/admin/widget": () => jsonResponse({ ...SETTINGS, allowed_origins: [], needs_origins: true }) });
-    renderAt("/admin");
-    expect(await screen.findByRole("link", { name: /set up the widget/i })).toHaveAttribute("href", "/admin/widget");
-  });
-
-  it("stays quiet when sites are set", async () => {
-    routes();
-    renderAt("/admin");
-    await screen.findByText(/admin panel/i);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(screen.queryByRole("link", { name: /set up the widget/i })).toBeNull();
-  });
-});

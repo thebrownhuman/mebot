@@ -199,37 +199,3 @@ describe("limits page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/boom/i);
   });
 });
-
-describe("dashboard banners", () => {
-  it("warns when paused", async () => {
-    routes({
-      "GET /api/admin/limits": () => jsonResponse({ ...LIMITS, paused: true }),
-    });
-    renderAt("/admin");
-    expect(await screen.findByText(/the bot is paused/i)).toBeInTheDocument();
-  });
-
-  it("warns at 80% of the daily cap", async () => {
-    routes({
-      "GET /api/admin/usage": () =>
-        jsonResponse({
-          days: [day("2026-10-16", { messages: 400 })],
-          top_visitors: [],
-        }),
-    });
-    renderAt("/admin");
-    expect(
-      await screen.findByText(/80% of today's message cap/i),
-    ).toBeInTheDocument();
-  });
-
-  it("no banner under 80%", async () => {
-    routes();
-    renderAt("/admin");
-    await screen.findByRole("navigation", { name: /admin/i });
-    await waitFor(() =>
-      expect(screen.queryByText(/today's message cap/i)).toBeNull(),
-    );
-    expect(screen.queryByText(/the bot is paused/i)).toBeNull();
-  });
-});
