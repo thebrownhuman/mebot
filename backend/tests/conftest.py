@@ -1,3 +1,5 @@
+import shutil
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -97,8 +99,32 @@ def clear_analytics_cache():
     cache.clear()
 
 
+@pytest.fixture(scope="session")
+def migrated_db(tmp_path_factory):
+    """One DB migrated to head per test worker; each test gets a copy (migrating per test
+    was ~2-3 s of setup each). create_app still runs upgrade, which is then a no-op."""
+    from mebot.db import run_migrations
+
+    path = tmp_path_factory.mktemp("template") / "template.db"
+    run_migrations(f"sqlite:///{path.as_posix()}", secret_key="unused-no-rows")
+    return path
+
+
+@pytest.fixture(autouse=True)
+def fast_password_hashing(monkeypatch):
+    """Tests don't need production argon2 cost; hashes still embed their own params."""
+    from argon2 import PasswordHasher
+
+    from mebot.auth import passwords
+
+    monkeypatch.setattr(
+        passwords, "_hasher", PasswordHasher(time_cost=1, memory_cost=1024, parallelism=1)
+    )
+
+
 @pytest.fixture
-def settings(tmp_path):
+def settings(tmp_path, migrated_db):
+    shutil.copyfile(migrated_db, tmp_path / "test.db")
     return Settings(
         _env_file=None,
         mode="single",
