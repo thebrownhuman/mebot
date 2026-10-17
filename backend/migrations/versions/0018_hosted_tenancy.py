@@ -40,9 +40,7 @@ def _token_table(name: str) -> None:
 def upgrade() -> None:
     with op.batch_alter_table("bots") as batch:
         batch.add_column(sa.Column("public_key", sa.Text, nullable=True))
-        batch.add_column(
-            sa.Column("status", sa.Text, nullable=False, server_default="active")
-        )
+        batch.add_column(sa.Column("status", sa.Text, nullable=False, server_default="active"))
         batch.add_column(sa.Column("status_reason", sa.Text, nullable=True))
         batch.add_column(sa.Column("plan", sa.Text, nullable=False, server_default="free"))
         batch.add_column(

@@ -1,3 +1,4 @@
+import os
 import shutil
 
 import pytest
@@ -141,14 +142,63 @@ def fast_password_hashing(monkeypatch):
     )
 
 
+# MEBOT_TEST_POSTGRES=postgresql+psycopg://user@host:port/postgres runs the suite on
+# Postgres: one database per xdist worker, migrated once, truncated before each test.
+PG_ADMIN_URL = os.environ.get("MEBOT_TEST_POSTGRES")
+
+
+@pytest.fixture(scope="session")
+def pg_url(worker_id):
+    if not PG_ADMIN_URL:
+        return None
+    import sqlalchemy as sa
+
+    from mebot.db import run_migrations
+
+    name = f"mebot_test_{worker_id}".replace("-", "_")
+    admin = sa.create_engine(PG_ADMIN_URL, isolation_level="AUTOCOMMIT")
+    with admin.connect() as c:
+        c.execute(sa.text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+        c.execute(sa.text(f'CREATE DATABASE "{name}"'))
+    admin.dispose()
+    url = PG_ADMIN_URL.rsplit("/", 1)[0] + f"/{name}"
+    run_migrations(url, secret_key="unused-no-rows")
+    return url
+
+
+def _truncate(url: str) -> None:
+    import sqlalchemy as sa
+
+    eng = sa.create_engine(url)
+    with eng.begin() as c:
+        names = c.execute(
+            sa.text(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                " AND tablename <> 'alembic_version'"
+            )
+        ).scalars()
+        joined = ", ".join(f'"{n}"' for n in names)
+        if joined:
+            c.execute(sa.text(f"TRUNCATE {joined} RESTART IDENTITY CASCADE"))
+    eng.dispose()
+
+
 @pytest.fixture
-def settings(tmp_path, migrated_db):
+def database_url(tmp_path, migrated_db, pg_url):
+    if pg_url:
+        _truncate(pg_url)
+        return pg_url
     shutil.copyfile(migrated_db, tmp_path / "test.db")
+    return f"sqlite:///{(tmp_path / 'test.db').as_posix()}"
+
+
+@pytest.fixture
+def settings(tmp_path, database_url):
     return Settings(
         _env_file=None,
         mode="single",
         data_dir=tmp_path,
-        database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
+        database_url=database_url,
         ollama_host="http://ollama.invalid",
         telegram_workers=False,
         telemetry_workers=False,
@@ -211,6 +261,7 @@ def hosted_settings(settings):
         update={
             "mode": "hosted",
             "secret_key": HOSTED_SECRET,
+            "allow_sqlite_hosted": True,
             "signup_mode": "open",
             "turnstile_site_key": "1x00000000000000000000AA",
             "turnstile_secret_key": "1x0000000000000000000000000000000AA",
