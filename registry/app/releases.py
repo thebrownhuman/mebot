@@ -32,19 +32,21 @@ class Releases(BaseModel):
 class ReleasesFile:
     def __init__(self, path: Path):
         self.path = path
-        self._mtime: float | None = None
+        # (mtime_ns, size): two quick edits can share an mtime on coarse filesystem clocks.
+        self._stamp: tuple[int, int] | None = None
         self._value = Releases(latest="0.0.0")
 
     def get(self) -> Releases:
         try:
-            mtime = self.path.stat().st_mtime_ns
+            st = self.path.stat()
+            stamp = (st.st_mtime_ns, st.st_size)
         except OSError:
             return self._value
-        if mtime != self._mtime:
+        if stamp != self._stamp:
             try:
                 self._value = Releases.model_validate(json.loads(self.path.read_text("utf-8")))
             except (OSError, ValueError, ValidationError):
                 # Keep serving the last good copy; a half-written edit must not break clients.
                 log.warning("releases.json is invalid; keeping the previous version")
-            self._mtime = mtime
+            self._stamp = stamp
         return self._value

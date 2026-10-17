@@ -281,6 +281,15 @@ class TestLatest:
         settings.releases_path.write_text(json.dumps({"latest": "0.12.0"}))
         assert client.get("/v1/latest").json()["latest"] == "0.12.0"
 
+    def test_edit_within_one_mtime_tick_is_still_seen(self, client, settings):
+        import os
+
+        client.get("/v1/latest")
+        stamp = settings.releases_path.stat().st_mtime_ns
+        settings.releases_path.write_text(json.dumps({"latest": "0.12.0"}))
+        os.utime(settings.releases_path, ns=(stamp, stamp))  # coarse clocks: same mtime
+        assert client.get("/v1/latest").json()["latest"] == "0.12.0"
+
     def test_missing_file_serves_a_placeholder(self, settings, clock):
         from fastapi.testclient import TestClient
 
