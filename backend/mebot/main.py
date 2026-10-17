@@ -1,6 +1,9 @@
 """App factory. Run with: uvicorn mebot.main:app --reload --port 8000"""
 
 import sys
+import asyncio
+import contextlib
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,6 +16,7 @@ from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
 from mebot.imports import github_import, linkedin, pipelines, resume  # noqa: F401 - importing registers the runner
+from mebot import retention
 from mebot.limits import counters
 from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
 from mebot.limits.service import ChatLimiter
@@ -37,6 +41,19 @@ def _validation_error(_, exc: RequestValidationError):
     )
 
 
+RETENTION_EVERY = 24 * 3600
+
+
+async def _retention_loop(factory) -> None:
+    """Daily purge; the startup purge runs in create_app."""
+    while True:
+        await asyncio.sleep(RETENTION_EVERY)
+        try:
+            await asyncio.to_thread(retention.purge_all_bots, factory)
+        except Exception:  # a failed purge must not take the app down; retry next round
+            logging.getLogger("mebot.retention").exception("retention purge failed")
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     ensure_data_dir(settings)
@@ -48,9 +65,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Poller / outbox / digest workers; off in tests unless a test turns them on.
         if settings.telegram_workers:
             await app.state.telegram.start()
+        purge_task = asyncio.create_task(_retention_loop(app.state.session_factory))
         try:
             yield
         finally:
+            purge_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await purge_task
             await app.state.telegram.stop()
 
     app = FastAPI(title="me-bot", lifespan=lifespan)
@@ -76,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         outbox.purge(db)
         import_jobs.purge_expired(db)
         db.commit()
+    retention.purge_all_bots(app.state.session_factory)
     install_error_handlers(app)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_middleware(
