@@ -19,9 +19,11 @@ from mebot.llm.base import LLMError
 from mebot.marker import MarkerFilter
 from mebot.models import Bot
 from mebot.profile.data import load_profile
-from mebot.prompt import build_system_prompt, render_profile
+from mebot.prompt import build_system_prompt
 from mebot.repos import limits as limits_repo
 from mebot.repos import llm_configs, logs, open_questions, sessions
+from mebot.repos import retrieval as retrieval_repo
+from mebot.retrieval import service as retrieval
 from mebot.telegram import events
 
 router = APIRouter(prefix="/api")
@@ -57,6 +59,27 @@ def _error_detail(provider: str, exc: Exception) -> str:
     if isinstance(exc, LLMError):
         return f"provider={provider} status={exc.status} kind={exc.kind}"
     return f"provider={provider} status=None kind=unexpected:{type(exc).__name__}"
+
+
+class _QueryEmbedder:
+    """Embeds the visitor's query with the owner's provider; counts the tokens it spent."""
+
+    def __init__(self, client):
+        self.client = client
+        self.tokens = 0
+
+    async def __call__(self, texts: list[str], model: str) -> list[list[float]]:
+        vectors = await self.client.embed(texts, model=model)
+        reported = getattr(self.client, "embed_tokens", None)
+        self.tokens += reported or sum(math.ceil(len(t) / 4) for t in texts)
+        return vectors
+
+
+def _query_embedder(db: Session, bot_id: str, cfg) -> "_QueryEmbedder | None":
+    row = retrieval_repo.get_settings(db, bot_id)
+    if row is None or not (row.embeddings_enabled and row.embedding_model):
+        return None
+    return _QueryEmbedder(cfg.client())
 
 
 @router.post("/chat", dependencies=[Depends(require_setup_done)])
@@ -109,7 +132,20 @@ async def chat(
     # Layer (a) of the professional filter: a hint, never a verdict (mebot.guard.personal).
     hint = personal.classify(req.message)
     profile_data = load_profile(db, bot_id)
-    profile = render_profile(profile_data)
+    # Large profiles: only the relevant parts (+ always-on facts and an outline) are sent.
+    # The query is this message plus the previous one, for follow-ups.
+    previous = next((m.content for m in reversed(stored) if m.role == "user"), None)
+    embedder = _query_embedder(db, bot_id, cfg)
+    cfg_settings = request.app.state.settings
+    knowledge = await retrieval.knowledge_for(
+        db,
+        bot_id,
+        profile_data,
+        [req.message, *([previous] if previous else [])],
+        threshold=cfg_settings.retrieval_threshold_tokens,
+        budget=cfg_settings.retrieval_budget_tokens,
+        embedder=embedder,
+    )
     owner = persona.display_name(profile_data.identity, bot.name)
     pronouns = profile_data.identity.get("pronouns") or persona.DEFAULT_PRONOUNS
     contact_channels = channels.from_items(profile_data.items("links"))
@@ -140,7 +176,8 @@ async def chat(
         db.commit()
     canary = guard.canary_for(request.app.state.secret_key, bot_id)
     system = build_system_prompt(
-        profile,
+        knowledge.text,
+        excerpted=knowledge.retrieval,
         canary=canary,
         reminder=suspicious,
         name=owner,
@@ -209,6 +246,8 @@ async def chat(
                 prompt_chars = sum(len(m["content"]) for m in messages)
                 tokens = math.ceil(prompt_chars / 4) + math.ceil(produced / 4)
                 estimated = True
+            if embedder is not None:  # the paid query-embedding call, if one was made
+                tokens += embedder.tokens
             # Fresh DB session: the request-scoped one may be closed while we stream.
             with session_factory() as wdb:
                 # Personal topics are declined, not learned: the model said so, or the
@@ -219,7 +258,13 @@ async def chat(
                 reply = None
                 if full:
                     reply = sessions.add_message(
-                        wdb, bot_id, req.session_id, "assistant", full, unanswered=unanswered
+                        wdb,
+                        bot_id,
+                        req.session_id,
+                        "assistant",
+                        full,
+                        unanswered=unanswered,
+                        chunk_ids=knowledge.chunk_ids if knowledge.retrieval else None,
                     )
                 limiter.record_tokens(wdb, bot_id, ip, tokens, estimated=estimated)
                 if chan.redactions:  # the count only, never the value
