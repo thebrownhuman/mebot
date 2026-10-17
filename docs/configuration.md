@@ -7,7 +7,7 @@ All settings are environment variables (or lines in `.env`). In the Docker image
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `MODE` | `single` | single = one bot, no tenancy. hosted = multi-bot (later releases). |
+| `MODE` | `single` | single = one bot, no tenancy. hosted = many owners, each with their own bot. |
 | `SECRET_KEY` | *(unset)* | Encrypts stored API keys and keys the IP hashes. Required when MODE=hosted; in single mode one is generated once into <DATA_DIR>/secret.key. Changing it means re-entering API keys. |
 | `DATA_DIR` | `backend/data` | Directory for the SQLite db and the generated secret key. |
 | `DATABASE_URL` | *(unset)* | Defaults to sqlite:///<data_dir>/mebot.db when unset. |
@@ -25,3 +25,16 @@ All settings are environment variables (or lines in `.env`). In the Docker image
 | `TELEGRAM_WORKERS` | `true` | Background Telegram tasks (poller, outbox, digest). Tests turn them off. |
 | `FRONTEND_DIST` | `frontend/dist` | Built frontend (npm run build). When it holds an index.html the backend serves the whole UI (app, embed bundle, widget loader) with per-path cache headers. |
 | `GITHUB_TOKEN` | *(unset)* | Optional token for GitHub imports (public data only; raises the 60/hour limit). A token saved in Admin -> Import takes precedence. |
+| `HOSTED_DOMAIN` | *(unset)* | --- Hosted mode (MODE=hosted) only; ignored in single mode. --- Optional wildcard domain: {slug}.HOSTED_DOMAIN serves that bot's recruiter page. Without it, bots live at /b/{slug}. |
+| `SIGNUP_MODE` | `invite` | Who may sign up: open (anyone), invite (needs an invite code), closed (nobody). |
+| `SMTP_HOST` | *(unset)* | Outgoing mail (verification, password reset). Without SMTP_HOST mails are printed to the log instead (development only). |
+| `SMTP_PORT` | `587` | SMTP port; 587 uses STARTTLS, 465 implicit TLS. |
+| `SMTP_USER` | *(unset)* | SMTP login (optional). |
+| `SMTP_PASSWORD` | *(unset)* | SMTP password (optional). |
+| `SMTP_FROM` | `mebot <no-reply@localhost>` | From address on platform mail. |
+| `HOSTED_MAX_DAILY_MESSAGES` | `500` | Hard caps per tenant: owners can lower their limits, never raise them above these. |
+| `HOSTED_MAX_DAILY_TOKENS` | `1000000` | Daily token budget cap per tenant (a tenant can't switch it off). |
+| `HOSTED_MAX_SESSION_MESSAGES` | `40` | Messages per visitor chat. |
+| `HOSTED_MAX_IP_PER_DAY` | `100` | Messages per visitor IP per day. |
+| `HOSTED_MAX_IMPORTS_PER_DAY` | `10` | Import uploads per tenant per day (one import runs at a time per tenant). |
+| `HOSTED_MAX_UPLOAD_BYTES` | `5000000` | Largest import upload per tenant, in bytes. |
