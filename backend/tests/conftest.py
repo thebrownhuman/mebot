@@ -81,6 +81,15 @@ def fake_llm(monkeypatch):
     return ctl
 
 
+@pytest.fixture(autouse=True)
+def clear_analytics_cache():
+    from mebot.analytics import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
 @pytest.fixture
 def settings(tmp_path):
     return Settings(
