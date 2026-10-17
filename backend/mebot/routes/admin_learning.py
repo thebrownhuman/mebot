@@ -20,6 +20,7 @@ from mebot.profile.schemas import AvoidTopicIn
 from mebot.profile.sections import SECTIONS
 from mebot.repos import learned_facts, logs, open_questions
 from mebot.repos import profile_items as profile
+from mebot.retrieval.hooks import Reindexer, get_reindexer
 
 router = APIRouter(
     prefix="/api/admin",
@@ -219,10 +220,12 @@ def approve_fact(
     body: ApproveIn | None = None,
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     body = body or ApproveIn()
     fact = learning.approve(db, bot.id, fid, edits=body.edits(), mode=body.mode)
     db.commit()
+    reindex(bot.id)
     return learning.serialize(db, fact)
 
 
@@ -239,14 +242,22 @@ def edit_fact(
     body: FactEditIn,
     db: Session = Depends(get_db),
     bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     fact = learning.update(db, bot.id, fid, body.edits())
     db.commit()
+    reindex(bot.id)
     return learning.serialize(db, fact)
 
 
 @router.delete("/learned-facts/{fid}", status_code=204)
-def delete_fact(fid: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
+def delete_fact(
+    fid: str,
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
+):
     learning.delete(db, bot.id, fid)
     db.commit()
+    reindex(bot.id)
     return Response(status_code=204)
