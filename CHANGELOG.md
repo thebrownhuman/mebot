@@ -57,5 +57,11 @@ First public release.
 - The embed contact panel follows the widget's light theme.
 - The two-container nginx compose moved to `deploy/nginx/` as an advanced example.
 
+### Fixed
+
+- A leaked prompt canary could go undetected when its hex form contained 10+ consecutive
+  digits (the phone-number mask ran first). Canaries are now letters only.
+- The registry missed `releases.json` edits that landed within one filesystem mtime tick.
+
 [Unreleased]: https://github.com/OWNER/mebot/compare/v0.9.0...HEAD
 [0.9.0]: https://github.com/OWNER/mebot/releases/tag/v0.9.0
