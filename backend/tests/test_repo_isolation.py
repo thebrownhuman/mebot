@@ -48,6 +48,12 @@ ALLOWED = {
     ("mebot.telegram.repo", "all_configured"): "worker: lists every linked bot",
     ("mebot.hosted.operator", "tenants"): "operator list: per-bot counts, no content columns",
     ("mebot.hosted.operator", "usage"): "operator list: per-bot message counts",
+    ("mebot.billing.service", "_find_sub"): "signed webhook: finds the bot by provider sub id",
+    ("mebot.billing.service", "upsert_invoice"): "signed webhook: invoice keyed by provider id",
+    ("mebot.billing.service", "sweep"): "system job: billing deadlines of every bot",
+    ("mebot.billing.service", "to_reconcile"): "system job: lists subscriptions to reconcile",
+    ("mebot.billing.jobs", "reconcile"): "system job: one subscription row by id",
+    ("mebot.routes.billing_webhook", "webhook"): "signed webhook: event row, before any bot",
 }
 
 
