@@ -187,3 +187,14 @@ def test_conversation_detail_without_retrieval_has_no_chunks_key(admin_client, f
     msgs = admin_client.get(f"/api/admin/conversations/{sid}").json()["messages"]
     assert all("chunks" not in m for m in msgs)
     assert json.dumps(msgs)  # serialisable
+
+
+def test_usage_readout_shows_retrieval_savings(admin_client, app, fake_llm):
+    seed_large_profile(app)
+    assert admin_client.get(K).json()["usage"]["retrieval_replies"] == 0
+    sid = new_session(admin_client)
+    chat(admin_client, sid, "Tell me about the Elasticsearch relevance project")
+    usage = admin_client.get(K).json()["usage"]
+    assert usage["questions"] == 1 and usage["retrieval_replies"] == 1
+    assert usage["avg_prompt_tokens"] < usage["avg_profile_tokens"]
+    assert 50 < usage["saved_percent"] < 100

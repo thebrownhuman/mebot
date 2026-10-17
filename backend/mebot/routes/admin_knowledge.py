@@ -1,17 +1,19 @@
 """Admin -> Knowledge: how the bot sees a large profile (full vs retrieval), the index, and
 the optional embeddings."""
 
+from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
 from mebot.llm.providers import get_provider
-from mebot.models import Bot
+from mebot.models import AccessLog, Bot, utcnow
 from mebot.profile.data import load_profile
 from mebot.profile.render import approx_tokens, render_profile
 from mebot.repos import llm_configs
@@ -92,6 +94,7 @@ def _status(db: Session, bot: Bot, request: Request) -> dict:
         "budget_tokens": settings.retrieval_budget_tokens,
         "chunk_count": len(stored),
         "last_indexed_at": _iso(row.last_indexed_at) if row else None,
+        "usage": _usage(db, bot.id),
         "index_stale": repo.is_stale(stored, chunker.build_chunks(profile)),
         "embeddings": {
             "supported": supported,
@@ -103,6 +106,46 @@ def _status(db: Session, bot: Bot, request: Request) -> dict:
             "total": len(stored),
             "last_error": row.last_error if row else None,
         },
+    }
+
+
+USAGE_DAYS = 7
+
+
+def _usage(db: Session, bot_id: str) -> dict:
+    """Last week's retrieval turns: how many, and what they cost vs sending the whole profile."""
+    since = utcnow() - timedelta(days=USAGE_DAYS)
+    rows = db.scalars(
+        select(AccessLog.detail).where(
+            AccessLog.bot_id == bot_id,
+            AccessLog.event == "RETRIEVAL",
+            AccessLog.created_at >= since,
+        )
+    ).all()
+    pairs = []
+    for detail in rows:
+        try:
+            used, whole = (int(x) for x in (detail or "").split("/"))
+        except ValueError:
+            continue
+        pairs.append((used, whole))
+    questions = db.scalar(
+        select(func.count())
+        .select_from(AccessLog)
+        .where(
+            AccessLog.bot_id == bot_id, AccessLog.event == "question", AccessLog.created_at >= since
+        )
+    )
+    n = len(pairs)
+    used = round(sum(u for u, _ in pairs) / n) if n else 0
+    whole = round(sum(w for _, w in pairs) / n) if n else 0
+    return {
+        "days": USAGE_DAYS,
+        "questions": questions,
+        "retrieval_replies": n,
+        "avg_prompt_tokens": used,
+        "avg_profile_tokens": whole,
+        "saved_percent": round(100 * (1 - used / whole)) if whole else 0,
     }
 
 
