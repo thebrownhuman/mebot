@@ -40,8 +40,12 @@ def alembic_config(url: str) -> Config:
     return cfg
 
 
-def run_migrations(url: str) -> None:
-    command.upgrade(alembic_config(url), "head")
+def run_migrations(url: str, secret_key: str | None = None) -> None:
+    """Upgrade to head. ``secret_key`` feeds data migrations that hash values (0016);
+    when omitted they resolve it from Settings only if there is data to hash."""
+    cfg = alembic_config(url)
+    cfg.attributes["secret_key"] = secret_key
+    command.upgrade(cfg, "head")
 
 
 def get_db(request: Request) -> Iterator[Session]:

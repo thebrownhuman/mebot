@@ -33,7 +33,7 @@ def test_profile_change_is_logged(admin_client):
     assert r.json() == {"content": "NAME: X"}
     log = admin_client.get("/api/admin/log").json()
     assert log[0]["event"] == "profile_updated" and log[0]["detail"] == "notes"
-    assert set(log[0]) == {"event", "detail", "ip", "ts"}
+    assert set(log[0]) == {"event", "detail", "ip_hash", "ts"}
     assert isinstance(log[0]["ts"], float)
 
 
@@ -185,3 +185,21 @@ def test_chat_prompt_uses_structured_profile(admin_client, fake_llm):
     assert "=== AVOID ===" in system and "I keep politics out of work chats." in system
     assert "AVOID" in system.split("PROFILE:")[0]  # the rule that explains AVOID
     assert "[Your name]" not in system  # old template never leaks into the prompt
+
+
+def test_visitor_and_admin_ips_are_stored_hashed(admin_client):
+    import sqlalchemy as sa
+
+    from mebot.limits.counters import ip_hash
+
+    admin_client.post("/api/session", json={"recruiter_name": "Bob"})
+    key = admin_client.app.state.secret_key
+    with admin_client.app.state.session_factory() as db:
+        logged = db.execute(
+            sa.text("SELECT ip_hash FROM access_log WHERE event='session_start'")
+        ).scalar_one()
+        admin = db.execute(sa.text("SELECT ip_hash FROM admin_sessions")).scalars().all()
+    assert logged == ip_hash(key, "testclient")
+    assert admin and all(h == ip_hash(key, "testclient") for h in admin)
+    entry = admin_client.get("/api/admin/log").json()[0]
+    assert entry["ip_hash"] == logged[:12]

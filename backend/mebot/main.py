@@ -61,7 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ensure_data_dir(settings)
     secret_key = resolve_secret_key(settings)
     install_key = identity.load_or_create(settings.data_dir)
-    run_migrations(settings.database_url)
+    run_migrations(settings.database_url, secret_key)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

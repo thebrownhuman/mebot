@@ -12,9 +12,11 @@ def add(
     session_id: str | None,
     event: str,
     detail: str | None = None,
-    ip: str | None = None,
+    ip_hash: str | None = None,
 ) -> None:
-    db.add(AccessLog(bot_id=bot_id, session_id=session_id, event=event, detail=detail, ip=ip))
+    db.add(
+        AccessLog(bot_id=bot_id, session_id=session_id, event=event, detail=detail, ip_hash=ip_hash)
+    )
     db.flush()
 
 
@@ -44,6 +46,11 @@ def recent(db: Session, bot_id: str, limit: int = 100) -> list[dict]:
         .limit(limit)
     )
     return [
-        {"event": r.event, "detail": r.detail, "ip": r.ip, "ts": r.created_at.timestamp()}
+        {
+            "event": r.event,
+            "detail": r.detail,
+            "ip_hash": (r.ip_hash or "")[:12] or None,
+            "ts": r.created_at.timestamp(),
+        }
         for r in rows
     ]

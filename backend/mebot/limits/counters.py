@@ -9,6 +9,7 @@ a refused request consumes nothing.
 
 import hashlib
 import hmac
+import re
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import delete, select, update
@@ -20,12 +21,25 @@ from mebot.models import UsageCounter, new_id, utcnow
 
 SESSION_WINDOW = "-"
 RETENTION = timedelta(days=7)
+_HEX64 = re.compile(r"[0-9a-f]{64}")
 _KEY = ("bot_id", "scope", "key", "window_start")
 
 
 def ip_hash(secret_key: str, ip: str | None) -> str:
     """HMAC-SHA256(SECRET_KEY, ip): stable per install, never reversible to the IP."""
     return hmac.new(secret_key.encode(), (ip or "?").encode(), hashlib.sha256).hexdigest()
+
+
+def stored_ip_hash(secret_key: str, ip: str | None) -> str | None:
+    """What gets persisted for a visitor/admin IP: its hash, or None when unknown."""
+    return ip_hash(secret_key, ip) if ip else None
+
+
+def hash_ip_value(secret_key: str, value: str | None) -> str | None:
+    """Migration helper: hash a raw stored IP, leaving already-hashed values alone."""
+    if value is None or _HEX64.fullmatch(value):
+        return value
+    return ip_hash(secret_key, value)
 
 
 def window_for(scope: str, day: date) -> str:

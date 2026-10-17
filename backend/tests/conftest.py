@@ -82,6 +82,13 @@ def fake_llm(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def isolated_data_dir(tmp_path, monkeypatch):
+    """Anything that falls back to Settings() (CLI, migrations) stays in this test's tmp dir,
+    never backend/data, and xdist workers never share a data dir."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+
+
+@pytest.fixture(autouse=True)
 def clear_analytics_cache():
     from mebot.analytics import cache
 

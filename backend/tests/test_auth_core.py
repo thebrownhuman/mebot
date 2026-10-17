@@ -60,7 +60,7 @@ def test_soft_deleted_admin_hidden(db):
 
 
 def test_session_token_stored_hashed(db):
-    token = admin_sessions.create(db, "admin1", ip="1.2.3.4", user_agent="ua")
+    token = admin_sessions.create(db, "admin1", ip_hash="h", user_agent="ua")
     db.commit()
     assert len(token) >= 40
     row = db.scalar(select(AdminSession))
