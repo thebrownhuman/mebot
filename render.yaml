@@ -1,0 +1,28 @@
+# Render Blueprint. A persistent disk needs a paid instance type: on the free plan the
+# filesystem (and so all mebot data) is wiped on every deploy and restart.
+services:
+  - type: web
+    name: mebot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /api/health
+    disk:
+      name: mebot-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SETUP_TOKEN
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"
+      # Set both to https://<your-service>.onrender.com (or your domain) after the first deploy.
+      - key: PUBLIC_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
