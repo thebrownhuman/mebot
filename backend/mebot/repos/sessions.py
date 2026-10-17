@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timedelta
 
@@ -89,6 +90,7 @@ def add_message(
     content: str,
     unanswered: bool = False,
     from_owner: bool = False,
+    chunk_ids: list[str] | None = None,
 ) -> Message:
     # Messages are ordered by created_at; two written within the clock's resolution
     # (a fast reply) would tie and fall back to random-uuid order. Keep them strictly
@@ -109,6 +111,7 @@ def add_message(
         created_at=now,
         unanswered=unanswered,
         from_owner=from_owner,
+        chunk_ids=json.dumps(chunk_ids) if chunk_ids else None,
     )
     db.add(msg)
     db.flush()
