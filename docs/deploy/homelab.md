@@ -4,7 +4,7 @@ Any Linux box with Docker works, including a Raspberry Pi 4/5 (arm64).
 
 ```bash
 mkdir -p ~/mebot && cd ~/mebot
-curl -O https://raw.githubusercontent.com/<owner>/mebot/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/thebrownhuman/mebot/main/docker-compose.yml
 mkdir data && sudo chown -R 10001:10001 data   # the container runs as uid 10001
 docker compose up -d
 ```

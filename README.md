@@ -17,7 +17,7 @@ You need Docker. Then:
 
 ```bash
 mkdir mebot && cd mebot
-curl -O https://raw.githubusercontent.com/<owner>/mebot/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/thebrownhuman/mebot/main/docker-compose.yml
 docker compose up -d
 ```
 
@@ -35,16 +35,14 @@ have a working assistant. On Linux, if the container stops with "/data is not wr
 Put `SETUP_TOKEN=<something random>` in a `.env` file next to `docker-compose.yml` before
 starting; the setup form then asks for it.
 
-> `<owner>` is the GitHub account the repository is published under (not decided yet). The
-> image is `ghcr.io/<owner>/mebot`; set `MEBOT_OWNER=<owner>` in `.env` for the compose file.
+> The image is `ghcr.io/thebrownhuman/mebot`. Forks can set `MEBOT_OWNER=<your-account>` in `.env`.
 
 ### Deploy to a platform
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=<repo-url>)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=<repo-url>)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/thebrownhuman/mebot)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/thebrownhuman/mebot)
 
-*Replace `<repo-url>` with the repository URL once it exists; the buttons are placeholders
-until then.* Configs: `deploy/railway/railway.json`, `render.yaml`, `fly.toml`. All of them
+Configs: `deploy/railway/railway.json`, `render.yaml`, `fly.toml`. All of them
 need a **persistent disk at `/data`** and a single instance; see
 [docs/deploy/platforms.md](docs/deploy/platforms.md). Homelab / VPS with a domain, Caddy or
 Cloudflare Tunnel, and backups: [docs/deploy/homelab.md](docs/deploy/homelab.md).

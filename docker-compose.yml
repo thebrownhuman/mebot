@@ -1,10 +1,10 @@
 # mebot: one container. Quickstart:
-#   curl -O https://raw.githubusercontent.com/<owner>/mebot/main/docker-compose.yml
+#   curl -O https://raw.githubusercontent.com/thebrownhuman/mebot/main/docker-compose.yml
 #   docker compose up -d        # then open http://localhost:8080 and finish setup
 # Data (database, secret.key, install.key) lives in ./data - back it up.
 services:
   mebot:
-    image: ghcr.io/${MEBOT_OWNER:-OWNER}/mebot:${MEBOT_VERSION:-latest}
+    image: ghcr.io/${MEBOT_OWNER:-thebrownhuman}/mebot:${MEBOT_VERSION:-latest}
     restart: unless-stopped
     ports:
       - "8080:8000"
