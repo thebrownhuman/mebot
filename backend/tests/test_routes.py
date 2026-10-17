@@ -2,6 +2,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
+from mebot import __version__
 from mebot.llm.base import LLMError
 from mebot.models import AccessLog, LLMConfig
 from mebot.routes.chat import UNAVAILABLE
@@ -14,7 +15,11 @@ def test_health_before_setup(client):
 
 
 def test_health_ready_after_setup(admin_client, fake_llm):
-    assert admin_client.get("/api/health").json() == {"ready": True, "model": "gpt-4o-mini"}
+    assert admin_client.get("/api/health").json() == {
+        "ready": True,
+        "model": "gpt-4o-mini",
+        "version": __version__,
+    }
     assert fake_llm.tests == ["gpt-4o-mini"]  # health makes no provider call
 
 

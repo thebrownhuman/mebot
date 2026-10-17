@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from mebot import retention
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
@@ -22,6 +21,7 @@ from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
 from mebot.limits.service import ChatLimiter
 from mebot.repos import admin_sessions, import_jobs
 from mebot.routes import routers
+from mebot.static import mount_frontend
 from mebot.telegram import outbox
 from mebot.telegram.service import TelegramService
 from mebot.telegram.updates import TgContext
@@ -125,16 +125,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.middleware("http")(frame_headers)
     for r in routers:
         app.include_router(r)
-    _mount_frontend(app, settings)
+    # Last, so its catch-all GET never shadows an API route.
+    mount_frontend(app, settings.frontend_dist)
     return app
-
-
-def _mount_frontend(app: FastAPI, settings: Settings) -> None:
-    # The embed bundle and its shared chunks, when no nginx serves them (dev / one process).
-    for prefix in ("embed-app", "assets"):
-        d = settings.frontend_dist / prefix
-        if d.is_dir():
-            app.mount(f"/{prefix}", StaticFiles(directory=d), name=prefix)
 
 
 def __getattr__(name: str):

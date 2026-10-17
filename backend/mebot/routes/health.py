@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from mebot import __version__
 from mebot.db import get_db
 from mebot.deps import get_current_bot
 from mebot.llm import service as llm
@@ -13,6 +14,10 @@ router = APIRouter(prefix="/api")
 @router.get("/health")
 def health(request: Request, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     """Whether chat can work, from stored state only (no provider call, no cost)."""
+    return {**_status(request, db, bot), "version": __version__}
+
+
+def _status(request: Request, db: Session, bot: Bot) -> dict:
     if not admins.exists(db):
         return {"ready": False, "model": None, "message": "setup required"}
     status, row, _ = llm.load(db, bot.id, request.app.state.secret_key)
