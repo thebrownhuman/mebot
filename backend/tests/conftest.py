@@ -180,6 +180,16 @@ def _truncate(url: str) -> None:
         joined = ", ".join(f'"{n}"' for n in names)
         if joined:
             c.execute(sa.text(f"TRUNCATE {joined} RESTART IDENTITY CASCADE"))
+        # Migration seed rows come back, as on a freshly migrated SQLite copy.
+        c.execute(
+            sa.text(
+                "INSERT INTO plans (code, name, active, is_trial, prices, limits, created_at,"
+                " updated_at) VALUES"
+                " ('trial', 'Free trial', true, true, '{}', '{\"daily_message_cap\": 100}',"
+                " now(), now()),"
+                " ('monthly', 'Monthly', true, false, '{}', '{}', now(), now())"
+            )
+        )
     eng.dispose()
 
 
