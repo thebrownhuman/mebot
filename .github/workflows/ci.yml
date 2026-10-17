@@ -136,7 +136,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - name: Build mebot image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -147,7 +147,7 @@ jobs:
         run: docker image inspect mebot:ci --format '{{.Size}}' | awk '{ printf "%.1f MB\n", $1/1048576 }'
       - run: bash scripts/smoke.sh mebot:ci
       - name: Build registry image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: registry
           load: true
