@@ -19,6 +19,7 @@ from mebot.routes import (
     health,
     hosted_account,
     hosted_accounts,
+    hosted_billing,
     platform_admin,
     public,
     sessions,
@@ -52,6 +53,7 @@ routers = [
     widget.router,
     hosted_accounts.router,
     hosted_account.router,
+    hosted_billing.router,
     platform_admin.router,
     billing_webhook.router,
 ]

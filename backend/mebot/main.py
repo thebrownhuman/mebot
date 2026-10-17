@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from mebot import retention
+from mebot.billing import jobs as billing_jobs
 from mebot.billing import providers as billing_providers
 from mebot.config import (
     ConfigError,
@@ -100,10 +101,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if telemetry.enabled and settings.telemetry_workers
             else None
         )
+        billing_task = (
+            asyncio.create_task(billing_jobs.billing_loop(app))
+            if settings.billing_enabled
+            else None
+        )
         try:
             yield
         finally:
-            for task in (purge_task, tele_task):
+            for task in (purge_task, tele_task, billing_task):
                 if task is not None:
                     task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
@@ -131,6 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.mailer = make_mailer(settings)
     # Paid plans: empty unless MODE=hosted and BILLING_PROVIDERS is set (tests swap them).
     app.state.billing_tasks = set()  # fire-and-forget owner mails
+    app.state.checkout_limiter = SlidingWindowLimiter(limit=20, window_seconds=3600)
     app.state.billing_providers = {
         name: billing_providers.make(name, settings) for name in settings.billing_provider_list
     }
