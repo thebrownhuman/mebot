@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { emptyOverview } from "./overview";
 
 export type Handler = (init: RequestInit | undefined) => Response | Promise<Response>;
 
@@ -13,8 +14,14 @@ export function errorResponse(status: number, code: string, message: string, det
   return jsonResponse({ error: { code, message, status, ...(details ? { details } : {}) } }, status);
 }
 
+// Every admin page hosts the dashboard at /admin, so it gets a quiet default payload.
+const DEFAULTS: Record<string, Handler> = {
+  "GET /api/admin/analytics/overview": () => jsonResponse(emptyOverview()),
+};
+
 // Routes fetch calls by "METHOD /path" (query string ignored). Unmatched -> 404.
-export function mockApi(routes: Record<string, Handler>) {
+export function mockApi(given: Record<string, Handler>) {
+  const routes = { ...DEFAULTS, ...given };
   const calls: { key: string; init?: RequestInit }[] = [];
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = typeof input === "string" ? input : (input as Request).url;

@@ -184,19 +184,3 @@ describe("notifications page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/database is sad/i);
   });
 });
-
-describe("dashboard telegram hint", () => {
-  it("suggests linking Telegram when not linked", async () => {
-    routes();
-    renderAt("/admin");
-    const hint = await screen.findByText(/telegram isn't linked/i);
-    expect(within(hint.closest("div")!).getByRole("link")).toHaveAttribute("href", "/admin/notifications");
-  });
-
-  it("stays quiet when linked", async () => {
-    const api = routes({ "GET /api/admin/telegram": () => jsonResponse(LINKED) });
-    renderAt("/admin");
-    await waitFor(() => expect(api.calls.some((c) => c.key === "GET /api/admin/telegram")).toBe(true));
-    expect(screen.queryByText(/telegram isn't linked/i)).toBeNull();
-  });
-});

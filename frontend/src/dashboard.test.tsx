@@ -174,6 +174,18 @@ describe("dashboard", () => {
     );
   });
 
+  it("stays quiet about Telegram and the widget when they are set up", async () => {
+    const o = overview();
+    o.status.telegram = { linked: true, dead: 0 };
+    o.status.widget = { enabled: true, origins: 2, any_origin: false };
+    routes({ "GET /api/admin/analytics/overview": () => jsonResponse(o) });
+    renderAt("/admin");
+    const card = (await screen.findByRole("heading", { name: /status/i })).closest("section")!;
+    expect(within(card).getByText("Linked")).toBeInTheDocument();
+    expect(within(card).getByText("On · 2 allowed sites")).toBeInTheDocument();
+    expect(within(card).queryByRole("link")).toBeNull();
+  });
+
   it("warns when paused or near the cap", async () => {
     const o = overview();
     o.status.paused = true;
