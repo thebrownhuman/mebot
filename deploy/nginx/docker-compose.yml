@@ -1,8 +1,14 @@
+# ADVANCED: nginx serves the static UI and proxies the backend (the pre-0.9 layout).
+# Most installs should use the single image in ../../docker-compose.yml instead.
+# Run from this directory: docker compose up -d --build
 services:
   backend:
-    build: ../backend
+    # The single image; nginx in front only adds static hosting.
+    build:
+      context: ../..
+      dockerfile: Dockerfile
     env_file:
-      - path: ../.env
+      - path: ../../.env
         required: false
     environment:
       # reach Ollama running on the HOST machine (not in a container)
@@ -13,7 +19,7 @@ services:
       - TRUST_PROXY=true
     volumes:
       # persist the sqlite db on the host so data survives container restarts
-      - ./data:/app/data
+      - ./data:/data
     extra_hosts:
       # makes host.docker.internal work on Linux (built-in on Mac/Windows)
       - "host.docker.internal:host-gateway"
@@ -21,7 +27,9 @@ services:
       - "8000"
 
   frontend:
-    build: ../frontend
+    build:
+      context: ../..
+      dockerfile: deploy/nginx/frontend.Dockerfile
     ports:
       - "8080:80"
     depends_on:

@@ -59,7 +59,11 @@ def loader(request: Request):
     path = request.app.state.settings.frontend_dist / "widget" / "v1.js"
     if not path.is_file():
         raise ApiError(404, "NOT_BUILT", "Widget loader not built (run npm run build)")
-    return FileResponse(path, media_type="text/javascript", headers={"Cache-Control": LOADER_CACHE})
+    return FileResponse(
+        path,
+        media_type="text/javascript",
+        headers={"Cache-Control": LOADER_CACHE, "Access-Control-Allow-Origin": "*"},
+    )
 
 
 @router.get("/widget.js")
