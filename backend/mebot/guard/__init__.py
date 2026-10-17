@@ -37,10 +37,17 @@ _INJECTION = [
 ]
 
 
+_HEX_TO_LETTERS = str.maketrans("0123456789abcdef", "ghijklmnopqrstuv")
+
+
 def canary_for(secret_key: str, bot_id: str) -> str:
-    """Derived, not stored: a new SECRET_KEY rotates every canary automatically."""
+    """Derived, not stored: a new SECRET_KEY rotates every canary automatically.
+
+    Letters only: model output passes the channel guard before the leak guard, and a hex
+    canary containing 10+ consecutive digits was masked as a phone number there, so its
+    leak went undetected."""
     digest = hmac.new(secret_key.encode(), f"canary:{bot_id}".encode(), hashlib.sha256)
-    return "MBC-" + digest.hexdigest()[:20]
+    return "MBC-" + digest.hexdigest()[:20].translate(_HEX_TO_LETTERS)
 
 
 def looks_like_injection(text: str) -> bool:

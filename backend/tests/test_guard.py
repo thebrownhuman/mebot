@@ -150,3 +150,26 @@ def test_leak_log_has_no_output_text(admin_client, app, fake_llm):
     with app.state.session_factory() as db:
         row = db.scalar(select(AccessLog).where(AccessLog.event == "LEAK_BLOCKED"))
     assert canary not in (row.detail or "")
+
+
+def test_canary_never_looks_like_a_phone_number():
+    # The channel guard masks 10+ digit runs before the leak guard sees the text; a hex
+    # canary with such a run slipped past leak detection (seen as a flaky test).
+    import secrets
+
+    for _ in range(2000):
+        c = guard.canary_for(secrets.token_urlsafe(32), "bot")
+        assert not any(ch.isdigit() for ch in c), c
+        assert len(c) == len("MBC-") + 20
+
+
+def test_canary_with_digit_run_layout_still_trips_after_channel_guard():
+    """chat.py pipes model output through ChannelGuard, then LeakGuard."""
+    from mebot.guard.channels import ChannelGuard
+
+    for key in (f"key-{i}" for i in range(300)):
+        canary = guard.canary_for(key, "bot")
+        chan, leak = ChannelGuard([]), guard.LeakGuard(canary, RULES)
+        leak.feed(chan.feed(canary) + chan.finish())
+        leak.finish()
+        assert leak.tripped, (key, canary)
