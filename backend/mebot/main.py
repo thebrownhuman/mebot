@@ -26,6 +26,7 @@ from mebot.telegram import outbox
 from mebot.telegram.service import TelegramService
 from mebot.telegram.updates import TgContext
 from mebot.telemetry import identity
+from mebot.telemetry.service import Telemetry
 from mebot.widget.frames import frame_headers
 
 
@@ -68,12 +69,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.telegram_workers:
             await app.state.telegram.start()
         purge_task = asyncio.create_task(_retention_loop(app.state.session_factory))
+        # Only with TELEMETRY=on: otherwise nothing is scheduled and no request is ever made.
+        telemetry = app.state.telemetry
+        tele_task = (
+            asyncio.create_task(telemetry.worker())
+            if telemetry.enabled and settings.telemetry_workers
+            else None
+        )
         try:
             yield
         finally:
-            purge_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await purge_task
+            for task in (purge_task, tele_task):
+                if task is not None:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
             await app.state.telegram.stop()
 
     app = FastAPI(title="me-bot", lifespan=lifespan)
@@ -92,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Imports: 10 uploads per hour per bot; runners by kind (tests swap them).
     app.state.import_limiter = SlidingWindowLimiter(limit=10, window_seconds=3600)
     app.state.import_runners = pipelines.RUNNERS
+    app.state.telemetry = Telemetry(settings, app.state.session_factory, install_key)
     app.state.telegram_ctx = TgContext(app.state.session_factory, secret_key, settings)
     app.state.telegram = TelegramService(app.state.telegram_ctx)
     with app.state.session_factory() as db:
