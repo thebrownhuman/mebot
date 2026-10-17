@@ -3,8 +3,8 @@ import sqlite3
 import sqlalchemy as sa
 
 from mebot.db import run_migrations
-from mebot.limits.counters import ip_hash
 from mebot.legacy import import_legacy
+from mebot.limits.counters import ip_hash
 
 LEGACY_SCHEMA = """
 CREATE TABLE profile (id INTEGER PRIMARY KEY CHECK (id = 1), content TEXT NOT NULL,
