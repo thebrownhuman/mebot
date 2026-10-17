@@ -20,6 +20,7 @@ from mebot.routes import (
     hosted_account,
     hosted_accounts,
     hosted_billing,
+    legal,
     platform_admin,
     public,
     sessions,
@@ -56,4 +57,5 @@ routers = [
     hosted_billing.router,
     platform_admin.router,
     billing_webhook.router,
+    legal.router,
 ]

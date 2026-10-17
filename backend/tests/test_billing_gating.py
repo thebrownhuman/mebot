@@ -238,3 +238,12 @@ def test_purge_keeps_invoices_anonymised(billing_app):
         inv = db.query(Invoice).one()
         assert (inv.amount_minor, inv.hosted_url, inv.pdf_url) == (900, None, None)
         assert db.query(Subscription).count() == 0
+
+
+def test_legal_pages_hosted_only(hosted_app, client):
+    with TestClient(hosted_app) as c:
+        r = c.get("/legal/terms")
+        assert r.status_code == 200 and "lawyer" in r.text
+        assert c.get("/legal/privacy").status_code == 200
+        assert c.get("/legal/secrets").status_code == 404
+    assert client.get("/legal/terms").status_code == 404

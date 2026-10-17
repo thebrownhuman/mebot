@@ -18,7 +18,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     TZ=UTC \
     DATA_DIR=/data \
-    FRONTEND_DIST=/app/static
+    FRONTEND_DIST=/app/static \n    LEGAL_DIR=/app/legal
 
 WORKDIR /app/backend
 COPY backend/requirements.txt ./
@@ -28,6 +28,7 @@ COPY backend/alembic.ini ./
 COPY backend/migrations ./migrations
 COPY backend/mebot ./mebot
 COPY --from=frontend /src/dist /app/static
+COPY docs/legal /app/legal
 COPY deploy/docker/entrypoint.sh /usr/local/bin/mebot-entrypoint
 
 RUN chmod 0755 /usr/local/bin/mebot-entrypoint \
