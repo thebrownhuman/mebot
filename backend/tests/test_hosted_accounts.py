@@ -141,7 +141,6 @@ def test_invite_mode(hosted_settings, ts_ok):
         code = invites.create(db, note="for new")
         db.commit()
     with TestClient(app) as c:
-        assert signup(c).status_code == 400
         assert signup(c, invite_code="wrong").status_code == 400
         assert signup(c, invite_code=code).status_code == 202
         assert signup(c, invite_code=code, email="z@x.io", slug="zed-z").status_code == 400

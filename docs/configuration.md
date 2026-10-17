@@ -35,6 +35,8 @@ All settings are environment variables (or lines in `.env`). In the Docker image
 | `SMTP_USER` | *(unset)* | SMTP login (optional). |
 | `SMTP_PASSWORD` | *(unset)* | SMTP password (optional). |
 | `SMTP_FROM` | `mebot <no-reply@localhost>` | From address on platform mail. |
+| `PLATFORM_TELEGRAM_BOT_TOKEN` | *(unset)* | Maintainer pings (sign-ups, suspensions) via your own Telegram bot. Best-effort. |
+| `PLATFORM_TELEGRAM_CHAT_ID` | *(unset)* | Chat that receives the maintainer pings (your user id or a group id). |
 | `HOSTED_MAX_DAILY_MESSAGES` | `500` | Hard caps per tenant: owners can lower their limits, never raise them above these. |
 | `HOSTED_MAX_DAILY_TOKENS` | `1000000` | Daily token budget cap per tenant (a tenant can't switch it off). |
 | `HOSTED_MAX_SESSION_MESSAGES` | `40` | Messages per visitor chat. |

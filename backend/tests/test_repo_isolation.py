@@ -46,6 +46,8 @@ ALLOWED = {
     ("mebot.telegram.outbox", "purge"): "system job: old delivered notifications",
     ("mebot.telegram.outbox", "send_due"): "worker: each row is sent with its own bot's config",
     ("mebot.telegram.repo", "all_configured"): "worker: lists every linked bot",
+    ("mebot.hosted.operator", "tenants"): "operator list: per-bot counts, no content columns",
+    ("mebot.hosted.operator", "usage"): "operator list: per-bot message counts",
 }
 
 
@@ -87,10 +89,27 @@ def _attr_of(node, model=None) -> str | None:
     return None
 
 
-def _filters_bot_id(fn: ast.FunctionDef, model: str) -> bool:
+def _compared_bot_id(fn: ast.FunctionDef, model: str) -> bool:
+    """``Model.bot_id`` inside a comparison (==, !=, in_ via Compare or a call on it)."""
     for node in ast.walk(fn):
-        if _attr_of(node, model) == "bot_id":
+        if isinstance(node, ast.Compare):
+            for side in (node.left, *node.comparators):
+                if _attr_of(side, model) == "bot_id":
+                    return True
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in ("in_", "is_", "__eq__")
+            and _attr_of(node.func.value, model) == "bot_id"
+        ):
             return True
+    return False
+
+
+def _filters_bot_id(fn: ast.FunctionDef, model: str) -> bool:
+    if _compared_bot_id(fn, model):
+        return True
+    for node in ast.walk(fn):
         if isinstance(node, ast.Compare) and len(node.comparators) == 1:
             left, right = node.left, node.comparators[0]
             for a, b in ((left, right), (right, left)):
@@ -125,7 +144,7 @@ def _via_helper(fn: ast.FunctionDef, model: str) -> bool:
         helper = getattr(fn, "siblings", {}).get(node.func.id)
         passes_bot = any(isinstance(a, ast.Name) and a.id == "bot_id" for a in node.args)
         if helper is not None and helper is not fn and passes_bot:
-            if any(_attr_of(n, model) == "bot_id" for n in ast.walk(helper)):
+            if _compared_bot_id(helper, model):
                 return True
     return False
 
@@ -173,6 +192,15 @@ def test_every_tenant_query_filters_on_bot_id():
 def test_allowlist_entries_exist():
     names = {(mod, fn.name) for mod, fn in _functions(mebot)}
     assert set(ALLOWED) <= names, set(ALLOWED) - names
+
+
+def test_checker_does_not_count_selecting_bot_id_as_a_filter():
+    src = (
+        "def agg(db):\n"
+        "    return db.execute(select(Message.bot_id, func.count()).group_by(Message.bot_id))\n"
+    )
+    fn = ast.parse(src).body[0]
+    assert _queried_models(fn) == {"Message"} and not _filters_bot_id(fn, "Message")
 
 
 def test_checker_catches_a_missing_filter():

@@ -100,8 +100,8 @@ def test_every_owner_route_with_ids_is_404_on_foreign_ids(seeded, hosted_app):
         params = re.findall(r"{(\w+)}", path)
         if not params:
             continue
-        if path in PUBLIC_WITH_IDS:
-            continue
+        if path in PUBLIC_WITH_IDS or path.startswith("/api/platform"):
+            continue  # operator routes: tenant sessions get 401 (tests/test_platform.py)
         assert path.startswith(OWNER_PREFIXES) or path == "/widget-test", (
             f"unclassified route with ids: {method} {path}"
         )

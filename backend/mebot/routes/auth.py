@@ -11,7 +11,7 @@ from mebot.deps import CurrentAdmin, client_ip, get_current_admin, get_current_b
 from mebot.errors import ApiError
 from mebot.limits import counters
 from mebot.models import Bot
-from mebot.repos import admin_sessions, admins
+from mebot.repos import admin_sessions, admins, bots
 
 router = APIRouter(prefix="/api/auth")
 
@@ -55,6 +55,12 @@ def login(
     if not ok:
         limiter.record_failure(ip, req.email)
         raise ApiError(401, "INVALID_CREDENTIALS", "Invalid email or password")
+    if settings.hosted:
+        bot = bots.get(db, admin.bot_id) if admin.bot_id else None
+        if bot is not None and bot.status == "pending":
+            raise ApiError(403, "PENDING_APPROVAL", "Your sign-up is waiting for approval.")
+        if bot is None or bot.status != "active":
+            raise ApiError(401, "INVALID_CREDENTIALS", "Invalid email or password")
 
     admin_sessions.purge_expired(db)
     token = admin_sessions.create(
