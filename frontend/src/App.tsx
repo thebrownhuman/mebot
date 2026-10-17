@@ -8,6 +8,7 @@ import AccountPage from "./pages/admin/AccountPage";
 import LimitsPage from "./pages/admin/LimitsPage";
 import NotificationsPage from "./pages/admin/NotificationsPage";
 import ContactsPage from "./pages/admin/ContactsPage";
+import ConversationsPage from "./pages/admin/ConversationsPage";
 import OpenQuestionsPage from "./pages/admin/OpenQuestionsPage";
 import MemoryPage from "./pages/admin/MemoryPage";
 import WidgetPage from "./pages/admin/WidgetPage";
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="llm" element={<LlmPage />} />
           <Route path="limits" element={<LimitsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="conversations" element={<ConversationsPage />} />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="open-questions" element={<OpenQuestionsPage />} />
           <Route path="memory" element={<MemoryPage />} />
