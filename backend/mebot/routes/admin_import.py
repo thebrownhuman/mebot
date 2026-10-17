@@ -26,6 +26,7 @@ from mebot.imports.pipelines import KINDS, RunContext, process
 from mebot.llm import service as llm
 from mebot.models import Bot, ImportJob
 from mebot.repos import import_jobs, logs
+from mebot.retrieval.hooks import Reindexer, get_reindexer
 
 router = APIRouter(
     prefix="/api/admin/import",
@@ -207,7 +208,11 @@ class ApplyIn(BaseModel):
 
 @router.post("/jobs/{job_id}/apply")
 def apply_job(
-    job_id: str, req: ApplyIn, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+    job_id: str,
+    req: ApplyIn,
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+    reindex: Reindexer = Depends(get_reindexer),
 ):
     import_jobs.purge_expired(db)
     job = _job_or_404(db, bot, job_id)
@@ -247,4 +252,5 @@ def apply_job(
     except Exception:
         db.rollback()
         raise
+    reindex(bot.id)
     return {"applied": summary}
