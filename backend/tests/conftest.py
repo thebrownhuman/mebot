@@ -270,6 +270,27 @@ def hosted_settings(settings):
     )
 
 
+BILLING_ENV = {
+    "billing_providers": "razorpay,stripe",
+    "razorpay_key_id": "rzp_test_KEYID0000",
+    "razorpay_key_secret": "rzp_test_SECRET_0000",
+    "razorpay_webhook_secret": "rzp_whsec_test_0000",
+    "stripe_secret_key": "sk_test_SECRET_0000",
+    "stripe_webhook_secret": "whsec_test_0000",
+}
+
+
+@pytest.fixture
+def billing_settings(hosted_settings):
+    """Hosted mode with both billing providers configured (test-mode style values)."""
+    return hosted_settings.model_copy(update=BILLING_ENV)
+
+
+@pytest.fixture
+def billing_app(billing_settings):
+    return create_app(billing_settings)
+
+
 @pytest.fixture
 def hosted_app(hosted_settings):
     return create_app(hosted_settings)
