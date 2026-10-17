@@ -3,6 +3,7 @@ import { Field, FormError, SubmitButton } from "../../components/AuthForm";
 import { AdminSection, useAdmin } from "../../components/admin/AdminLayout";
 import { inputCls } from "../../components/admin/fields";
 import TelemetrySection from "../../components/admin/TelemetrySection";
+import HostedAccountSection from "../../components/admin/HostedAccountSection";
 import {
   changePassword,
   conversationExportUrl,
@@ -290,6 +291,7 @@ export default function AccountPage() {
 
   return (
     <AdminSection title="Account" intro={`Signed in as ${me.email}.`}>
+      <HostedAccountSection />
       <Settings />
       <YourData />
       <TelemetrySection />

@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useSetup } from "../components/SetupGate";
 import { CenteredCard, Field, FormError, SubmitButton } from "../components/AuthForm";
 import { login } from "../lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { hosted } = useSetup();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,16 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
         <SubmitButton busy={busy}>log in</SubmitButton>
+        {hosted && (
+          <p className="text-term-dim text-xs mt-4 flex flex-wrap gap-x-4 gap-y-1">
+            <Link to="/reset-password" className="text-term-bright underline">
+              forgot password?
+            </Link>
+            <Link to="/signup" className="text-term-bright underline">
+              create an account
+            </Link>
+          </p>
+        )}
       </form>
       <p className="text-term-dim text-xs mt-4">
         Forgot your password? Run <code className="text-term-fg">python -m mebot.cli reset-password</code>{" "}

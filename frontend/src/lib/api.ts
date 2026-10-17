@@ -129,10 +129,28 @@ interface ReqOpts {
   notifyUnauthorized?: boolean;
 }
 
+// --- hosted mode: which bot a public call is for ----------------------------
+// A recruiter page at /b/{slug} (or an embed at /embed/pk_...) talks to the backend
+// under the same /b/{ref} prefix, which picks the tenant. Owner APIs never get it.
+const TENANT_API = ["/api/public", "/api/session", "/api/chat", "/api/contact"];
+
+export function tenantPrefix(pathname: string): string {
+  const b = /^\/b\/([^/]+)/.exec(pathname);
+  if (b) return `/b/${b[1]}`;
+  const e = /^\/embed\/(pk_[^/]+)/.exec(pathname);
+  return e ? `/b/${e[1]}` : "";
+}
+
+export function withTenant(path: string, pathname: string): string {
+  const prefix = tenantPrefix(pathname);
+  return prefix && TENANT_API.some((p) => path.startsWith(p)) ? prefix + path : path;
+}
+
 async function send(
   path: string,
   { method = "GET", body, notifyUnauthorized = false }: ReqOpts = {},
 ) {
+  path = withTenant(path, window.location.pathname);
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET" && method !== "HEAD") {
@@ -201,7 +219,10 @@ export async function streamChat(
 
 // --- setup + auth ------------------------------------------------------------
 
-export async function getSetupStatus(): Promise<{ setup_required: boolean }> {
+export async function getSetupStatus(): Promise<{
+  setup_required: boolean;
+  mode?: "hosted";
+}> {
   return json("/api/setup/status");
 }
 
@@ -1173,4 +1194,88 @@ export async function saveTelemetry(body: {
 
 export async function dismissUpdate(version: string): Promise<void> {
   await send("/api/admin/telemetry/dismiss-update", { method: "POST", body: { version }, ...admin });
+}
+
+// --- hosted mode: accounts ----------------------------------------------------
+
+export interface HostedConfig {
+  signup_mode: "open" | "invite" | "closed";
+  turnstile_site_key: string | null;
+  hosted_domain: string | null;
+}
+
+export interface SignupReq {
+  email: string;
+  password: string;
+  bot_name: string;
+  slug: string;
+  invite_code?: string;
+  turnstile_token?: string;
+}
+
+export interface HostedAccount {
+  email: string;
+  email_verified: boolean;
+  bot_name: string;
+  slug: string;
+  public_key: string;
+  plan: string;
+  setup_done: boolean;
+  live: boolean;
+  public_path: string;
+  hosted_domain: string | null;
+}
+
+export interface HostedSetupReq {
+  bot_name: string;
+  full_name?: string;
+  headline?: string;
+  llm: LlmInput;
+}
+
+const H = "/api/hosted";
+
+export async function getHostedConfig(): Promise<HostedConfig> {
+  return json(`${H}/config`);
+}
+
+export async function signup(req: SignupReq): Promise<void> {
+  await send(`${H}/signup`, { method: "POST", body: req });
+}
+
+export async function verifyEmail(token: string): Promise<void> {
+  await send(`${H}/verify`, { method: "POST", body: { token } });
+}
+
+export async function resendVerification(email: string): Promise<void> {
+  await send(`${H}/verify/resend`, { method: "POST", body: { email } });
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await send(`${H}/password-reset`, { method: "POST", body: { email } });
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  await send(`${H}/password-reset/confirm`, {
+    method: "POST",
+    body: { token, new_password: newPassword },
+  });
+}
+
+export async function getHostedAccount(): Promise<HostedAccount> {
+  return json(`${H}/account`, admin);
+}
+
+export async function hostedSetup(req: HostedSetupReq): Promise<HostedAccount> {
+  return json(`${H}/account/setup`, { method: "POST", body: req, ...admin });
+}
+
+export async function changeSlug(slug: string): Promise<HostedAccount> {
+  return json(`${H}/account/slug`, { method: "PUT", body: { slug }, ...admin });
+}
+
+export const hostedExportUrl = `${H}/account/export`;
+
+export async function deleteHostedAccount(password: string): Promise<void> {
+  await send(`${H}/account/delete`, { method: "POST", body: { password }, ...admin });
 }

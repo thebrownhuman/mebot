@@ -17,6 +17,11 @@ import ProfilePage from "./pages/admin/ProfilePages";
 import AdminLayout from "./components/admin/AdminLayout";
 import SetupGate from "./components/SetupGate";
 import RequireAdmin from "./components/RequireAdmin";
+import SignupPage from "./pages/hosted/SignupPage";
+import VerifyPage from "./pages/hosted/VerifyPage";
+import ResetPasswordPage from "./pages/hosted/ResetPasswordPage";
+import TenantGate from "./pages/hosted/TenantGate";
+import GetStartedPage from "./pages/hosted/GetStartedPage";
 
 export default function App() {
   return (
@@ -24,6 +29,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<RecruiterPage />} />
         <Route path="/setup" element={<SetupPage />} />
+        {/* hosted mode (the backend 404s these in single mode) */}
+        <Route path="/b/:ref/*" element={<TenantGate />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify" element={<VerifyPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/admin/login" element={<LoginPage />} />
         <Route
           path="/admin"
@@ -41,6 +51,7 @@ export default function App() {
           <Route path="widget" element={<WidgetPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="account" element={<AccountPage />} />
+          <Route path="get-started" element={<GetStartedPage />} />
         </Route>
         {/* anything else -> public chat */}
         <Route path="*" element={<Navigate to="/" replace />} />

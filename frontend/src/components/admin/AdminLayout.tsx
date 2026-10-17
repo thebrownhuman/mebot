@@ -1,3 +1,4 @@
+import HostedBanner from "./HostedBanner";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -273,6 +274,7 @@ export default function AdminLayout({ me }: { me: Me }) {
         </aside>
         <main className="flex-1 min-w-0 md:h-screen md:overflow-y-auto flex flex-col">
           <div className="px-4 pt-4 md:px-6">
+            <HostedBanner />
             <Banner llm={llm} />
             <UpdateBanner info={update} onDismiss={dismiss} />
           </div>
