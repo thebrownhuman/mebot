@@ -138,7 +138,5 @@ def titles(db: Session, bot_id: str, chunk_ids_json: str | None) -> list[dict]:
         )
     }
     return [
-        {"id": i, "section": found[i].section, "title": found[i].title}
-        for i in ids
-        if i in found
+        {"id": i, "section": found[i].section, "title": found[i].title} for i in ids if i in found
     ]

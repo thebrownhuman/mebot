@@ -31,7 +31,7 @@ def large_profile() -> ProfileData:
                 {
                     "name": f"Project {tech} {i}",
                     "tagline": f"{what} number {i}",
-                    "summary": f"Built a {what} using {tech}. " + "Details follow. " * 8,
+                    "summary": f"Built a {what} using {tech}. " + "Details follow. " * 28,
                     "tech": [tech, "Docker"],
                     "highlights": [f"Handled {i + 1}00 requests per second"],
                     "start_month": "2020-01",
