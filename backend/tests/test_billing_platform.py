@@ -88,6 +88,7 @@ def test_overview_mrr_counts_past_due_and_tenant_columns(ops, billing_app):
 
 def test_comp_grants_days_and_audits(ops, billing_app):
     t = make_tenant(billing_app, "alice")
+    _sub(billing_app, t.bot_id, status="inactive")
     with TestClient(billing_app) as anon:
         assert anon.get("/b/alice/api/public/config").status_code == 404
         r = ops.post(f"/api/platform/tenants/{t.bot_id}/comp", json={"days": 10, "reason": "beta"},

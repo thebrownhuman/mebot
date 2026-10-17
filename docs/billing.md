@@ -39,6 +39,9 @@ otherwise every bot serves as before and plan limits are ignored.
   `TRIAL_DAYS` or `TRIAL_MESSAGES`, whichever runs out first. One trial per e-mail, ever:
   an HMAC of the normalised address is kept in `trial_claims` and survives deletion.
   Owners get mail at 3 days left, at 80% of messages, at the end, and after 90 days offline.
+- **Existing bots**: a bot that was live before billing was switched on (no subscription
+  row) gets a fresh trial the first time it is checked (first visitor request or the hourly
+  sweep), and its owner's e-mail is claimed. It is never taken offline for that.
 - **States**: `none → trialing → active → past_due (BILLING_GRACE_DAYS) → inactive`, plus
   `cancelled` (serving until the paid period ends). A payment from `past_due` or
   `inactive` returns to `active`. The table lives in `mebot/billing/state.py`.

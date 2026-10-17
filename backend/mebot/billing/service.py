@@ -94,8 +94,66 @@ def is_serving(db: Session, settings, bot_id: str, now: datetime | None = None) 
         return True
     sub = get_sub(db, bot_id)
     if sub is None:
-        return False
+        sub = grandfather(db, settings, bot_id, now)
+        if sub is None:
+            return False
     return state.serving(sub_state(sub), now or utcnow(), settings.trial_messages)
+
+
+def grandfather(db: Session, settings, bot_id: str, now=None) -> Subscription | None:
+    """A live bot with no subscription row existed before paid plans were switched on
+    (sign-ups get their row at activation): give it a fresh trial from now instead of
+    taking it offline, and claim the owner's e-mail so it can't start another one.
+
+    Written in its own short transaction (callers may be read-only); a concurrent
+    request inserting the same row first is fine (unique bot_id)."""
+    from sqlalchemy.exc import IntegrityError
+
+    from mebot.repos import bots
+
+    if not enabled(settings) or bots.get_live_by_slug_id(db, bot_id) is None:
+        return None
+    now = now or utcnow()
+    with Session(bind=db.get_bind()) as w:
+        try:
+            if get_sub(w, bot_id) is None:
+                sub = Subscription(
+                    bot_id=bot_id, status="none", plan_code="trial", trial_started_at=now,
+                    trial_ends_at=now + timedelta(days=settings.trial_days),
+                )  # fmt: skip
+                w.add(sub)
+                w.flush()
+                apply(
+                    w,
+                    sub,
+                    state.transition(sub_state(sub), "trial_start", now),
+                    "grandfathered",
+                    now,
+                )
+                email = owner_email(w, bot_id)
+                if email and settings.secret_key:
+                    h = email_hash(settings.secret_key, email)
+                    if w.get(TrialClaim, h) is None:
+                        w.add(TrialClaim(email_hash=h, claimed_at=now))
+                w.commit()
+        except IntegrityError:
+            w.rollback()
+    db.expire_all()
+    return get_sub(db, bot_id)
+
+
+def grandfather_all(db: Session, settings, now=None) -> int:
+    """Sweep: grandfather every live bot that has no subscription row yet."""
+    from sqlalchemy import exists
+
+    missing = db.scalars(
+        select(Bot.id).where(
+            Bot.deleted_at.is_(None),
+            Bot.status == "active",
+            ~exists().where(Subscription.bot_id == Bot.id),
+        )
+    ).all()
+    return sum(grandfather(db, settings, bot_id, now) is not None for bot_id in missing)
 
 
 # --- plans ---------------------------------------------------------------------------
@@ -331,6 +389,7 @@ def sweep(db: Session, settings, now=None) -> SweepResult:
     res = SweepResult()
     if not enabled(settings):
         return res
+    grandfather_all(db, settings, now)
     for sub in db.scalars(select(Subscription)).all():
         st = sub_state(sub)
         email = None
