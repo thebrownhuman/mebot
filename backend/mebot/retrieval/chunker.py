@@ -167,7 +167,6 @@ def outline(p: ProfileData) -> str:
         return ""
     who = display_name(p.identity)
     head = (
-        f"=== PROFILE OUTLINE (everything {who} has listed; "
-        "details are retrieved per question) ==="
+        f"=== PROFILE OUTLINE (everything {who} has listed; details are retrieved per question) ==="
     )
     return head + "\n" + "\n".join(lines)
