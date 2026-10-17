@@ -163,6 +163,9 @@ class Admin(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Hosted sign-up: which terms/privacy version the owner accepted, and when (0020).
+    terms_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     __table_args__ = (Index("ux_admins_email", "email", unique=True),)
 
 
@@ -728,3 +731,105 @@ class PlatformAudit(Base):
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     __table_args__ = (Index("ix_platform_audit_created_at", "created_at"),)
+
+
+# --- Paid plans (0020). Only used with MODE=hosted and a billing provider. ---------------
+
+
+class Plan(Base):
+    """Operator-edited. prices: {currency: {amount_minor, provider, provider_plan_id}};
+    limits: {daily_message_cap, daily_token_cap, per_session_messages, per_ip_per_day,
+    imports_per_day} (any subset)."""
+
+    __tablename__ = "plans"
+    code: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_trial: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    prices: Mapped[str] = mapped_column(Text, default="{}", nullable=False)  # JSON
+    limits: Mapped[str] = mapped_column(Text, default="{}", nullable=False)  # JSON
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+
+class Subscription(Base):
+    """One per bot. status: none | trialing | active | past_due | cancelled | inactive.
+    Changed only by verified webhooks, reconciliation and the time sweep (billing.state)."""
+
+    __tablename__ = "subscriptions"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str | None] = mapped_column(Text)
+    provider_customer_id: Mapped[str | None] = mapped_column(Text)
+    provider_subscription_id: Mapped[str | None] = mapped_column(Text)
+    plan_code: Mapped[str | None] = mapped_column(Text)
+    currency: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, default="none", nullable=False)
+    current_period_end: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    grace_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    trial_started_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    trial_messages_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Operator comp: serving regardless of status until then (audited).
+    comp_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    inactive_since: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Owner mails already sent (comma-separated keys), so each goes out once per trial.
+    notices: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    updated_from_event_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (
+        Index("ux_subscriptions_bot_id", "bot_id", unique=True),
+        Index("ix_subscriptions_provider_sub", "provider", "provider_subscription_id"),
+    )
+
+
+class BillingEvent(Base):
+    __tablename__ = "billing_events"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    event_id: Mapped[str] = mapped_column(Text, nullable=False)
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    bot_id: Mapped[str | None] = mapped_column(Text)
+    payload: Mapped[str | None] = mapped_column(Text)  # PII-stripped, cleared after 30 days
+    received_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    error: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        Index("ux_billing_events_provider_event", "provider", "event_id", unique=True),
+        Index("ix_billing_events_received_at", "received_at"),
+    )
+
+
+class Invoice(Base):
+    """Kept for tax records: the tenant purge anonymises these instead of deleting."""
+
+    __tablename__ = "invoices"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    provider_invoice_id: Mapped[str] = mapped_column(Text, nullable=False)
+    amount_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    currency: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    period_start: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    period_end: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    hosted_url: Mapped[str | None] = mapped_column(Text)
+    pdf_url: Mapped[str | None] = mapped_column(Text)
+    tax_minor: Mapped[int | None] = mapped_column(BigInteger)
+    gstin: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (
+        Index("ux_invoices_provider_invoice", "provider_invoice_id", unique=True),
+        Index("ix_invoices_bot_id", "bot_id"),
+    )
+
+
+class TrialClaim(Base):
+    """HMAC(SECRET_KEY, normalised e-mail): one trial per address, survives deletion."""
+
+    __tablename__ = "trial_claims"
+    email_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    claimed_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)

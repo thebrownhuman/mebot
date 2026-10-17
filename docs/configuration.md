@@ -43,3 +43,14 @@ All settings are environment variables (or lines in `.env`). In the Docker image
 | `HOSTED_MAX_IP_PER_DAY` | `100` | Messages per visitor IP per day. |
 | `HOSTED_MAX_IMPORTS_PER_DAY` | `10` | Import uploads per tenant per day (one import runs at a time per tenant). |
 | `HOSTED_MAX_UPLOAD_BYTES` | `5000000` | Largest import upload per tenant, in bytes. |
+| `BILLING_PROVIDERS` | *(unset)* | Comma-separated billing providers: razorpay (INR), stripe (USD and others). |
+| `RAZORPAY_KEY_ID` | *(unset)* | Razorpay API key id (rzp_test_... in test mode). |
+| `RAZORPAY_KEY_SECRET` | *(unset)* | Razorpay API key secret. |
+| `RAZORPAY_WEBHOOK_SECRET` | *(unset)* | Razorpay webhook secret (Dashboard -> Webhooks), checks X-Razorpay-Signature. |
+| `STRIPE_SECRET_KEY` | *(unset)* | Stripe secret key (sk_test_... in test mode). |
+| `STRIPE_WEBHOOK_SECRET` | *(unset)* | Stripe webhook signing secret (whsec_...), checks Stripe-Signature. |
+| `BILLING_GRACE_DAYS` | `7` | Days a bot keeps serving after a failed payment before it goes offline. |
+| `TRIAL_DAYS` | `14` | Free trial length in days (ends earlier if TRIAL_MESSAGES run out). |
+| `TRIAL_MESSAGES` | `200` | Free trial message allowance. |
+| `TERMS_VERSION` | `2026-10` | Version of the terms owners accept at sign-up; bump when docs/legal changes. |
+| `PLATFORM_GSTIN` | *(unset)* | Platform GSTIN shown on the billing page (optional). |
