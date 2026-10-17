@@ -1,7 +1,7 @@
 """Admin CLI.
 
-  python -m mebot.cli reset-password --email you@example.com
-  python -m mebot.cli invite create [--note TEXT] [--days N]   (hosted, SIGNUP_MODE=invite)
+python -m mebot.cli reset-password --email you@example.com
+python -m mebot.cli invite create [--note TEXT] [--days N]   (hosted, SIGNUP_MODE=invite)
 """
 
 import argparse
