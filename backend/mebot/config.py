@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # Optional token for GitHub imports (public data only; raises the 60/hour limit).
     # A token saved in Admin -> Import takes precedence.
     github_token: str | None = None
+    # Profiles above this many (estimated) tokens are not sent whole: only the parts relevant
+    # to each question are. Per-bot override in Admin -> Knowledge (auto / always / off).
+    retrieval_threshold_tokens: int = 6000
+    # Token budget for the retrieved profile excerpts in one prompt.
+    retrieval_budget_tokens: int = 2500
 
     @model_validator(mode="after")
     def _registry_url(self) -> "Settings":

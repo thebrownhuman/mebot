@@ -25,3 +25,5 @@ All settings are environment variables (or lines in `.env`). In the Docker image
 | `TELEGRAM_WORKERS` | `true` | Background Telegram tasks (poller, outbox, digest). Tests turn them off. |
 | `FRONTEND_DIST` | `frontend/dist` | Built frontend (npm run build). When it holds an index.html the backend serves the whole UI (app, embed bundle, widget loader) with per-path cache headers. |
 | `GITHUB_TOKEN` | *(unset)* | Optional token for GitHub imports (public data only; raises the 60/hour limit). A token saved in Admin -> Import takes precedence. |
+| `RETRIEVAL_THRESHOLD_TOKENS` | `6000` | Profiles above this many (estimated) tokens are not sent whole: only the parts relevant to each question are. Per-bot override in Admin -> Knowledge (auto / always / off). |
+| `RETRIEVAL_BUDGET_TOKENS` | `2500` | Token budget for the retrieved profile excerpts in one prompt. |
