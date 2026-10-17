@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from mebot.auth import passwords
 from mebot.auth.cookies import is_secure, set_csrf_cookie
 from mebot.auth.csrf import CSRF_COOKIE, require_csrf
+from mebot.billing import service as billing
 from mebot.config import Settings
 from mebot.db import get_db
 from mebot.deps import client_ip, get_settings
@@ -151,9 +152,11 @@ async def approve(
         raise ApiError(409, "NOT_PENDING", "This sign-up isn't waiting for approval.")
     bot.status = "active"
     bot.approved_at = utcnow()
+    owner = _owner(db, bot.id)
+    if owner is not None:
+        billing.start_trial(db, settings, request.app.state.secret_key, bot.id, owner.email)
     op.audit(db, actor.id, "approve", bot.id)
     db.commit()
-    owner = _owner(db, bot.id)
     if owner is not None:
         base = _base(request, settings)
         await mailer.deliver(

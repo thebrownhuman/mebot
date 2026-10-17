@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from mebot.billing import service as billing
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
@@ -65,13 +66,14 @@ def _available(request: Request) -> bool:
     return bool(s.turnstile_site_key and s.turnstile_secret_key)
 
 
-def _out(row: BotLimits, request: Request) -> dict:
+def _out(row: BotLimits, request: Request, db: Session) -> dict:
     settings = request.app.state.settings
-    view = caps.clamp(row, settings)
+    plan = billing.plan_limits(db, settings, row.bot_id)
+    view = caps.clamp(row, settings, plan)
     body = {f: getattr(view, f) for f in FIELDS}
     body["turnstile_available"] = _available(request)
     if settings.hosted:
-        body["caps"] = caps.caps(settings)
+        body["caps"] = caps.caps(settings, plan)
     return body
 
 
@@ -79,7 +81,7 @@ def _out(row: BotLimits, request: Request) -> dict:
 def get_limits(
     request: Request, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
 ):
-    return _out(limits_repo.get_or_create(db, bot.id), request)
+    return _out(limits_repo.get_or_create(db, bot.id), request, db)
 
 
 @router.put("/limits")
@@ -112,7 +114,7 @@ def put_limits(
         events.paused(db, bot.id, row.paused)
     logs.add(db, bot.id, None, "limits_updated", detail=",".join(sorted(values)))
     db.commit()
-    return _out(row, request)
+    return _out(row, request, db)
 
 
 def _short(ip_hash: str) -> str:

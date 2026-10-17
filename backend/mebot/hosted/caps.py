@@ -1,6 +1,9 @@
 """Per-tenant hard caps (hosted mode). Owners may lower their #6 limits, never raise them
 above HOSTED_MAX_*; the same value is the default for new tenants. Rows saved before a
-cap was lowered are clamped at read time, so the cap always wins."""
+cap was lowered are clamped at read time, so the cap always wins.
+
+With paid plans on, the bot's plan limits clamp too: effective = min(plan, cap, owner).
+Without billing, plan limits are empty and nothing changes."""
 
 from mebot.errors import ApiError
 
@@ -25,13 +28,24 @@ class _Clamped:
         return cap if value is None else min(value, cap)
 
 
-def caps(settings) -> dict[str, int]:
-    return {f: getattr(settings, s) for f, s in CAPS.items()} if settings.hosted else {}
+def caps(settings, plan: dict[str, int] | None = None) -> dict[str, int]:
+    out = {f: getattr(settings, s) for f, s in CAPS.items()} if settings.hosted else {}
+    for field, value in (plan or {}).items():
+        if field in CAPS and settings.hosted:
+            out[field] = min(out.get(field, value), value)
+    return out
 
 
-def clamp(row, settings):
+def clamp(row, settings, plan: dict[str, int] | None = None):
     """row in single mode; a read-only clamped view of it in hosted mode."""
-    return _Clamped(row, caps(settings)) if settings.hosted else row
+    return _Clamped(row, caps(settings, plan)) if settings.hosted else row
+
+
+def effective(db, settings, bot_id: str, row):
+    """clamp() with the bot's plan limits (none unless billing is on)."""
+    from mebot.billing import service
+
+    return clamp(row, settings, service.plan_limits(db, settings, bot_id))
 
 
 def check(values: dict, settings) -> None:
@@ -49,9 +63,14 @@ def hosted_daily_import_limit(request, bot_id: str) -> None:
     settings = request.app.state.settings
     if not settings.hosted:
         return
-    wait = request.app.state.import_day_limiter.hit(
-        bot_id, limit=settings.hosted_max_imports_per_day
-    )
+    limit = settings.hosted_max_imports_per_day
+    if settings.billing_enabled:
+        from mebot.billing import service
+
+        with request.app.state.session_factory() as db:
+            plan = service.plan_limits(db, settings, bot_id)
+        limit = min(limit, plan.get("imports_per_day", limit))
+    wait = request.app.state.import_day_limiter.hit(bot_id, limit=limit)
     if wait is not None:
         raise ApiError(
             429,

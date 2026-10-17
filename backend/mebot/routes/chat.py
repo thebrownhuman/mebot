@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from mebot import channels, guard, persona
+from mebot.billing import mails as billing_mails
+from mebot.billing import service as billing
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
@@ -93,7 +95,8 @@ async def chat(
     bot_id = bot.id
     ip = client_ip(request)
     # Order matters (spec): paused -> configured -> length -> rate limits -> LLM.
-    limits = caps.clamp(limits_repo.get_or_create(db, bot_id), request.app.state.settings)
+    settings = request.app.state.settings
+    limits = caps.effective(db, settings, bot_id, limits_repo.get_or_create(db, bot_id))
     if limits.paused:
         raise ApiError(503, "BOT_PAUSED", limits.paused_message or PAUSED)
     status, _, cfg = llm.load(db, bot_id, request.app.state.secret_key)
@@ -169,7 +172,10 @@ async def chat(
     bot_day = counters.get(db, bot_id, "bot_day", "*", limiter.today())
     if bot_day is not None:
         events.cap_warning(db, bot_id, bot_day.messages, limits.daily_message_cap, limiter.today())
+    trial_warning = billing.count_trial_message(db, settings, bot_id)
     db.commit()
+    if trial_warning:
+        billing_mails.send_later(request.app, db, bot_id, "trial_msg80")
 
     suspicious = guard.looks_like_injection(req.message)
     if suspicious:  # logged, not blocked: innocent questions trip this too

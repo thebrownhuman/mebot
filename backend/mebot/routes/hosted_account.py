@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from mebot.auth import passwords
 from mebot.auth.cookies import clear_session_cookie
+from mebot.billing import service as billing
 from mebot.config import Settings
 from mebot.db import get_db
 from mebot.deps import (
@@ -84,7 +85,8 @@ class DeleteReq(BaseModel):
 
 
 def _view(db: Session, bot: Bot, current: CurrentAdmin, settings: Settings) -> dict:
-    live = bots.get_live_by_slug_id(db, bot.id) is not None
+    serving = billing.is_serving(db, settings, bot.id)
+    live = bots.get_live_by_slug_id(db, bot.id) is not None and serving
     return {
         "email": current.admin.email,
         "email_verified": current.admin.email_verified_at is not None,
@@ -94,6 +96,8 @@ def _view(db: Session, bot: Bot, current: CurrentAdmin, settings: Settings) -> d
         "plan": bot.plan,
         "setup_done": bot.setup_completed_at is not None,
         "live": live,
+        "billing_enabled": settings.billing_enabled,
+        "serving": serving,
         "public_path": f"/b/{bot.slug}",
         "hosted_domain": settings.hosted_domain,
     }

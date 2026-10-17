@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from mebot import persona, turnstile
+from mebot.billing import service as billing
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_admin, get_current_bot
 from mebot.errors import ApiError
@@ -32,14 +33,16 @@ def embed_ref(bot: Bot, hosted: bool) -> str:
     return bot.public_key if hosted else bot.slug
 
 
-def resolve(db: Session, slug: str, hosted: bool = False) -> tuple[Bot, WidgetSettings] | None:
+def resolve(
+    db: Session, slug: str, hosted: bool = False, settings=None
+) -> tuple[Bot, WidgetSettings] | None:
     """The bot behind an embed ref, while it is live and its widget is enabled.
 
     Single mode serves one bot, so any other slug is unknown. Hosted mode only accepts
     public keys."""
     if hosted:
         bot = bots.get_live_by_public_key(db, slug)
-        if bot is None:
+        if bot is None or (settings is not None and not billing.is_serving(db, settings, bot.id)):
             return None
     else:
         if not admins.exists(db):
@@ -53,7 +56,7 @@ def resolve(db: Session, slug: str, hosted: bool = False) -> tuple[Bot, WidgetSe
 
 @router.get("/embed/{slug}", response_class=HTMLResponse)
 def embed_page(slug: str, request: Request, db: Session = Depends(get_db)):
-    found = resolve(db, slug, request.app.state.settings.hosted)
+    found = resolve(db, slug, request.app.state.settings.hosted, request.app.state.settings)
     if found is None:
         return HTMLResponse(
             UNAVAILABLE_HTML,
@@ -86,7 +89,7 @@ def loader_alias():
 @router.get("/api/public/widget/{slug}")
 def public_widget(slug: str, request: Request, db: Session = Depends(get_db)):
     """What the embed needs to render. Never the allowed-sites list."""
-    found = resolve(db, slug, request.app.state.settings.hosted)
+    found = resolve(db, slug, request.app.state.settings.hosted, request.app.state.settings)
     if found is None:
         raise ApiError(404, "WIDGET_UNAVAILABLE", "This chat is unavailable")
     bot, row = found
@@ -120,7 +123,7 @@ def launcher_settings(slug: str, request: Request, db: Session = Depends(get_db)
 
     The only cross-origin read in the widget: CORS is granted to allowed sites only (no
     credentials), so a site that may not frame the chat gets no launcher either."""
-    found = resolve(db, slug, request.app.state.settings.hosted)
+    found = resolve(db, slug, request.app.state.settings.hosted, request.app.state.settings)
     if found is None:
         raise ApiError(404, "WIDGET_UNAVAILABLE", "This chat is unavailable")
     bot, row = found
@@ -160,7 +163,7 @@ def widget_opened(slug: str, req: OpenedIn, request: Request, db: Session = Depe
 
     The origin comes from the loader's host-info message, so it is only stored when it
     is one the owner allowed. Always 204: callers learn nothing about the list."""
-    found = resolve(db, slug, request.app.state.settings.hosted)
+    found = resolve(db, slug, request.app.state.settings.hosted, request.app.state.settings)
     if found is None:
         raise ApiError(404, "WIDGET_UNAVAILABLE", "This chat is unavailable")
     bot, row = found
