@@ -114,6 +114,14 @@ describe("dashboard", () => {
     expect(screen.getByText(/asia\/kolkata/i)).toBeInTheDocument();
   });
 
+  it("shows the app version in the admin footer", async () => {
+    routes();
+    renderAt("/admin");
+    await screen.findByRole("list", { name: /key numbers/i });
+    expect(screen.getAllByText(`mebot v${__APP_VERSION__}`).length).toBeGreaterThan(0);
+    expect(__APP_VERSION__).toBe("0.9.0");
+  });
+
   it("renders a titled SVG chart and a table fallback", async () => {
     routes();
     renderAt("/admin");

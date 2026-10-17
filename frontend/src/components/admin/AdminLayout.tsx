@@ -239,6 +239,7 @@ export default function AdminLayout({ me }: { me: Me }) {
           {loggingOut ? "logging out…" : "log out"}
         </button>
       </div>
+      <p className="mt-4 px-2 text-xs text-term-dim">mebot v{__APP_VERSION__}</p>
     </nav>
   );
 
