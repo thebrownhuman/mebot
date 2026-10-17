@@ -12,6 +12,7 @@ from mebot.deps import client_ip, get_current_bot, require_setup_done
 from mebot.errors import ApiError
 from mebot.guard import personal
 from mebot.guard.channels import ChannelGuard
+from mebot.hosted import caps
 from mebot.limits import counters
 from mebot.limits.service import LimitExceeded
 from mebot.llm import service as llm
@@ -69,7 +70,7 @@ async def chat(
     bot_id = bot.id
     ip = client_ip(request)
     # Order matters (spec): paused -> configured -> length -> rate limits -> LLM.
-    limits = limits_repo.get_or_create(db, bot_id)
+    limits = caps.clamp(limits_repo.get_or_create(db, bot_id), request.app.state.settings)
     if limits.paused:
         raise ApiError(503, "BOT_PAUSED", limits.paused_message or PAUSED)
     status, _, cfg = llm.load(db, bot_id, request.app.state.secret_key)

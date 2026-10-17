@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
+from mebot.hosted import caps
 from mebot.limits import counters
 from mebot.models import AccessLog, Bot, BotLimits
 from mebot.repos import limits as limits_repo
@@ -65,8 +66,12 @@ def _available(request: Request) -> bool:
 
 
 def _out(row: BotLimits, request: Request) -> dict:
-    body = {f: getattr(row, f) for f in FIELDS}
+    settings = request.app.state.settings
+    view = caps.clamp(row, settings)
+    body = {f: getattr(view, f) for f in FIELDS}
     body["turnstile_available"] = _available(request)
+    if settings.hosted:
+        body["caps"] = caps.caps(settings)
     return body
 
 
@@ -85,6 +90,7 @@ def put_limits(
     bot: Bot = Depends(get_current_bot),
 ):
     values = req.model_dump(exclude_unset=True)
+    caps.check(values, request.app.state.settings)
     if values.get("paused_message") is not None:
         values["paused_message"] = values["paused_message"].strip() or None
     if values.get("turnstile_enabled") and not _available(request):

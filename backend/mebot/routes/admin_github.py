@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
 from mebot.errors import ApiError
+from mebot.hosted import caps
 from mebot.imports import github
 from mebot.imports.filetype import ImportFailure
 from mebot.imports.pipelines import RunContext, process
@@ -86,6 +87,7 @@ async def import_github(
     if import_jobs.processing(db, bot.id) is not None:
         db.commit()
         raise ApiError(409, "IMPORT_IN_PROGRESS", "Another import is still running.")
+    caps.hosted_daily_import_limit(request, bot.id)
     wait = request.app.state.import_limiter.hit(bot.id)
     if wait is not None:
         raise ApiError(
