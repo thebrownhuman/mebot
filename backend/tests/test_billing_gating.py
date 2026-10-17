@@ -85,14 +85,17 @@ def test_single_mode_untouched(admin_client):
 
 
 def test_unpaid_is_the_same_neutral_404_as_suspended(billing_app):
-    make_tenant(billing_app, "unpaid")
+    unpaid = make_tenant(billing_app, "unpaid")
+    _set_sub(billing_app, unpaid.bot_id, status="inactive")
     make_tenant(billing_app, "suspd", status="suspended")
     paid = make_tenant(billing_app, "paid")
     _set_sub(billing_app, paid.bot_id, status="active")
     with TestClient(billing_app) as anon:
         unpaid_r, suspended_r = _cfg(anon, "unpaid"), _cfg(anon, "suspd")
         assert _cfg(anon, "paid").status_code == 200
-        widget = anon.get(f"/api/public/widget/{make_tenant(billing_app, 'wid').public_key}")
+        wid = make_tenant(billing_app, "wid")
+        _set_sub(billing_app, wid.bot_id, status="none")
+        widget = anon.get(f"/api/public/widget/{wid.public_key}")
     assert unpaid_r.status_code == suspended_r.status_code == 404
     assert unpaid_r.text == suspended_r.text
     assert widget.status_code == 404
@@ -100,6 +103,7 @@ def test_unpaid_is_the_same_neutral_404_as_suspended(billing_app):
 
 def test_owner_admin_still_works_when_unpaid(billing_app):
     t = make_tenant(billing_app, "alice")
+    _set_sub(billing_app, t.bot_id, status="inactive")
     assert t.client.get("/api/admin/limits").status_code == 200
     acct = t.client.get("/api/hosted/account").json()
     assert acct["serving"] is False and acct["live"] is False and acct["billing_enabled"]
