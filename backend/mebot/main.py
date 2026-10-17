@@ -25,6 +25,7 @@ from mebot.routes import routers
 from mebot.telegram import outbox
 from mebot.telegram.service import TelegramService
 from mebot.telegram.updates import TgContext
+from mebot.telemetry import identity
 from mebot.widget.frames import frame_headers
 
 
@@ -58,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     ensure_data_dir(settings)
     secret_key = resolve_secret_key(settings)
+    install_key = identity.load_or_create(settings.data_dir)
     run_migrations(settings.database_url)
 
     @asynccontextmanager
@@ -77,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="me-bot", lifespan=lifespan)
     app.state.settings = settings
     app.state.secret_key = secret_key
+    app.state.install_key = install_key
     app.state.session_factory = make_session_factory(settings.database_url)
     app.state.login_limiter = LoginLimiter()
     app.state.chat_limiter = ChatLimiter(secret_key)

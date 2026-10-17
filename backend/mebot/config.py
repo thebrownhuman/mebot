@@ -28,7 +28,12 @@ class Settings(BaseSettings):
     data_dir: Path = BACKEND_DIR / "data"
     # Defaults to sqlite:///<data_dir>/mebot.db when unset.
     database_url: str = ""
-    telemetry: Literal["on", "off"] = "on"  # unused until telemetry feature lands
+    # "off" = no heartbeat, registration or update check: zero network calls to the registry.
+    telemetry: Literal["on", "off"] = "on"
+    # Where heartbeats / registrations go. Read once at startup.
+    registry_url: str = "https://registry.shivanshmishra.in"
+    # Background telemetry jobs (heartbeat, registration, update check). Tests turn them off.
+    telemetry_workers: bool = True
     # Only the suggested base URL for the "ollama" provider; the model and provider
     # are chosen in setup / Admin -> AI Provider.
     ollama_host: str = "http://127.0.0.1:11434"
@@ -54,6 +59,14 @@ class Settings(BaseSettings):
     # Optional token for GitHub imports (public data only; raises the 60/hour limit).
     # A token saved in Admin -> Import takes precedence.
     github_token: str | None = None
+
+    @model_validator(mode="after")
+    def _registry_url(self) -> "Settings":
+        url = self.registry_url.strip().rstrip("/")
+        if not url.startswith(("http://", "https://")) or " " in url:
+            raise ValueError("REGISTRY_URL must be an http(s) URL")
+        self.registry_url = url
+        return self
 
     @model_validator(mode="after")
     def _default_db(self) -> "Settings":
