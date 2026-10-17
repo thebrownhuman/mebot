@@ -22,7 +22,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # single = one bot, no tenancy. hosted = multi-bot (later releases).
+    # single = one bot, no tenancy. hosted = many owners, each with their own bot.
     mode: Literal["single", "hosted"] = "single"
     # Encrypts stored API keys and keys the IP hashes. Required when MODE=hosted; in single
     # mode one is generated once into <DATA_DIR>/secret.key. Changing it means re-entering
@@ -66,6 +66,36 @@ class Settings(BaseSettings):
     # A token saved in Admin -> Import takes precedence.
     github_token: str | None = None
 
+    # --- Hosted mode (MODE=hosted) only; ignored in single mode. ---
+    # Optional wildcard domain: {slug}.HOSTED_DOMAIN serves that bot's recruiter page.
+    # Without it, bots live at /b/{slug}.
+    hosted_domain: str | None = None
+    # Who may sign up: open (anyone), invite (needs an invite code), closed (nobody).
+    signup_mode: Literal["open", "invite", "closed"] = "invite"
+    # Outgoing mail (verification, password reset). Without SMTP_HOST mails are printed
+    # to the log instead (development only).
+    smtp_host: str | None = None
+    # SMTP port; 587 uses STARTTLS, 465 implicit TLS.
+    smtp_port: int = 587
+    # SMTP login (optional).
+    smtp_user: str | None = None
+    # SMTP password (optional).
+    smtp_password: str | None = None
+    # From address on platform mail.
+    smtp_from: str = "mebot <no-reply@localhost>"
+    # Hard caps per tenant: owners can lower their limits, never raise them above these.
+    hosted_max_daily_messages: int = 500
+    # Daily token budget cap per tenant (a tenant can't switch it off).
+    hosted_max_daily_tokens: int = 1_000_000
+    # Messages per visitor chat.
+    hosted_max_session_messages: int = 40
+    # Messages per visitor IP per day.
+    hosted_max_ip_per_day: int = 100
+    # Import uploads per tenant per day (one import runs at a time per tenant).
+    hosted_max_imports_per_day: int = 10
+    # Largest import upload per tenant, in bytes.
+    hosted_max_upload_bytes: int = 5_000_000
+
     @model_validator(mode="after")
     def _registry_url(self) -> "Settings":
         url = self.registry_url.strip().rstrip("/")
@@ -81,6 +111,10 @@ class Settings(BaseSettings):
         if not self.secret_key:
             self.secret_key = None
         return self
+
+    @property
+    def hosted(self) -> bool:
+        return self.mode == "hosted"
 
     @property
     def cors_origin_list(self) -> list[str]:
