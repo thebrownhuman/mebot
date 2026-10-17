@@ -3,7 +3,11 @@ import { Navigate, useLocation } from "react-router-dom";
 import { getSetupStatus } from "../lib/api";
 import { CenteredCard } from "./AuthForm";
 
-const SetupCtx = createContext<{ markSetupDone: () => void }>({ markSetupDone: () => {} });
+// markSetupDone(next) closes /setup and sends the user to `next`. The gate does the
+// redirect itself so the closed-/setup rule can never win a race with a navigate() call.
+const SetupCtx = createContext<{ markSetupDone: (next: string) => void }>({
+  markSetupDone: () => {},
+});
 
 export const useSetup = () => useContext(SetupCtx);
 
@@ -12,6 +16,7 @@ export const useSetup = () => useContext(SetupCtx);
 export default function SetupGate({ children }: { children: React.ReactNode }) {
   const [required, setRequired] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [next, setNext] = useState("/admin/login");
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -37,10 +42,14 @@ export default function SetupGate({ children }: { children: React.ReactNode }) {
     );
   }
   if (required && pathname !== "/setup") return <Navigate to="/setup" replace />;
-  if (!required && pathname === "/setup") return <Navigate to="/admin/login" replace />;
+  if (!required && pathname === "/setup") return <Navigate to={next} replace />;
 
   return (
-    <SetupCtx.Provider value={{ markSetupDone: () => setRequired(false) }}>
+    <SetupCtx.Provider value={{ markSetupDone: (to) => {
+          setNext(to);
+          setRequired(false);
+        },
+      }}>
       {children}
     </SetupCtx.Provider>
   );
