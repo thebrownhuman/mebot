@@ -5,10 +5,11 @@ data reaches mebot. Starting a checkout changes no status: only the provider's w
 does. 404 unless paid plans are on.
 """
 
+import re
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -46,6 +47,21 @@ class CheckoutReq(BaseModel):
 
 class CancelReq(BaseModel):
     confirm: bool
+
+
+GSTIN_RE = r"^[0-9]{2}[A-Z0-9]{10}[0-9A-Z]{3}$"
+
+
+class GstinReq(BaseModel):
+    gstin: str | None = Field(default=None, max_length=15)
+
+    @field_validator("gstin")
+    @classmethod
+    def _gstin(cls, v):
+        v = (v or "").strip().upper() or None
+        if v is not None and not re.match(GSTIN_RE, v):
+            raise ValueError("enter a 15-character GSTIN, e.g. 29ABCDE1234F1Z5")
+        return v
 
 
 def _offers(db: Session, settings: Settings) -> list[dict]:
@@ -123,6 +139,7 @@ def _view(db: Session, bot: Bot, settings: Settings) -> dict:
         "can_manage": manageable and bool(sub.provider),
         "can_cancel": status in ("active", "past_due") and bool(sub.provider_subscription_id),
         "platform_gstin": settings.platform_gstin,
+        "owner_gstin": sub.owner_gstin if sub else None,
     }
 
 
@@ -262,5 +279,20 @@ async def cancel(
         service.sub_state(sub), "cancel_at_end", utcnow(), period_end=remote.period_end
     )
     service.apply(db, sub, new, "owner cancelled")
+    db.commit()
+    return _view(db, bot, settings)
+
+
+@router.put("/gstin")
+def set_gstin(
+    req: GstinReq,
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+    settings: Settings = Depends(get_settings),
+):
+    """Optional GSTIN for the owner's records / GST invoices (India)."""
+    sub = service.ensure_sub(db, bot.id)
+    sub.owner_gstin = req.gstin
+    sub.updated_at = utcnow()
     db.commit()
     return _view(db, bot, settings)

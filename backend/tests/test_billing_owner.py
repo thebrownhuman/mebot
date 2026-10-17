@@ -295,3 +295,15 @@ def test_webhook_then_view_round_trip(alice, priced):
     v = alice.client.get("/api/hosted/billing").json()
     assert v["status"] == "active" and v["plan_name"] == "Monthly" and v["currency"] == "USD"
     assert v["can_cancel"] and v["can_manage"] and not v["can_checkout"]
+
+
+def test_owner_gstin_optional_and_validated(alice):
+    c = alice.client
+    r = c.put("/api/hosted/billing/gstin", json={"gstin": "29abcde1234f1z5"}, headers=csrf(c))
+    assert r.status_code == 200 and r.json()["owner_gstin"] == "29ABCDE1234F1Z5"
+    assert (
+        c.put("/api/hosted/billing/gstin", json={"gstin": "nope"}, headers=csrf(c)).status_code
+        == 422
+    )
+    r = c.put("/api/hosted/billing/gstin", json={"gstin": ""}, headers=csrf(c))
+    assert r.json()["owner_gstin"] is None

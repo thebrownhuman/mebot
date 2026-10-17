@@ -119,10 +119,8 @@ def test_reconcile_now_button(ops, billing_app):
 
 
 def test_plan_edit_validates_and_audits(ops, billing_app):
-    body = {
-        "prices": {"USD": {"amount_minor": 1200, "provider": "stripe", "provider_plan_id": "price_2"}},
-        "limits": {"daily_message_cap": 300, "imports_per_day": 5},
-    }  # fmt: skip
+    usd = {"amount_minor": 1200, "provider": "stripe", "provider_plan_id": "price_2"}
+    body = {"prices": {"USD": usd}, "limits": {"daily_message_cap": 300, "imports_per_day": 5}}
     r = ops.put("/api/platform/plans/monthly", json=body, headers=csrf(ops))
     assert r.status_code == 200 and r.json()["limits"]["imports_per_day"] == 5
     for bad in (
