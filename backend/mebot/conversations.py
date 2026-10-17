@@ -21,6 +21,7 @@ from mebot import tz
 from mebot.analytics import service as analytics
 from mebot.errors import ApiError
 from mebot.models import AccessLog, Bot, ChatSession, Contact, Message, utcnow
+from mebot.repos import retrieval as retrieval_repo
 
 HAS = ("unanswered", "contact", "owner_reply", "leak_blocked")
 DIRECT = "direct"
@@ -357,6 +358,12 @@ def detail(db: Session, bot_id: str, sid: str) -> dict | None:
                 "created_at": m.created_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                 "unanswered": m.unanswered,
                 "from_owner": m.from_owner,
+                # Retrieval mode only: which profile chunks the model saw for this reply.
+                **(
+                    {"chunks": retrieval_repo.titles(db, bot_id, m.chunk_ids)}
+                    if m.chunk_ids
+                    else {}
+                ),
             }
             for m in msgs
         ],

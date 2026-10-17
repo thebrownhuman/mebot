@@ -17,6 +17,8 @@ def build_client(
     if not url:
         raise ValueError(f"{provider.name} needs a base URL")
     client = _ADAPTERS[provider.adapter](provider.name, url, api_key)
+    if isinstance(client, OpenAICompatClient):
+        client.supports_embeddings = provider.embeddings
     if provider.id == "openai_compatible":
         client.include_usage = False
     return client

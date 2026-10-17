@@ -27,6 +27,8 @@ class FakeLLM:
         self.usage = None  # Usage reported after the stream (None = provider silent)
         # If set, each stream_chat() call yields the next reply instead of `chunks`.
         self.replies: list[str] = []
+        self.embed_fail = None  # LLMError raised by embed()
+        self.embed_calls: list[dict] = []
 
     def build(self, provider_id, *, api_key=None, base_url=None):
         self.built.append({"provider": provider_id, "api_key": api_key, "base_url": base_url})
@@ -72,6 +74,23 @@ class _FakeClient:
 
     async def list_models(self):
         return list(self.ctl.models)
+
+    embed_tokens = None
+
+    async def embed(self, texts, *, model):
+        """Bag-of-words vectors (hashed into 64 dims): similar wording -> similar vector."""
+        import zlib
+
+        self.ctl.embed_calls.append({"texts": list(texts), "model": model})
+        if self.ctl.embed_fail:
+            raise self.ctl.embed_fail
+        out = []
+        for t in texts:
+            v = [0.0] * 64
+            for w in t.lower().split():
+                v[zlib.crc32(w.encode()) % 64] += 1.0
+            out.append(v)
+        return out
 
 
 @pytest.fixture(autouse=True)

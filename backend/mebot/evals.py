@@ -28,6 +28,7 @@ from mebot.profile.schemas import IdentityIn
 from mebot.profile.sections import SECTIONS
 from mebot.prompt import build_system_prompt
 from mebot.repos import bots
+from mebot.retrieval.service import retrieval_knowledge
 
 DEFAULT_GOLDEN = BACKEND_DIR / "evals" / "golden.yaml"
 
@@ -107,6 +108,22 @@ def check(case: Case, answer: str) -> Result:
     return Result(case, True, "", answer)
 
 
+def system_prompt(golden: Golden, question: str, *, retrieval: bool, budget: int = 2500) -> str:
+    if retrieval:
+        knowledge = retrieval_knowledge(
+            golden.profile, [question], budget=budget, as_of=golden.as_of
+        ).text
+    else:
+        knowledge = render_profile(golden.profile, as_of=golden.as_of)
+    return build_system_prompt(
+        knowledge,
+        golden.as_of,
+        name=persona.display_name(golden.profile.identity),
+        pronouns=golden.profile.identity.get("pronouns") or persona.DEFAULT_PRONOUNS,
+        excerpted=retrieval,
+    )
+
+
 async def run(
     golden: Golden,
     client,
@@ -115,15 +132,14 @@ async def run(
     temperature: float = 0.2,
     max_tokens: int = 400,
     cases: list[Case] | None = None,
+    retrieval: bool = False,
+    budget: int = 2500,
 ) -> list[Result]:
-    system = build_system_prompt(
-        render_profile(golden.profile, as_of=golden.as_of),
-        golden.as_of,
-        name=persona.display_name(golden.profile.identity),
-        pronouns=golden.profile.identity.get("pronouns") or persona.DEFAULT_PRONOUNS,
-    )
+    """``retrieval``: build each prompt the way the chat does for a large profile (outline +
+    the excerpts relevant to that question) instead of the whole profile."""
     results = []
     for case in cases or golden.cases:
+        system = system_prompt(golden, case.question, retrieval=retrieval, budget=budget)
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": case.question},
@@ -164,6 +180,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--bot", default="default", help="bot slug whose provider to use")
     ap.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN)
     ap.add_argument("--case", action="append", help="only run these case ids")
+    ap.add_argument(
+        "--retrieval",
+        choices=["off", "always"],
+        default="off",
+        help="always: outline + relevant excerpts (large-profile mode), not the whole profile",
+    )
     args = ap.parse_args(argv)
 
     client, cfg = _client_for(args.bot)
@@ -173,7 +195,14 @@ def main(argv: list[str] | None = None) -> int:
     golden = load_golden(args.golden)
     cases = [c for c in golden.cases if not args.case or c.id in args.case]
     results = asyncio.run(
-        run(golden, client, model=cfg.model, temperature=cfg.temperature, cases=cases)
+        run(
+            golden,
+            client,
+            model=cfg.model,
+            temperature=cfg.temperature,
+            cases=cases,
+            retrieval=args.retrieval == "always",
+        )
     )
     for r in results:
         print(f"{'PASS' if r.ok else 'FAIL'}  {r.case.id:<22} {r.reason}")

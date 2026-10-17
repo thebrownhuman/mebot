@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # Optional token for GitHub imports (public data only; raises the 60/hour limit).
     # A token saved in Admin -> Import takes precedence.
     github_token: str | None = None
+    # Profiles above this many (estimated) tokens are not sent whole: only the parts relevant
+    # to each question are. Per-bot override in Admin -> Knowledge (auto / always / off).
+    retrieval_threshold_tokens: int = 6000
+    # Token budget for the retrieved profile excerpts in one prompt.
+    retrieval_budget_tokens: int = 2500
 
     # --- Hosted mode (MODE=hosted) only; ignored in single mode. ---
     # Optional wildcard domain: {slug}.HOSTED_DOMAIN serves that bot's recruiter page.

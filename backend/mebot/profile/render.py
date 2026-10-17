@@ -73,43 +73,55 @@ def _contact(p: ProfileData) -> str | None:
     )
 
 
+def experience_lines(e: dict) -> list[str | None]:
+    meta = _join(e.get("employment_type"), e.get("location"))
+    head = f"- {e['title']} at {e['company']}" + (f" ({meta})" if meta else "")
+    return [
+        f"{head}, {_period(e['start_month'], e.get('end_month'))}",
+        *_indent(
+            [e.get("description"), _line("Highlights", e["highlights"]), _line("Tech", e["tech"])]
+        ),
+    ]
+
+
 def _experience(p: ProfileData) -> str | None:
     lines: list[str | None] = []
     for e in p.items("experiences"):
-        meta = _join(e.get("employment_type"), e.get("location"))
-        head = f"- {e['title']} at {e['company']}" + (f" ({meta})" if meta else "")
-        lines.append(f"{head}, {_period(e['start_month'], e.get('end_month'))}")
-        lines += _indent(
-            [e.get("description"), _line("Highlights", e["highlights"]), _line("Tech", e["tech"])]
-        )
+        lines += experience_lines(e)
     return _block("EXPERIENCE", lines)
+
+
+def education_lines(e: dict) -> list[str | None]:
+    degree = e["degree"] + (f" in {e['field']}" if e.get("field") else "")
+    period = _period(e["start_month"], e.get("end_month"))
+    return [
+        f"- {degree}, {e['institution']}, {period}",
+        *_indent([_line("Grade", e.get("grade")), e.get("description")]),
+    ]
 
 
 def _education(p: ProfileData) -> str | None:
     lines: list[str | None] = []
     for e in p.items("educations"):
-        degree = e["degree"] + (f" in {e['field']}" if e.get("field") else "")
-        period = _period(e["start_month"], e.get("end_month"))
-        lines.append(f"- {degree}, {e['institution']}, {period}")
-        lines += _indent([_line("Grade", e.get("grade")), e.get("description")])
+        lines += education_lines(e)
     return _block("EDUCATION", lines)
 
 
+def skill_line(s: dict) -> str:
+    years = s.get("years_override")
+    meta = _join(s.get("category"), s.get("level"), f"{years:g} years" if years else None)
+    line = f"- {s['name']}" + (f" ({meta})" if meta else "")
+    return line + (f": {s['notes']}" if s.get("notes") else "")
+
+
 def _skills(p: ProfileData) -> str | None:
-    lines = []
-    for s in p.items("skills"):
-        years = s.get("years_override")
-        meta = _join(s.get("category"), s.get("level"), f"{years:g} years" if years else None)
-        line = f"- {s['name']}" + (f" ({meta})" if meta else "")
-        lines.append(line + (f": {s['notes']}" if s.get("notes") else ""))
-    return _block("SKILLS", lines)
+    return _block("SKILLS", [skill_line(s) for s in p.items("skills")])
 
 
-def _projects(p: ProfileData) -> str | None:
-    lines: list[str | None] = []
-    for pr in p.items("projects"):
-        lines.append(f"- {pr['name']}" + (f": {pr['tagline']}" if pr.get("tagline") else ""))
-        lines += _indent(
+def project_lines(pr: dict) -> list[str | None]:
+    return [
+        f"- {pr['name']}" + (f": {pr['tagline']}" if pr.get("tagline") else ""),
+        *_indent(
             [
                 _line("Summary", pr.get("summary")),
                 _line("Problem", pr.get("problem")),
@@ -125,21 +137,33 @@ def _projects(p: ProfileData) -> str | None:
                 _line("Period", _period(pr.get("start_month"), pr.get("end_month"))),
                 _line("Status", pr.get("status")),
             ]
-        )
+        ),
+    ]
+
+
+def _projects(p: ProfileData) -> str | None:
+    lines: list[str | None] = []
+    for pr in p.items("projects"):
+        lines += project_lines(pr)
     return _block("PROJECTS", lines)
 
 
+def interest_line(i: dict) -> str:
+    return f"- {i['kind'].capitalize()}: {i['name']}" + (
+        f" ({i['description']})" if i.get("description") else ""
+    )
+
+
 def _interests(p: ProfileData) -> str | None:
-    lines = [
-        f"- {i['kind'].capitalize()}: {i['name']}"
-        + (f" ({i['description']})" if i.get("description") else "")
-        for i in p.items("interests")
-    ]
-    return _block("INTERESTS & HOBBIES", lines)
+    return _block("INTERESTS & HOBBIES", [interest_line(i) for i in p.items("interests")])
+
+
+def faq_text(f: dict) -> str:
+    return f"Q: {f['question']}\nA: {f['answer']}"
 
 
 def _faq(p: ProfileData) -> str | None:
-    return _block("FAQ", [f"Q: {f['question']}\nA: {f['answer']}" for f in p.items("faqs")])
+    return _block("FAQ", [faq_text(f) for f in p.items("faqs")])
 
 
 def _learned(p: ProfileData) -> str | None:
@@ -263,6 +287,35 @@ def render_profile(profile: ProfileData, as_of: date | None = None) -> str:
         _learned(profile),
         _avoid(profile),
         _notes(profile),
+    ]
+    return neutralise("\n\n".join(b for b in blocks if b))
+
+
+def render_retrieval(
+    profile: ProfileData,
+    outline: str,
+    excerpts: list[str],
+    as_of: date | None = None,
+) -> str:
+    """The retrieval-mode knowledge block: everything that must always be present (FACTS,
+    identity, contact rules, avoid list), an outline of what exists, and only the excerpts
+    selected for this question, in profile order."""
+    as_of = as_of or today_utc()
+    who = display_name(profile.identity)
+    shown = (
+        "=== PROFILE EXCERPTS (the parts of "
+        f"{who}'s profile relevant to this question; not the whole profile) ===\n"
+        + "\n\n".join(excerpts)
+        if excerpts
+        else None
+    )
+    blocks = [
+        render_facts(profile, as_of),
+        _identity(profile),
+        _contact(profile),
+        outline or None,
+        shown,
+        _avoid(profile),
     ]
     return neutralise("\n\n".join(b for b in blocks if b))
 

@@ -5,6 +5,7 @@ import SetupPage from "./pages/SetupPage";
 import LoginPage from "./pages/LoginPage";
 import LlmPage from "./pages/LlmPage";
 import AccountPage from "./pages/admin/AccountPage";
+import KnowledgePage from "./pages/admin/KnowledgePage";
 import LimitsPage from "./pages/admin/LimitsPage";
 import NotificationsPage from "./pages/admin/NotificationsPage";
 import ContactsPage from "./pages/admin/ContactsPage";
@@ -42,6 +43,7 @@ export default function App() {
           <Route index element={<AdminPage />} />
           <Route path="profile/:page" element={<ProfilePage />} />
           <Route path="llm" element={<LlmPage />} />
+          <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="limits" element={<LimitsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="conversations" element={<ConversationsPage />} />

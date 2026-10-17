@@ -481,6 +481,20 @@ function Transcript({
                 {m.from_owner && <Badge>Owner reply</Badge>}
               </div>
               <div className="text-term-fg whitespace-pre-wrap break-words mt-0.5">{m.content}</div>
+              {m.chunks && m.chunks.length > 0 && (
+                <details className="mt-1 text-[11px] text-term-dim">
+                  <summary className="cursor-pointer hover:text-term-fg">
+                    Profile parts used ({m.chunks.length})
+                  </summary>
+                  <ul className="mt-1 space-y-0.5 pl-3 list-disc break-words">
+                    {m.chunks.map((c) => (
+                      <li key={c.id}>
+                        <span className="uppercase tracking-wide">{c.section}</span> · {c.title}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </li>
           );
         })}

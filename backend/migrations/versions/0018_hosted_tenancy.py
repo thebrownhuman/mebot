@@ -1,10 +1,8 @@
 """hosted tenancy: bot public key/status/plan, verification, resets, invites, redirects
 
 Revision ID: 0018
-Revises: 0016
+Revises: 0017
 Create Date: 2026-10-17
-
-Feature 14 owns 0017 on another branch; down_revision is renumbered at merge time.
 
 - bots.public_key: opaque id for widget embeds (renaming the slug doesn't break them).
 - bots.status: active | suspended | deleted; status_reason is operator-only.
@@ -22,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0018"
-down_revision = "0016"
+down_revision = "0017"
 branch_labels = None
 depends_on = None
 

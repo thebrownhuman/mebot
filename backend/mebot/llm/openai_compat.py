@@ -9,6 +9,8 @@ from mebot.llm.base import HttpAdapter, TestResult, Usage
 class OpenAICompatClient(HttpAdapter):
     # Ask for a final usage chunk. Off for custom servers, which may reject the field.
     include_usage = True
+    # Off for providers with no embeddings endpoint (Groq); set by the factory.
+    supports_embeddings = True
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
@@ -53,6 +55,19 @@ class OpenAICompatClient(HttpAdapter):
             "max_tokens": 1,
         }
         return await self._timed(self._post_json("/chat/completions", payload))
+
+    async def embed(self, texts: list[str], *, model: str) -> list[list[float]]:
+        if not self.supports_embeddings:
+            return await super().embed(texts, model=model)
+        data = await self._post_json("/embeddings", {"model": model, "input": texts}, timeout=60.0)
+        rows = data.get("data") if isinstance(data, dict) else None
+        if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+            return self._check_vectors(texts, [])
+        rows = sorted(rows, key=lambda r: r.get("index", 0))
+        usage = data.get("usage") or {}
+        tokens = usage.get("prompt_tokens") or usage.get("total_tokens")
+        self.embed_tokens = int(tokens) if tokens else None
+        return self._check_vectors(texts, [r.get("embedding") for r in rows])
 
     async def list_models(self) -> list[str]:
         try:
