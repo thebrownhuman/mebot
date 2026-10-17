@@ -14,6 +14,9 @@ class Provider:
     key_url: str | None
     suggested_models: tuple[str, ...] = field(default=())
     base_url_required: bool = False
+    # Whether the adapter can call an embeddings endpoint (optional retrieval ranking).
+    embeddings: bool = False
+    default_embedding_model: str | None = None
 
     def public(self) -> dict:
         d = asdict(self)
@@ -31,6 +34,8 @@ PROVIDERS: tuple[Provider, ...] = (
         "https://openrouter.ai/api/v1",
         "https://openrouter.ai/keys",
         ("google/gemini-2.5-flash", "openai/gpt-4o-mini", "meta-llama/llama-3.3-70b-instruct"),
+        embeddings=True,
+        default_embedding_model="openai/text-embedding-3-small",
     ),
     Provider(
         "gemini",
@@ -40,6 +45,8 @@ PROVIDERS: tuple[Provider, ...] = (
         "https://generativelanguage.googleapis.com/v1beta/openai",
         "https://aistudio.google.com/apikey",
         ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"),
+        embeddings=True,
+        default_embedding_model="gemini-embedding-001",
     ),
     Provider(
         "openai",
@@ -49,6 +56,8 @@ PROVIDERS: tuple[Provider, ...] = (
         "https://api.openai.com/v1",
         "https://platform.openai.com/api-keys",
         ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"),
+        embeddings=True,
+        default_embedding_model="text-embedding-3-small",
     ),
     Provider(
         "anthropic",
@@ -76,6 +85,8 @@ PROVIDERS: tuple[Provider, ...] = (
         "http://127.0.0.1:11434",
         None,
         ("gemma3", "llama3.2"),
+        embeddings=True,
+        default_embedding_model="nomic-embed-text",
     ),
     Provider(
         "openai_compatible",
@@ -86,6 +97,7 @@ PROVIDERS: tuple[Provider, ...] = (
         None,
         (),
         base_url_required=True,
+        embeddings=True,
     ),
 )
 

@@ -17,7 +17,14 @@ STREAM_TIMEOUT = httpx.Timeout(10.0, read=120.0)
 MAX_PROVIDER_MESSAGE = 200
 
 ErrorKind = Literal[
-    "auth", "rate_limit", "model", "bad_request", "provider", "timeout", "unreachable"
+    "auth",
+    "rate_limit",
+    "model",
+    "bad_request",
+    "provider",
+    "timeout",
+    "unreachable",
+    "unsupported",
 ]
 
 
@@ -57,6 +64,8 @@ class LLMClient(Protocol):
     async def test(self, *, model: str) -> TestResult: ...
 
     async def list_models(self) -> list[str]: ...
+
+    async def embed(self, texts: list[str], *, model: str) -> list[list[float]]: ...
 
 
 def scrub(text: str, secrets: Iterable[str | None]) -> str:
@@ -118,6 +127,20 @@ class HttpAdapter:
         self.api_key = api_key or None
         # Set by stream_chat when the provider reports token usage; None otherwise.
         self.usage: Usage | None = None
+        # Prompt tokens the provider reported for the last embed() call; None if it didn't.
+        self.embed_tokens: int | None = None
+
+    async def embed(self, texts: list[str], *, model: str) -> list[list[float]]:
+        raise LLMError("unsupported", f"{self.name} does not offer an embeddings API.")
+
+    def _check_vectors(self, texts: list[str], vectors: list) -> list[list[float]]:
+        ok = len(vectors) == len(texts) and all(
+            isinstance(v, list) and v and all(isinstance(x, int | float) for x in v)
+            for v in vectors
+        )
+        if not ok:
+            raise LLMError("bad_request", f"{self.name} returned an unexpected embeddings reply.")
+        return [[float(x) for x in v] for v in vectors]
 
     def _headers(self) -> dict[str, str]:
         return {}
@@ -127,9 +150,9 @@ class HttpAdapter:
             body = (await r.aread()).decode("utf-8", "replace")
             raise error_from_status(self.name, r.status_code, body, [self.api_key])
 
-    async def _post_json(self, path: str, payload: dict) -> dict:
+    async def _post_json(self, path: str, payload: dict, timeout: float = TEST_TIMEOUT) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=TEST_TIMEOUT) as c:
+            async with httpx.AsyncClient(timeout=timeout) as c:
                 r = await c.post(self.base_url + path, json=payload, headers=self._headers())
                 await self._check(r)
                 return r.json()
