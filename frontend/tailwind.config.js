@@ -7,17 +7,18 @@ export default {
         mono: ['"SF Mono"', "ui-monospace", "DejaVu Sans Mono", "Menlo", "Consolas", "monospace"],
       },
       colors: {
+        // Channels behind CSS vars so the embed can re-theme shared components (light widget).
         term: {
-          bg: "#07090d",
-          panel: "#0c1016",
-          line: "#1b2530",
-          line2: "#243140",
-          fg: "#c8d6c5",
-          dim: "#5d7065",
-          bright: "#7dffb0",
-          amber: "#ffcc66",
-          recruiter: "#6fb4ff",
-          err: "#ff6b6b",
+          bg: "rgb(var(--term-bg, 7 9 13) / <alpha-value>)",
+          panel: "rgb(var(--term-panel, 12 16 22) / <alpha-value>)",
+          line: "rgb(var(--term-line, 27 37 48) / <alpha-value>)",
+          line2: "rgb(var(--term-line2, 36 49 64) / <alpha-value>)",
+          fg: "rgb(var(--term-fg, 200 214 197) / <alpha-value>)",
+          dim: "rgb(var(--term-dim, 93 112 101) / <alpha-value>)",
+          bright: "rgb(var(--term-bright, 125 255 176) / <alpha-value>)",
+          amber: "rgb(var(--term-amber, 255 204 102) / <alpha-value>)",
+          recruiter: "rgb(var(--term-recruiter, 111 180 255) / <alpha-value>)",
+          err: "rgb(var(--term-err, 255 107 107) / <alpha-value>)",
         },
       },
       keyframes: {

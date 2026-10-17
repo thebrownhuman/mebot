@@ -82,6 +82,29 @@ describe("embed app", () => {
     expect(orbFactory).not.toHaveBeenCalled();
   });
 
+  it("light theme: contact panel tokens follow the widget, brand colour as accent", async () => {
+    routes({}, { theme: "light" });
+    render(<EmbedApp slug="shivansh" mode="inline" />);
+    await screen.findByRole("heading", { name: "Ask Shiv" });
+    const root = document.documentElement;
+    expect(root.classList.contains("mb-dark")).toBe(false);
+    expect(root.style.getPropertyValue("--term-bright")).toBe("29 78 216");
+  });
+
+  it("light theme with a pale brand colour keeps accents readable", async () => {
+    routes({}, { theme: "light", primary_color: "#fde047" });
+    render(<EmbedApp slug="shivansh" mode="inline" />);
+    await screen.findByRole("heading", { name: "Ask Shiv" });
+    expect(document.documentElement.style.getPropertyValue("--term-bright")).toBe("31 41 51");
+  });
+
+  it("dark theme leaves the terminal accent to the stylesheet", async () => {
+    routes();
+    render(<EmbedApp slug="shivansh" mode="inline" />);
+    await screen.findByRole("heading", { name: "Ask Shiv" });
+    expect(document.documentElement.style.getPropertyValue("--term-bright")).toBe("");
+  });
+
   it("shows a loading state, then unavailable for a disabled widget", async () => {
     routes({ "GET /api/public/widget/shivansh": () => errorResponse(404, "WIDGET_UNAVAILABLE", "x") });
     render(<EmbedApp slug="shivansh" mode="inline" />);
