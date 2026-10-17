@@ -69,19 +69,8 @@ async def knowledge_for(
     query = search.build_query(
         user_texts[0] if user_texts else "", user_texts[1] if len(user_texts) > 1 else None
     )
-    ignore = search.name_terms(profile.identity.get("full_name") or "")
-    lexical = search.lexical_rank(chunks, query, ignore)
     semantic = await _semantic(settings, embedder, chunks, stored, query)
-
-    fallback = False
-    if lexical or semantic:
-        ranked = search.rrf(lexical, semantic) if semantic else lexical
-        picked = search.select(chunks, ranked, budget)
-    else:
-        fallback = True
-        latest = search.fallback(profile, chunks)
-        picked = search.select(chunks, latest, budget, min_keep=len(latest))
-
+    picked, fallback = pick(profile, chunks, query, budget, semantic)
     text = render_retrieval(
         profile, chunker.outline(profile), [chunks[i].text for i in picked], as_of
     )
@@ -94,6 +83,46 @@ async def knowledge_for(
         prompt_tokens=approx_tokens(text),
         fallback=fallback,
         hybrid=bool(semantic),
+    )
+
+
+def pick(
+    profile: ProfileData,
+    chunks: list[chunker.Chunk],
+    query: str,
+    budget: int,
+    semantic: list[int] | None = None,
+) -> tuple[list[int], bool]:
+    """Indexes of the chunks to show (profile order) and whether the low-confidence
+    fallback was used. Pure: no DB, no network."""
+    ignore = search.name_terms(profile.identity.get("full_name") or "")
+    lexical = search.lexical_rank(chunks, query, ignore)
+    if lexical or semantic:
+        ranked = search.rrf(lexical, semantic) if semantic else lexical
+        return search.select(chunks, ranked, budget), False
+    latest = search.fallback(profile, chunks)
+    return search.select(chunks, latest, budget, min_keep=len(latest)), True
+
+
+def retrieval_knowledge(
+    profile: ProfileData, user_texts: list[str], *, budget: int, as_of: date | None = None
+) -> Knowledge:
+    """Retrieval-mode knowledge without a database (evals, previews): lexical only."""
+    chunks = chunker.build_chunks(profile)
+    query = search.build_query(
+        user_texts[0] if user_texts else "", user_texts[1] if len(user_texts) > 1 else None
+    )
+    picked, fallback = pick(profile, chunks, query, budget)
+    text = render_retrieval(
+        profile, chunker.outline(profile), [chunks[i].text for i in picked], as_of
+    )
+    return Knowledge(
+        text,
+        retrieval=True,
+        titles=[chunks[i].title for i in picked],
+        profile_tokens=approx_tokens(render_profile(profile, as_of)),
+        prompt_tokens=approx_tokens(text),
+        fallback=fallback,
     )
 
 
