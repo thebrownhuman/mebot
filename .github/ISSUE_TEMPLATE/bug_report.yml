@@ -1,0 +1,45 @@
+name: Bug report
+description: Something doesn't work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security issue? Don't file it here: see SECURITY.md.
+        Please remove API keys, tokens, e-mail addresses and visitor data from anything you paste.
+  - type: input
+    id: version
+    attributes:
+      label: mebot version
+      description: "`/api/health` shows it (e.g. 0.9.0)"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run it?
+      options: [docker compose, Railway, Render, Fly.io, from source, other]
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: AI provider and model
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: "`docker compose logs mebot | tail -50`, trimmed to the error"
+      render: text

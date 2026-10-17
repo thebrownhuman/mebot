@@ -20,3 +20,9 @@ def test_checked_in_doc_is_up_to_date():
     assert doc == settings_markdown(), (
         "run: python -m mebot.config --markdown > ../docs/configuration.md"
     )
+
+
+def test_env_example_lists_every_setting():
+    example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+    for name in Settings.model_fields:
+        assert f"{name.upper()}=" in example, name
