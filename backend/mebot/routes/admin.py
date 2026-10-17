@@ -22,12 +22,20 @@ router = APIRouter(
 )
 
 
-@router.get("/sessions")
+def _deprecated(response: Response) -> None:
+    # Superseded by /api/admin/conversations; kept for one release.
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = '</api/admin/conversations>; rel="successor-version"'
+
+
+@router.get("/sessions", deprecated=True, dependencies=[Depends(_deprecated)])
 def list_sessions(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     return sessions.list_with_turns(db, bot.id)
 
 
-@router.get("/sessions/{sid}/messages")
+@router.get(
+    "/sessions/{sid}/messages", deprecated=True, dependencies=[Depends(_deprecated)]
+)
 def session_messages(sid: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     if sessions.get(db, bot.id, sid) is None:
         raise HTTPException(404, "Unknown session")
