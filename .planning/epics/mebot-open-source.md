@@ -45,7 +45,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 12 | Install registry + opt-in telemetry | review | [spec](../specs/install-registry.md) | — | #2 | M |
 | 13 | Open-source packaging: single image, docs, CI, deploy buttons | review | [spec](../specs/packaging-release.md) | — | #1–#12 | M |
 | 14 | Retrieval (embeddings) for large profiles | review | [spec](../specs/retrieval.md) | — | #5 | M |
-| 15 | Hosted mode (MODE=hosted, signups, per-user bots) | building (15a review, 15b todo) | [spec](../specs/hosted-mode.md) | — | #1–#13 | L |
+| 15 | Hosted mode (MODE=hosted, signups, per-user bots) | review | [spec](../specs/hosted-mode.md) | — | #1–#13 | L |
 | 16 | **LAST** — Paid plans: plugin library (JS/CSS SDK) + monthly subscription | todo | — | — | #15 | L+ (split at spec) |
 
 Effort: S ≈ ≤1 day, M ≈ 1–3 days, L ≈ 3 days (split at spec time if larger).
