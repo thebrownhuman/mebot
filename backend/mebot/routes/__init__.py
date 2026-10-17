@@ -13,6 +13,7 @@ from mebot.routes import (
     admin_telemetry,
     admin_widget,
     auth,
+    billing_webhook,
     chat,
     contact,
     health,
@@ -52,4 +53,5 @@ routers = [
     hosted_accounts.router,
     hosted_account.router,
     platform_admin.router,
+    billing_webhook.router,
 ]

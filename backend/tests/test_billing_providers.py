@@ -34,10 +34,14 @@ async def test_razorpay_checkout_creates_subscription_with_notes():
 @respx.mock
 async def test_razorpay_cancel_and_fetch_map_statuses():
     respx.post("https://api.razorpay.com/v1/subscriptions/sub_R1/cancel").mock(
-        return_value=httpx.Response(200, json={"id": "sub_R1", "status": "active", "current_end": 1800000000})
+        return_value=httpx.Response(
+            200, json={"id": "sub_R1", "status": "active", "current_end": 1800000000}
+        )
     )
     respx.get("https://api.razorpay.com/v1/subscriptions/sub_R1").mock(
-        return_value=httpx.Response(200, json={"id": "sub_R1", "status": "halted", "current_end": 1800000000})
+        return_value=httpx.Response(
+            200, json={"id": "sub_R1", "status": "halted", "current_end": 1800000000}
+        )
     )
     c = await RZP.cancel("sub_R1", at_period_end=True)
     assert c.status == "cancelled" and c.cancel_at_period_end and c.period_end.year == 2027
@@ -47,7 +51,9 @@ async def test_razorpay_cancel_and_fetch_map_statuses():
 @respx.mock
 async def test_stripe_checkout_form_and_portal():
     route = respx.post("https://api.stripe.com/v1/checkout/sessions").mock(
-        return_value=httpx.Response(200, json={"id": "cs_1", "url": "https://checkout.stripe.com/c/1"})
+        return_value=httpx.Response(
+            200, json={"id": "cs_1", "url": "https://checkout.stripe.com/c/1"}
+        )
     )
     portal = respx.post("https://api.stripe.com/v1/billing_portal/sessions").mock(
         return_value=httpx.Response(200, json={"url": "https://billing.stripe.com/p/1"})
@@ -72,8 +78,13 @@ async def test_stripe_checkout_form_and_portal():
 async def test_stripe_cancel_modes_and_fetch():
     respx.post("https://api.stripe.com/v1/subscriptions/sub_S1").mock(
         return_value=httpx.Response(
-            200, json={"id": "sub_S1", "status": "active", "cancel_at_period_end": True,
-                       "items": {"data": [{"current_period_end": 1800000000}]}},
+            200,
+            json={
+                "id": "sub_S1",
+                "status": "active",
+                "cancel_at_period_end": True,
+                "items": {"data": [{"current_period_end": 1800000000}]},
+            },
         )  # fmt: skip
     )
     respx.delete("https://api.stripe.com/v1/subscriptions/sub_S1").mock(
@@ -131,15 +142,36 @@ def test_razorpay_parse_charged_and_invoice():
 
 
 def test_stripe_parse_events():
-    sub = {"id": "evt_1", "type": "customer.subscription.updated", "created": 1760000000,
-           "data": {"object": {"id": "sub_S1", "customer": "cus_1", "status": "past_due",
-                               "metadata": {"bot_id": "b1"}, "current_period_end": 1762600000}}}
+    sub = {
+        "id": "evt_1",
+        "type": "customer.subscription.updated",
+        "created": 1760000000,
+        "data": {
+            "object": {
+                "id": "sub_S1",
+                "customer": "cus_1",
+                "status": "past_due",
+                "metadata": {"bot_id": "b1"},
+                "current_period_end": 1762600000,
+            }
+        },
+    }
     n = ST.parse(sub)
-    assert (n.action, n.bot_id, n.subscription_id, n.customer_id) == ("failed", "b1", "sub_S1", "cus_1")
+    assert (n.action, n.bot_id, n.subscription_id, n.customer_id) == (
+        "failed",
+        "b1",
+        "sub_S1",
+        "cus_1",
+    )
     done = ST.parse({"id": "evt_2", "type": "checkout.session.completed", "data": {"object": {
         "client_reference_id": "b1", "subscription": "sub_S1", "customer": "cus_1",
         "metadata": {"plan_code": "monthly"}, "currency": "usd"}}})  # fmt: skip
-    assert (done.action, done.bot_id, done.plan_code, done.currency) == ("link", "b1", "monthly", "USD")
+    assert (done.action, done.bot_id, done.plan_code, done.currency) == (
+        "link",
+        "b1",
+        "monthly",
+        "USD",
+    )
     inv = ST.parse({"id": "evt_3", "type": "invoice.paid", "data": {"object": {
         "id": "in_1", "amount_paid": 900, "currency": "usd", "status": "paid",
         "hosted_invoice_url": "https://inv", "invoice_pdf": "https://pdf",

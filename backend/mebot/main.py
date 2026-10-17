@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from mebot import retention
+from mebot.billing import providers as billing_providers
 from mebot.config import (
     ConfigError,
     Settings,
@@ -128,6 +129,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Hosted: imports per tenant per day (limit from HOSTED_MAX_IMPORTS_PER_DAY).
     app.state.import_day_limiter = SlidingWindowLimiter(limit=10, window_seconds=86400)
     app.state.mailer = make_mailer(settings)
+    # Paid plans: empty unless MODE=hosted and BILLING_PROVIDERS is set (tests swap them).
+    app.state.billing_providers = {
+        name: billing_providers.make(name, settings) for name in settings.billing_provider_list
+    }
     # Hosted sign-up / mail endpoints, per hashed IP and bucket.
     app.state.account_limiter = SlidingWindowLimiter(limit=5, window_seconds=3600)
     app.state.telemetry = Telemetry(settings, app.state.session_factory, install_key)
