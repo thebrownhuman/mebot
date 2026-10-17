@@ -64,6 +64,8 @@ def view(row: TelegramConfig | None, request: Request, db: Session) -> dict:
         "bot_token_last4": row.bot_token_last4 if configured else None,
         "mode": row.mode if row else "polling",
         "webhook_available": bool(request.app.state.settings.public_url),
+        # Hosted: one process serves every tenant, so updates arrive by webhook only.
+        "webhook_only": request.app.state.settings.hosted,
         "error": row.error if row else None,
         "digest_hour": row.digest_hour if row else 21,
         "timezone": tz.bot_zone(db, row.bot_id).key if row else "UTC",
@@ -150,6 +152,10 @@ async def put_token(
     if not username:
         raise ApiError(422, "TELEGRAM_TOKEN_INVALID", "That token isn't for a bot.")
     row = repo.save_token(db, bot.id, request.app.state.secret_key, req.bot_token, username)
+    if request.app.state.settings.hosted and row.mode != "webhook":
+        db.flush()
+        client = repo.client_for(row, request.app.state.secret_key)
+        await _switch_mode(row, "webhook", client, request, bot.id)
     logs.add(db, bot.id, None, "telegram_token_saved", detail=f"@{username}")
     db.commit()
     _service_changed(request)
@@ -169,6 +175,13 @@ async def patch_settings(
         raise ApiError(409, "TELEGRAM_NOT_CONFIGURED", "Save your bot token first.")
     values = req.model_dump(exclude_unset=True)
     mode = values.pop("mode", None)
+    if mode == "polling" and request.app.state.settings.hosted:
+        raise ApiError(
+            422,
+            "VALIDATION_ERROR",
+            "Invalid request",
+            [{"field": "mode", "message": "this server receives Telegram updates by webhook"}],
+        )
     zone_name = values.pop("timezone", None)
     if zone_name:  # the zone lives on the bot now; telegram_configs.timezone is unused
         bot.timezone = zone_name

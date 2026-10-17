@@ -59,6 +59,8 @@ class TelegramService:
                 await asyncio.wait_for(self._stop.wait(), timeout=every)
 
     def _wanted(self) -> set[str]:
+        if self.ctx.settings.hosted:  # webhook only: never poll on a tenant's behalf
+            return set()
         with self.ctx.session_factory() as db:
             return {
                 r.bot_id
