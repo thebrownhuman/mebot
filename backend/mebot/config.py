@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     # From address on platform mail.
     smtp_from: str = "mebot <no-reply@localhost>"
+    # Maintainer pings (sign-ups, suspensions) via your own Telegram bot. Best-effort.
+    platform_telegram_bot_token: str | None = None
+    # Chat that receives the maintainer pings (your user id or a group id).
+    platform_telegram_chat_id: str | None = None
     # Hard caps per tenant: owners can lower their limits, never raise them above these.
     hosted_max_daily_messages: int = 500
     # Daily token budget cap per tenant (a tenant can't switch it off).

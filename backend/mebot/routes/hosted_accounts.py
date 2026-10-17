@@ -7,7 +7,7 @@ an account (an existing owner gets an "already registered" mail instead). Slugs 
 public anyway, so a taken slug is a plain 409.
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.exc import IntegrityError
@@ -20,7 +20,7 @@ from mebot.config import Settings
 from mebot.db import get_db
 from mebot.deps import client_ip, get_settings
 from mebot.errors import ApiError
-from mebot.hosted import mailer
+from mebot.hosted import mailer, operator
 from mebot.hosted.slugs import slug_error
 from mebot.limits import counters
 from mebot.models import utcnow
@@ -116,6 +116,7 @@ def config(settings: Settings = Depends(get_settings)):
 async def signup(
     req: SignupReq,
     request: Request,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
@@ -123,7 +124,13 @@ async def signup(
         raise ApiError(403, "SIGNUP_CLOSED", "Sign-up is closed.")
     _limit(request, "signup")
     await _turnstile(request, settings, req.turnstile_token)
-    if settings.signup_mode == "invite" and not invites.valid(db, req.invite_code or ""):
+    # Invite mode: a valid code goes live; no code joins the operator's approval queue.
+    queued = settings.signup_mode == "invite" and not req.invite_code
+    if (
+        settings.signup_mode == "invite"
+        and req.invite_code
+        and not invites.valid(db, req.invite_code)
+    ):
         raise ApiError(400, "INVITE_INVALID", "That invite code isn't valid.")
     if bots.slug_taken(db, req.slug):
         raise ApiError(409, "SLUG_TAKEN", "That address is taken. Pick another.")
@@ -141,9 +148,13 @@ async def signup(
     password_hash = await run_in_threadpool(passwords.hash_password, req.password)
     try:
         bot = bots.create(db, req.slug, req.bot_name)
+        if queued:
+            bot.status = "pending"
         admin = admins.create(db, req.email, password_hash, bot_id=bot.id)
-        if settings.signup_mode == "invite" and not invites.consume(
-            db, req.invite_code or "", admin.id
+        if (
+            settings.signup_mode == "invite"
+            and not queued
+            and not invites.consume(db, req.invite_code or "", admin.id)
         ):
             db.rollback()
             raise ApiError(400, "INVITE_INVALID", "That invite code isn't valid.")
@@ -155,7 +166,9 @@ async def signup(
     await mailer.deliver(
         request.app.state.mailer, mailer.verify_mail(admin.email, f"{base}/verify?token={token}")
     )
-    return ACCEPTED
+    note = " (waiting for approval)" if queued else ""
+    background.add_task(operator.ping, settings, f"mebot: new sign-up {bot.slug}{note}")
+    return {**ACCEPTED, "approval_required": queued}
 
 
 @router.post("/verify", status_code=204, dependencies=[Depends(require_csrf)])

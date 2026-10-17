@@ -94,6 +94,8 @@ class Bot(Base):
     plan: Mapped[str] = mapped_column(Text, default="free", server_default="free", nullable=False)
     # Owner asked for deletion: offline now, hard purge after the grace period.
     deletion_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Invite-mode sign-up approved from the operator's queue (0019).
+    approved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     __table_args__ = (Index("ux_bots_public_key", "public_key", unique=True),)
 
 
@@ -692,3 +694,37 @@ class RetrievalSettings(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     __table_args__ = (Index("ux_retrieval_settings_bot_id", "bot_id", unique=True),)
+
+
+# --- Platform operator (0019). No bot_id: the operator spans tenants, sees metadata only.
+
+
+class PlatformAdmin(Base):
+    __tablename__ = "platform_admins"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    email: Mapped[str] = mapped_column(Text, nullable=False)  # stored lowercased
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    __table_args__ = (Index("ux_platform_admins_email", "email", unique=True),)
+
+
+class PlatformSession(Base):
+    __tablename__ = "platform_sessions"
+    id: Mapped[str] = mapped_column(Text, primary_key=True)  # sha256(token) hex
+    platform_admin_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    __table_args__ = (Index("ix_platform_sessions_admin", "platform_admin_id"),)
+
+
+class PlatformAudit(Base):
+    __tablename__ = "platform_audit"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    actor_id: Mapped[str] = mapped_column(Text, nullable=False)
+    action: Mapped[str] = mapped_column(Text, nullable=False)
+    target_bot_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ix_platform_audit_created_at", "created_at"),)

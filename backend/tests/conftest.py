@@ -291,7 +291,6 @@ def make_tenant(app, slug: str, *, verified=True, setup_done=True, status="activ
     email = f"{slug}@example.com"
     with app.state.session_factory() as db:
         bot = bots.create(db, slug, slug.title())
-        bot.status = status
         if setup_done:
             bot.setup_completed_at = utcnow()
         admin = admins.create(db, email, passwords.hash_password(ADMIN_PASSWORD), bot_id=bot.id)
@@ -309,6 +308,10 @@ def make_tenant(app, slug: str, *, verified=True, setup_done=True, status="activ
         "/api/auth/login", json={"email": email, "password": ADMIN_PASSWORD}, headers=csrf(c)
     )
     assert r.status_code == 204, r.text
+    if status != "active":  # after login: suspended / pending owners can't log in
+        with app.state.session_factory() as db:
+            bots.get(db, ids[0]).status = status
+            db.commit()
     return Tenant(c, ids[0], slug, ids[1], email)
 
 

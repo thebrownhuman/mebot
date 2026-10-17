@@ -55,6 +55,30 @@ def create_invite(note: str | None, days: int) -> int:
     return 0
 
 
+def create_platform_admin(email: str) -> int:
+    from mebot.hosted import operator
+
+    settings = Settings()
+    if not settings.hosted:
+        return _err("the platform operator exists only with MODE=hosted")
+    ensure_data_dir(settings)
+    run_migrations(settings.database_url, settings.secret_key)
+    with make_session_factory(settings.database_url)() as db:
+        if operator.get_by_email(db, email) is not None:
+            return _err(f"operator {email!r} already exists")
+        pw = getpass.getpass("Password: ")
+        if pw != getpass.getpass("Repeat password: "):
+            return _err("passwords do not match")
+        if not passwords.MIN_LENGTH <= len(pw) <= passwords.MAX_LENGTH:
+            return _err(
+                f"password must be {passwords.MIN_LENGTH}-{passwords.MAX_LENGTH} characters"
+            )
+        operator.create_admin(db, email, passwords.hash_password(pw))
+        db.commit()
+    print(f"Operator {email.strip().lower()} created. Log in at /platform.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m mebot.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -65,9 +89,15 @@ def main(argv: list[str] | None = None) -> int:
     ic = inv_sub.add_parser("create", help="print a new single-use invite code")
     ic.add_argument("--note")
     ic.add_argument("--days", type=int, default=30, help="0 = never expires")
+    pa = sub.add_parser("platform-admin", help="hosted operator accounts")
+    pa_sub = pa.add_subparsers(dest="action", required=True)
+    pc = pa_sub.add_parser("create", help="create an operator (asks for a password)")
+    pc.add_argument("email")
     args = parser.parse_args(argv)
     if args.command == "reset-password":
         return reset_password(args.email)
+    if args.command == "platform-admin":
+        return create_platform_admin(args.email)
     if args.command == "invite":
         return create_invite(args.note, args.days)
     return 2

@@ -18,6 +18,7 @@ from mebot.routes import (
     health,
     hosted_account,
     hosted_accounts,
+    platform_admin,
     public,
     sessions,
     setup,
@@ -50,4 +51,5 @@ routers = [
     widget.router,
     hosted_accounts.router,
     hosted_account.router,
+    platform_admin.router,
 ]
