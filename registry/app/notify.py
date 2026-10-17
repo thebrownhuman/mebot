@@ -107,7 +107,7 @@ async def send_due(
     with db.tx() as c:
         due = c.execute(
             "SELECT id, text, attempts FROM notifications WHERE status = 'pending'"
-            " AND next_attempt_at <= ? ORDER BY created_at LIMIT ?",
+            " AND next_attempt_at <= ? ORDER BY created_at, rowid LIMIT ?",
             (iso(now), BATCH),
         ).fetchall()
     sent = 0
