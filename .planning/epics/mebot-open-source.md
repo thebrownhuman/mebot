@@ -42,7 +42,7 @@ Turn the personal me-bot prototype into an open-source product anyone can run: a
 | 9 | Imports: resume PDF/DOCX + LinkedIn export ZIP | review | [spec](../specs/imports.md) | — | #3, #4 | M |
 | 10 | Import: GitHub repo → project entry | review | [spec](../specs/github-import.md) | — | #9 | S |
 | 11 | Dashboard + conversations + analytics | review | [spec](../specs/dashboard-analytics.md) | — | #4, #7 | M |
-| 12 | Install registry + opt-in telemetry | building | [spec](../specs/install-registry.md) | — | #2 | M |
+| 12 | Install registry + opt-in telemetry | review | [spec](../specs/install-registry.md) | — | #2 | M |
 | 13 | Open-source packaging: single image, docs, CI, deploy buttons | todo | — | — | #1–#12 | M |
 | 14 | Retrieval (embeddings) for large profiles | todo | — | — | #5 | M |
 | 15 | Hosted mode (MODE=hosted, signups, per-user bots) | todo | — | — | #1–#13 | L |
