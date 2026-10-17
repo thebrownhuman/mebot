@@ -1,0 +1,13 @@
+services:
+  registry:
+    build: .
+    image: mebot-registry:latest
+    restart: unless-stopped
+    ports:
+      # Bound to localhost: put the reverse proxy / tunnel in front (see README).
+      - "127.0.0.1:8100:8100"
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      # Edit this file to publish a release or an advisory; it is hot-reloaded.
+      - ./releases.json:/app/releases.json:ro
