@@ -56,7 +56,11 @@ async def webhook(
             "billing webhook from %s: invalid signature or body (%d bytes)", provider, len(raw)
         )
         raise ApiError(400, "INVALID_SIGNATURE", "Invalid signature") from None
-    ev = impl.parse(event, request.headers, raw)
+    try:
+        ev = impl.parse(event, request.headers, raw)
+    except (AttributeError, TypeError, ValueError, KeyError):
+        log.warning("billing webhook from %s: signed but unparseable event", provider)
+        raise ApiError(400, "INVALID_EVENT", "Unrecognised event") from None
     if not ev.event_id:
         raise ApiError(400, "INVALID_EVENT", "Event has no id")
 

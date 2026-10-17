@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from mebot.billing import state
@@ -183,7 +183,14 @@ def count_trial_message(db: Session, settings, bot_id: str) -> bool:
     sub = get_sub(db, bot_id)
     if sub is None or sub.status != "trialing":
         return False
-    sub.trial_messages_used += 1
+    # Atomic increment: concurrent chats must not lose counts.
+    db.execute(
+        update(Subscription)
+        .where(Subscription.id == sub.id)
+        .values(trial_messages_used=Subscription.trial_messages_used + 1)
+        .execution_options(synchronize_session=False)
+    )
+    db.refresh(sub, ["trial_messages_used"])
     limit = max(1, settings.trial_messages)
     return sub.trial_messages_used >= 0.8 * limit and mark_notice(sub, "trial_msg80")
 
@@ -324,7 +331,7 @@ def sweep(db: Session, settings, now=None) -> SweepResult:
     res = SweepResult()
     if not enabled(settings):
         return res
-    for sub in db.scalars(select(Subscription)):
+    for sub in db.scalars(select(Subscription)).all():
         st = sub_state(sub)
         email = None
         if state.due_expiry(st, now, settings.trial_messages):
@@ -357,7 +364,7 @@ def sweep(db: Session, settings, now=None) -> SweepResult:
         select(BillingEvent).where(
             BillingEvent.payload.is_not(None), BillingEvent.received_at < now - PAYLOAD_KEEP
         )
-    ):
+    ).all():
         ev.payload = None
     db.commit()
     return res

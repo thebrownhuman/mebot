@@ -228,3 +228,22 @@ def test_events_for_a_replaced_subscription_do_not_touch_status(env):
     )
     assert r.status_code == 200
     assert sub_row(app, t.bot_id).status == "active"
+
+
+def test_signed_but_unparseable_event_is_400(env):
+    import hashlib
+    import hmac
+
+    from tests.conftest import BILLING_ENV
+
+    app, _, anon = env
+    body = b'{"event": "subscription.charged", "payload": ["not", "a", "dict"]}'
+    sig = hmac.new(
+        BILLING_ENV["razorpay_webhook_secret"].encode(), body, hashlib.sha256
+    ).hexdigest()
+    r = anon.post(
+        "/api/billing/webhook/razorpay", content=body,
+        headers={"X-Razorpay-Signature": sig, "Content-Type": "application/json"},
+    )  # fmt: skip
+    assert r.status_code == 400 and r.json()["error"]["code"] == "INVALID_EVENT"
+    assert _events(app) == []
