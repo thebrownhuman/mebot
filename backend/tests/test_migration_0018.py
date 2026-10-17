@@ -27,7 +27,13 @@ def test_0018_adds_tenancy_columns_and_tables(tmp_path):
         cols = _cols(insp, table)
         assert set(cols) >= {"id", "admin_id", "created_at", "expires_at", "used_at"}
     assert set(_cols(insp, "invites")) >= {
-        "id", "code_hash", "created_at", "expires_at", "used_at", "used_by_admin_id", "deleted_at",
+        "id",
+        "code_hash",
+        "created_at",
+        "expires_at",
+        "used_at",
+        "used_by_admin_id",
+        "deleted_at",
     }
     assert set(_cols(insp, "slug_redirects")) >= {"id", "old_slug", "bot_id", "expires_at"}
     run_migrations(url, secret_key="k")  # re-running is a no-op
