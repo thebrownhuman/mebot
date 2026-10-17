@@ -110,6 +110,31 @@ class Settings(BaseSettings):
     # Largest import upload per tenant, in bytes.
     hosted_max_upload_bytes: int = 5_000_000
 
+    # --- Paid plans (MODE=hosted + a billing provider). Unset = billing off, all free. ---
+
+    # Comma-separated billing providers: razorpay (INR), stripe (USD and others).
+    billing_providers: str = ""
+    # Razorpay API key id (rzp_test_... in test mode).
+    razorpay_key_id: str | None = None
+    # Razorpay API key secret.
+    razorpay_key_secret: str | None = None
+    # Razorpay webhook secret (Dashboard -> Webhooks), checks X-Razorpay-Signature.
+    razorpay_webhook_secret: str | None = None
+    # Stripe secret key (sk_test_... in test mode).
+    stripe_secret_key: str | None = None
+    # Stripe webhook signing secret (whsec_...), checks Stripe-Signature.
+    stripe_webhook_secret: str | None = None
+    # Days a bot keeps serving after a failed payment before it goes offline.
+    billing_grace_days: int = 7
+    # Free trial length in days (ends earlier if TRIAL_MESSAGES run out).
+    trial_days: int = 14
+    # Free trial message allowance.
+    trial_messages: int = 200
+    # Version of the terms owners accept at sign-up; bump when docs/legal changes.
+    terms_version: str = "2026-10"
+    # Platform GSTIN shown on the billing page (optional).
+    platform_gstin: str | None = None
+
     @model_validator(mode="after")
     def _registry_url(self) -> "Settings":
         url = self.registry_url.strip().rstrip("/")
@@ -129,6 +154,17 @@ class Settings(BaseSettings):
     @property
     def hosted(self) -> bool:
         return self.mode == "hosted"
+
+    @property
+    def billing_provider_list(self) -> list[str]:
+        """Configured providers; empty (billing off) in single mode."""
+        if not self.hosted:
+            return []
+        return [p.strip().lower() for p in self.billing_providers.split(",") if p.strip()]
+
+    @property
+    def billing_enabled(self) -> bool:
+        return bool(self.billing_provider_list)
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -163,6 +199,22 @@ def check_database(settings: Settings) -> None:
     logging.getLogger("mebot").warning(
         "MODE=hosted on SQLite (ALLOW_SQLITE_HOSTED=1): development only, not for production."
     )
+
+
+BILLING_SECRETS = {
+    "razorpay": ("razorpay_key_id", "razorpay_key_secret", "razorpay_webhook_secret"),
+    "stripe": ("stripe_secret_key", "stripe_webhook_secret"),
+}
+
+
+def check_billing(settings: Settings) -> None:
+    """Every listed provider must be known and fully configured (hosted only)."""
+    for p in settings.billing_provider_list:
+        if p not in BILLING_SECRETS:
+            raise ConfigError(f"BILLING_PROVIDERS: unknown provider {p!r} (razorpay, stripe)")
+        missing = [f.upper() for f in BILLING_SECRETS[p] if not getattr(settings, f)]
+        if missing:
+            raise ConfigError(f"BILLING_PROVIDERS lists {p} but {', '.join(missing)} is unset.")
 
 
 def resolve_secret_key(settings: Settings) -> str:

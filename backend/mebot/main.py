@@ -16,6 +16,7 @@ from mebot import retention
 from mebot.config import (
     ConfigError,
     Settings,
+    check_billing,
     check_database,
     ensure_data_dir,
     resolve_secret_key,
@@ -78,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     ensure_data_dir(settings)
     check_database(settings)
+    check_billing(settings)
     secret_key = resolve_secret_key(settings)
     install_key = identity.load_or_create(settings.data_dir)
     run_migrations(settings.database_url, secret_key)
