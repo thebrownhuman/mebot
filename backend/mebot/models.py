@@ -68,9 +68,7 @@ class Bot(Base):
     )
     setup_completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     # IANA zone for "today" / per-day buckets (migration 0014).
-    timezone: Mapped[str] = mapped_column(
-        Text, default="UTC", server_default="UTC", nullable=False
-    )
+    timezone: Mapped[str] = mapped_column(Text, default="UTC", server_default="UTC", nullable=False)
     # Conversations older than this many days are hard-deleted; NULL keeps them forever.
     retention_days: Mapped[int | None] = mapped_column(Integer, default=180, nullable=True)
 

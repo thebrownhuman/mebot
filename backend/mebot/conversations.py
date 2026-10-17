@@ -144,7 +144,7 @@ def conditions(bot_id: str, f: Filters) -> list:
             c.append(
                 select(Message.id)
                 .where(
-                        Message.session_id == ChatSession.id,
+                    Message.session_id == ChatSession.id,
                     Message.unanswered.is_(True),
                 )
                 .exists()
@@ -153,7 +153,7 @@ def conditions(bot_id: str, f: Filters) -> list:
             c.append(
                 select(Message.id)
                 .where(
-                        Message.session_id == ChatSession.id,
+                    Message.session_id == ChatSession.id,
                     Message.from_owner.is_(True),
                 )
                 .exists()
@@ -170,12 +170,9 @@ def conditions(bot_id: str, f: Filters) -> list:
         elif h == "leak_blocked":
             c.append(_ev(bot_id, "LEAK_BLOCKED"))
     if f.origin:
-        opened = (
-            select(AccessLog.id)
-            .where(
-                    AccessLog.session_id == ChatSession.id,
-                AccessLog.event == "WIDGET_OPENED",
-            )
+        opened = select(AccessLog.id).where(
+            AccessLog.session_id == ChatSession.id,
+            AccessLog.event == "WIDGET_OPENED",
         )
         if f.origin == DIRECT:
             c.append(~opened.exists())
@@ -411,7 +408,9 @@ def export_count(db: Session, bot_id: str, f: Filters) -> int:
     sub = select(ChatSession.id).where(*conditions(bot_id, f)).scalar_subquery()
     return (
         db.scalar(
-            select(func.count()).select_from(Message).where(Message.bot_id == bot_id, Message.session_id.in_(sub))
+            select(func.count())
+            .select_from(Message)
+            .where(Message.bot_id == bot_id, Message.session_id.in_(sub))
         )
         or 0
     )

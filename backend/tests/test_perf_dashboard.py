@@ -27,21 +27,39 @@ def _seed(app) -> None:
         sid = uuid.uuid4().hex
         started = now - timedelta(days=s % 28, minutes=s % 600)
         sessions.append(
-            {"id": sid, "bot_id": bid, "recruiter_name": f"R{s}", "started_at": started,
-             "created_at": started}
+            {
+                "id": sid,
+                "bot_id": bid,
+                "recruiter_name": f"R{s}",
+                "started_at": started,
+                "created_at": started,
+            }
         )
         if s % 2:
-            logs.append({"id": uuid.uuid4().hex, "bot_id": bid, "session_id": sid,
-                         "event": "WIDGET_OPENED", "detail": f"https://site{s % 7}.example",
-                         "created_at": started})
+            logs.append(
+                {
+                    "id": uuid.uuid4().hex,
+                    "bot_id": bid,
+                    "session_id": sid,
+                    "event": "WIDGET_OPENED",
+                    "detail": f"https://site{s % 7}.example",
+                    "created_at": started,
+                }
+            )
         for m in range(PER_SESSION):
             user = m % 2 == 0
             text = QUESTIONS[(s + m) % 4] if user else "An answer."
             messages.append(
-                {"id": uuid.uuid4().hex, "bot_id": bid, "session_id": sid,
-                 "role": "user" if user else "assistant", "content": f"{text} #{s % 50}",
-                 "created_at": started + timedelta(seconds=m * 10),
-                 "unanswered": (not user) and m % 7 == 1, "from_owner": False}
+                {
+                    "id": uuid.uuid4().hex,
+                    "bot_id": bid,
+                    "session_id": sid,
+                    "role": "user" if user else "assistant",
+                    "content": f"{text} #{s % 50}",
+                    "created_at": started + timedelta(seconds=m * 10),
+                    "unanswered": (not user) and m % 7 == 1,
+                    "from_owner": False,
+                }
             )
     with app.state.session_factory() as db:
         for table, rows in ((ChatSession, sessions), (Message, messages), (AccessLog, logs)):

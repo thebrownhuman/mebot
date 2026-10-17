@@ -139,7 +139,12 @@ def test_limit_bounds(admin_client):
 
 def test_detail(admin_client, app):
     sid = seed_session(
-        app, ago(1), Q, unanswered=True, contact=True, origin="https://shivansh.dev",
+        app,
+        ago(1),
+        Q,
+        unanswered=True,
+        contact=True,
+        origin="https://shivansh.dev",
         owner_reply=True,
     )
     d = admin_client.get(f"{URL}/{sid}").json()
@@ -214,8 +219,12 @@ def rows_of(r):
 
 def test_csv_export_content_and_headers(admin_client, app):
     sid = seed_session(
-        app, ago(1), [("user", "hi, \"there\"\nline2"), ("assistant", "hello")],
-        name="Ann", origin="https://shivansh.dev", unanswered=True,
+        app,
+        ago(1),
+        [("user", 'hi, "there"\nline2'), ("assistant", "hello")],
+        name="Ann",
+        origin="https://shivansh.dev",
+        unanswered=True,
     )
     seed_session(app, ago(2), Q, name="Bob")
     r = admin_client.get(f"{URL}/export?format=csv&range=7d")
@@ -242,7 +251,9 @@ def test_export_respects_filters(admin_client, app):
 @pytest.mark.parametrize("lead", ["=", "+", "-", "@"])
 def test_csv_formula_injection_neutralised(admin_client, app, lead):
     seed_session(
-        app, ago(1), [("user", f'{lead}HYPERLINK("http://evil","x")'), ("assistant", "ok")],
+        app,
+        ago(1),
+        [("user", f'{lead}HYPERLINK("http://evil","x")'), ("assistant", "ok")],
         name=f"{lead}cmd|calc",
     )
     rows = rows_of(admin_client.get(f"{URL}/export"))

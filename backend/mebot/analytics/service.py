@@ -29,7 +29,8 @@ from mebot.models import (
     utcnow,
 )
 from mebot.repos import limits as limits_repo
-from mebot.repos import llm_configs, open_questions, widget as widget_repo
+from mebot.repos import llm_configs, open_questions
+from mebot.repos import widget as widget_repo
 
 RANGES = {"7d": 7, "30d": 30, "90d": 90}
 DIRECT = "direct"
@@ -155,7 +156,10 @@ def _kpis_for(db: Session, bot_id: str, start: datetime, end: datetime, zone: Zo
     chats = len(_chat_ids(db, bot_id, start, end))
     m = _msg_counts(db, bot_id, start, end)
     tokens, estimated = _tokens(
-        db, bot_id, start.astimezone(zone).date(), (end - timedelta(seconds=1)).astimezone(zone).date()
+        db,
+        bot_id,
+        start.astimezone(zone).date(),
+        (end - timedelta(seconds=1)).astimezone(zone).date(),
     )
     return {
         "chats": chats,
@@ -181,8 +185,7 @@ def kpis(db: Session, bot_id: str, w: Window) -> dict:
 
 def series(db: Session, bot_id: str, w: Window) -> list[dict]:
     out = [
-        {"date": d.isoformat(), "chats": 0, "visitor_messages": 0, "unanswered": 0}
-        for d in w.days
+        {"date": d.isoformat(), "chats": 0, "visitor_messages": 0, "unanswered": 0} for d in w.days
     ]
     for ts in _chat_ids(db, bot_id, w.start, w.end).values():
         i = w.bucket(ts)

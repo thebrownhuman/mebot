@@ -33,9 +33,7 @@ def list_sessions(db: Session = Depends(get_db), bot: Bot = Depends(get_current_
     return sessions.list_with_turns(db, bot.id)
 
 
-@router.get(
-    "/sessions/{sid}/messages", deprecated=True, dependencies=[Depends(_deprecated)]
-)
+@router.get("/sessions/{sid}/messages", deprecated=True, dependencies=[Depends(_deprecated)])
 def session_messages(sid: str, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     if sessions.get(db, bot.id, sid) is None:
         raise HTTPException(404, "Unknown session")
