@@ -5,6 +5,7 @@ import SetupPage from "./pages/SetupPage";
 import LoginPage from "./pages/LoginPage";
 import LlmPage from "./pages/LlmPage";
 import AccountPage from "./pages/admin/AccountPage";
+import BillingPage from "./pages/admin/BillingPage";
 import KnowledgePage from "./pages/admin/KnowledgePage";
 import LimitsPage from "./pages/admin/LimitsPage";
 import NotificationsPage from "./pages/admin/NotificationsPage";
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="widget" element={<WidgetPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="account" element={<AccountPage />} />
+          <Route path="billing" element={<BillingPage />} />
           <Route path="get-started" element={<GetStartedPage />} />
         </Route>
         {/* anything else -> public chat */}
