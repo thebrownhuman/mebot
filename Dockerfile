@@ -26,7 +26,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     TZ=UTC \
     DATA_DIR=/data \
-    FRONTEND_DIST=/app/static \n    LEGAL_DIR=/app/legal \n    SDK_DIST=/app/sdk
+    FRONTEND_DIST=/app/static \
+    LEGAL_DIR=/app/legal \
+    SDK_DIST=/app/sdk
 
 WORKDIR /app/backend
 COPY backend/requirements.txt ./
