@@ -108,6 +108,27 @@ jobs:
       # Only production deps gate the build; dev-tool advisories don't ship.
       - run: npm audit --omit=dev --audit-level=high
 
+  # Plugin SDK: typecheck, unit tests, build (npm + CDN) and the 6 KB gzip budget.
+  sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/sdk/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run size
+      - run: npm audit --omit=dev --audit-level=high
+
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 20
