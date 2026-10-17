@@ -267,6 +267,14 @@ async def chat(
                         chunk_ids=knowledge.chunk_ids if knowledge.retrieval else None,
                     )
                 limiter.record_tokens(wdb, bot_id, ip, tokens, estimated=estimated)
+                if knowledge.retrieval:  # prompt vs whole-profile tokens, for the savings readout
+                    logs.add(
+                        wdb,
+                        bot_id,
+                        req.session_id,
+                        "RETRIEVAL",
+                        detail=f"{knowledge.prompt_tokens}/{knowledge.profile_tokens}",
+                    )
                 if chan.redactions:  # the count only, never the value
                     logs.add(
                         wdb, bot_id, req.session_id, "CHANNEL_REDACTED", detail=str(chan.redactions)
