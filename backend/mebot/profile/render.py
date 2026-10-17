@@ -118,11 +118,10 @@ def _skills(p: ProfileData) -> str | None:
     return _block("SKILLS", [skill_line(s) for s in p.items("skills")])
 
 
-def _projects(p: ProfileData) -> str | None:
-    lines: list[str | None] = []
-    for pr in p.items("projects"):
-        lines.append(f"- {pr['name']}" + (f": {pr['tagline']}" if pr.get("tagline") else ""))
-        lines += _indent(
+def project_lines(pr: dict) -> list[str | None]:
+    return [
+        f"- {pr['name']}" + (f": {pr['tagline']}" if pr.get("tagline") else ""),
+        *_indent(
             [
                 _line("Summary", pr.get("summary")),
                 _line("Problem", pr.get("problem")),
@@ -138,21 +137,33 @@ def _projects(p: ProfileData) -> str | None:
                 _line("Period", _period(pr.get("start_month"), pr.get("end_month"))),
                 _line("Status", pr.get("status")),
             ]
-        )
+        ),
+    ]
+
+
+def _projects(p: ProfileData) -> str | None:
+    lines: list[str | None] = []
+    for pr in p.items("projects"):
+        lines += project_lines(pr)
     return _block("PROJECTS", lines)
 
 
+def interest_line(i: dict) -> str:
+    return f"- {i['kind'].capitalize()}: {i['name']}" + (
+        f" ({i['description']})" if i.get("description") else ""
+    )
+
+
 def _interests(p: ProfileData) -> str | None:
-    lines = [
-        f"- {i['kind'].capitalize()}: {i['name']}"
-        + (f" ({i['description']})" if i.get("description") else "")
-        for i in p.items("interests")
-    ]
-    return _block("INTERESTS & HOBBIES", lines)
+    return _block("INTERESTS & HOBBIES", [interest_line(i) for i in p.items("interests")])
+
+
+def faq_text(f: dict) -> str:
+    return f"Q: {f['question']}\nA: {f['answer']}"
 
 
 def _faq(p: ProfileData) -> str | None:
-    return _block("FAQ", [f"Q: {f['question']}\nA: {f['answer']}" for f in p.items("faqs")])
+    return _block("FAQ", [faq_text(f) for f in p.items("faqs")])
 
 
 def _learned(p: ProfileData) -> str | None:
