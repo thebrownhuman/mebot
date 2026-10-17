@@ -23,6 +23,7 @@ import VerifyPage from "./pages/hosted/VerifyPage";
 import ResetPasswordPage from "./pages/hosted/ResetPasswordPage";
 import TenantGate from "./pages/hosted/TenantGate";
 import GetStartedPage from "./pages/hosted/GetStartedPage";
+import PlatformPage, { PlatformLoginPage } from "./pages/platform/PlatformPage";
 
 export default function App() {
   return (
@@ -35,6 +36,8 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/platform" element={<PlatformPage />} />
+        <Route path="/platform/login" element={<PlatformLoginPage />} />
         <Route path="/admin/login" element={<LoginPage />} />
         <Route
           path="/admin"
