@@ -20,7 +20,7 @@ def hash_token(token: str) -> str:
 def create(
     db: Session,
     admin_id: str,
-    ip: str | None = None,
+    ip_hash: str | None = None,
     user_agent: str | None = None,
     now: datetime | None = None,
 ) -> str:
@@ -33,7 +33,7 @@ def create(
             created_at=now,
             expires_at=now + TTL,
             last_seen_at=now,
-            ip=ip,
+            ip_hash=ip_hash,
             user_agent=(user_agent or "")[:512] or None,
         )
     )

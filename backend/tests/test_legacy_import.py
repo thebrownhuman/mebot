@@ -3,6 +3,7 @@ import sqlite3
 import sqlalchemy as sa
 
 from mebot.db import run_migrations
+from mebot.limits.counters import ip_hash
 from mebot.legacy import import_legacy
 
 LEGACY_SCHEMA = """
@@ -116,5 +117,10 @@ def test_imported_data_served_by_api(tmp_path):
         ]
         log = c.get("/api/admin/log").json()
         assert log == [
-            {"event": "session_start", "detail": "Alice", "ip": "127.0.0.1", "ts": 1760000000.0}
+            {
+                "event": "session_start",
+                "detail": "Alice",
+                "ip_hash": ip_hash(c.app.state.secret_key, "127.0.0.1")[:12],
+                "ts": 1760000000.0,
+            }
         ]

@@ -117,7 +117,14 @@ async def chat(
         profile_data.identity.get(k) or "" for k in ("email_public", "phone_public")
     ]
     sessions.add_message(db, bot_id, req.session_id, "user", req.message)
-    logs.add(db, bot_id, req.session_id, "question", detail=req.message[:200], ip=ip)
+    logs.add(
+        db,
+        bot_id,
+        req.session_id,
+        "question",
+        detail=req.message[:200],
+        ip_hash=counters.stored_ip_hash(request.app.state.secret_key, ip),
+    )
     # Telegram notifications are queued in the same transaction as the event.
     # Personal-looking questions are never forwarded to the owner.
     if hint is None:

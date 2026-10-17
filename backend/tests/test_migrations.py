@@ -52,7 +52,7 @@ def test_0003_auth_tables(tmp_path):
         "created_at",
         "expires_at",
         "last_seen_at",
-        "ip",
+        "ip_hash",
         "user_agent",
     }
     sess_ix = [ix["column_names"] for ix in insp.get_indexes("admin_sessions")]

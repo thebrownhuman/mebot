@@ -14,6 +14,7 @@ from mebot.config import Settings
 from mebot.db import get_db
 from mebot.deps import client_ip, get_settings
 from mebot.errors import ApiError
+from mebot.limits import counters
 from mebot.llm import service as llm
 from mebot.llm.providers import PROVIDERS
 from mebot.profile.schemas import IdentityIn
@@ -171,7 +172,10 @@ async def setup(
             # The bot name is usually the owner's name: a starting point for Identity.
             profile.put_identity(db, bot.id, IdentityIn(full_name=req.bot_name))
         token = admin_sessions.create(
-            db, admin.id, ip=client_ip(request), user_agent=request.headers.get("user-agent")
+            db,
+            admin.id,
+            ip_hash=counters.stored_ip_hash(request.app.state.secret_key, client_ip(request)),
+            user_agent=request.headers.get("user-agent"),
         )
         db.commit()
     except IntegrityError:

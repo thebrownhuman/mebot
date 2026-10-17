@@ -8,6 +8,7 @@ from mebot import turnstile
 from mebot.db import get_db
 from mebot.deps import client_ip, get_current_bot
 from mebot.errors import ApiError
+from mebot.limits import counters
 from mebot.limits.service import LimitExceeded
 from mebot.models import Bot
 from mebot.repos import limits as limits_repo
@@ -104,7 +105,14 @@ async def start_session(
         if not ok:
             raise ApiError(403, "TURNSTILE_FAILED", TURNSTILE_FAILED)
     sid = sessions.create(db, bot.id, req.recruiter_name)
-    logs.add(db, bot.id, sid, "session_start", detail=req.recruiter_name, ip=ip)
+    logs.add(
+        db,
+        bot.id,
+        sid,
+        "session_start",
+        detail=req.recruiter_name,
+        ip_hash=counters.stored_ip_hash(request.app.state.secret_key, ip),
+    )
     events.new_session(db, bot.id, sid, req.recruiter_name)
     db.commit()
     return {"session_id": sid}

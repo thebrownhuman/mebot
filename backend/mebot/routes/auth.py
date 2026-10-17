@@ -9,6 +9,7 @@ from mebot.config import Settings
 from mebot.db import get_db
 from mebot.deps import CurrentAdmin, client_ip, get_current_admin, get_current_bot, get_settings
 from mebot.errors import ApiError
+from mebot.limits import counters
 from mebot.models import Bot
 from mebot.repos import admin_sessions, admins
 
@@ -56,7 +57,12 @@ def login(
         raise ApiError(401, "INVALID_CREDENTIALS", "Invalid email or password")
 
     admin_sessions.purge_expired(db)
-    token = admin_sessions.create(db, admin.id, ip=ip, user_agent=request.headers.get("user-agent"))
+    token = admin_sessions.create(
+        db,
+        admin.id,
+        ip_hash=counters.stored_ip_hash(request.app.state.secret_key, ip),
+        user_agent=request.headers.get("user-agent"),
+    )
     db.commit()
     set_login_cookies(response, request, settings, token)
 

@@ -120,7 +120,7 @@ class AccessLog(Base):
     session_id: Mapped[str | None] = mapped_column(Text)
     event: Mapped[str] = mapped_column(Text, nullable=False)
     detail: Mapped[str | None] = mapped_column(Text)
-    ip: Mapped[str | None] = mapped_column(Text)
+    ip_hash: Mapped[str | None] = mapped_column(Text)  # HMAC(SECRET_KEY, ip), never raw
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     __table_args__ = (
         Index("ix_access_log_bot_id", "bot_id"),
@@ -148,7 +148,7 @@ class AdminSession(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
-    ip: Mapped[str | None] = mapped_column(Text)
+    ip_hash: Mapped[str | None] = mapped_column(Text)  # HMAC(SECRET_KEY, ip), never raw
     user_agent: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (
         Index("ix_admin_sessions_admin_id", "admin_id"),
