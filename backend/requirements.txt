@@ -1,15 +1,16 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
-httpx>=0.27
-sqlalchemy>=2.0
-alembic>=1.13
-pydantic-settings>=2.2
-argon2-cffi>=23.1
-email-validator>=2.1
-cryptography>=42
-pyyaml>=6
+# Runtime deps, pinned for reproducible images. Dependabot bumps these weekly.
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+httpx==0.28.1
+sqlalchemy==2.1.4
+alembic==1.20.0
+pydantic-settings==2.15.0
+argon2-cffi==25.1.0
+email-validator==2.3.0
+cryptography==50.0.2
+pyyaml==6.0.3
 # IANA timezones for the Telegram daily digest (Windows has no system tz database)
-tzdata>=2024.1
-pypdf>=5.0
-python-docx>=1.1
-python-multipart>=0.0.9
+tzdata==2026.5
+pypdf==6.21.0
+python-docx==1.2.0
+python-multipart==0.0.32

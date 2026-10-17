@@ -1,0 +1,4 @@
+# Files executed or compared byte-for-byte on Linux keep LF everywhere.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docs/configuration.md text eol=lf

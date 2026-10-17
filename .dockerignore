@@ -1,0 +1,24 @@
+# Only backend/, frontend/ and deploy/docker/ are copied; keep the context small and
+# never ship local data or secrets.
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/dist
+**/*.tsbuildinfo
+**/data
+**/*.db
+**/*.db-journal
+**/secret.key
+**/install.key
+**/.env
+**/.env.*
+backend/tests
+backend/evals
+registry
+.planning
+.git
+.github
+docs

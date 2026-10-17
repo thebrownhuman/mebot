@@ -38,6 +38,13 @@ def test_embed_bundle_and_index_are_no_cache(dist_client):
 def test_loader_cached_one_day(dist_client):
     r = dist_client.get("/widget/v1.js")
     assert r.status_code == 200 and r.headers["cache-control"] == "public, max-age=86400"
+    assert r.headers["access-control-allow-origin"] == "*"  # parity with the nginx setup
+
+
+def test_app_pages_cannot_be_framed(dist_client):
+    r = dist_client.get("/admin")
+    assert r.headers["x-frame-options"] == "DENY"
+    assert "frame-ancestors" in r.headers["content-security-policy"]
 
 
 @pytest.mark.parametrize("path", ["/admin", "/admin/login", "/setup", "/admin/widget/x"])
