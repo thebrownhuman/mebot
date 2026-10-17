@@ -14,6 +14,7 @@ import {
   type TelegramToggles,
   type TelegramView,
 } from "../../lib/api";
+import { browserTimezone, timezones } from "../../lib/timezones";
 
 // Owner's Telegram setup: bot token, linking (deep link + QR), what to be told about,
 // the daily digest, receive mode and the outbox's health.
@@ -41,46 +42,6 @@ const btn =
   "font-mono text-xs px-3 py-1.5 rounded border border-term-line2 text-term-fg hover:border-term-bright hover:text-term-bright disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-term-bright";
 const primaryBtn =
   "font-mono text-xs px-3 py-1.5 rounded border border-term-bright text-term-bright bg-term-bright/10 hover:bg-term-bright/20 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-term-bright";
-
-function browserTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-}
-
-// Always offered: some browsers can't list zones, and ICU lists legacy names
-// (Asia/Calcutta) where people look for the current ones (Asia/Kolkata).
-const COMMON_ZONES = [
-  "America/Los_Angeles",
-  "America/Denver",
-  "America/Chicago",
-  "America/New_York",
-  "America/Sao_Paulo",
-  "Europe/London",
-  "Europe/Berlin",
-  "Europe/Paris",
-  "Africa/Lagos",
-  "Asia/Dubai",
-  "Asia/Kolkata",
-  "Asia/Singapore",
-  "Asia/Shanghai",
-  "Asia/Tokyo",
-  "Australia/Sydney",
-];
-
-function timezones(current: string): string[] {
-  let list: string[] = [];
-  try {
-    const intl = Intl as unknown as { supportedValuesOf?: (k: string) => string[] };
-    list = intl.supportedValuesOf?.("timeZone") ?? [];
-  } catch {
-    list = [];
-  }
-  const all = new Set(["UTC", ...COMMON_ZONES, ...list, browserTimezone(), current]);
-  return [...all].sort((a, b) => (a === "UTC" ? -1 : b === "UTC" ? 1 : a.localeCompare(b)));
-}
 
 function fmtTime(iso: string | null): string {
   if (!iso) return "never";
