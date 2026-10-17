@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { CenteredCard, Field, FormError, SubmitButton } from "../components/AuthForm";
 import LlmForm, {
   emptyLlm,
@@ -44,7 +43,6 @@ const primaryBtn =
   "flex-1 border border-term-bright text-term-bright font-mono text-sm py-2.5 rounded hover:bg-term-bright/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-term-bright disabled:opacity-40 disabled:cursor-not-allowed";
 
 export default function SetupPage() {
-  const navigate = useNavigate();
   const { markSetupDone } = useSetup();
   const [step, setStep] = useState(0);
 
@@ -129,13 +127,11 @@ export default function SetupPage() {
         llm: cleanLlm(toLlmInput(llm)),
         ...(setupToken ? { setup_token: setupToken } : {}),
       });
-      markSetupDone();
-      navigate("/admin", { replace: true });
+      markSetupDone("/admin");
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 409) {
-        markSetupDone();
-        navigate("/admin/login", { replace: true });
+        markSetupDone("/admin/login");
         return;
       }
       if (apiErr.code === "LLM_TEST_FAILED") {
