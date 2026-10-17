@@ -159,7 +159,10 @@ class Telemetry:
             return
         now = now or self.clock()
         try:
-            await self._registration(now)
+            # Hosted: one heartbeat for the whole platform (install key + mode), never a
+            # tenant's registration or anything per tenant.
+            if not self.settings.hosted:
+                await self._registration(now)
             if now >= self.next_heartbeat_at:
                 await self._heartbeat(now)
         except Exception:  # nothing here may ever reach the app

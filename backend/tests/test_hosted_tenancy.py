@@ -5,7 +5,7 @@ from datetime import timedelta
 from conftest import csrf, make_tenant
 from fastapi.testclient import TestClient
 
-from mebot.models import SlugRedirect, utcnow
+from mebot.models import Bot, SlugRedirect, utcnow
 from mebot.repos import bots
 
 
@@ -137,3 +137,34 @@ def test_hosted_refuses_sqlite_without_override(hosted_settings, caplog):
     caplog.clear()
     create_app(sqlite)  # override: starts, with a warning
     assert "development only" in caplog.text
+
+
+def test_hosted_telemetry_is_platform_only(tenants, hosted_app):
+    import asyncio
+
+    a, _ = tenants
+    assert a.client.get("/api/admin/telemetry").status_code == 404
+    tele = hosted_app.state.telemetry
+    calls = []
+
+    class FakeClient:
+        async def heartbeat(self, ts):
+            calls.append("heartbeat")
+            return {"mode": "hosted"}
+
+        async def latest(self):
+            calls.append("latest")
+            raise_ = __import__("mebot.telemetry.client", fromlist=["RegistryError"])
+            raise raise_.RegistryError("offline")
+
+        async def register(self, *a):
+            calls.append("register")
+
+    tele.client = lambda: FakeClient()
+    tele.settings.telemetry = "on"
+    with hosted_app.state.session_factory() as db:
+        before = db.query(Bot).count()
+    asyncio.run(tele.run_due(now=tele.next_heartbeat_at))
+    assert calls[0] == "heartbeat" and "register" not in calls
+    with hosted_app.state.session_factory() as db:
+        assert db.query(Bot).count() == before  # no "default" bot conjured up

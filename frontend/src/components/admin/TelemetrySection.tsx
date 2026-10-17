@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAdmin } from "./AdminLayout";
+import { useSetup } from "../SetupGate";
 import { inputCls } from "./fields";
 import { CONSENT_LABEL, WhatIsSent } from "./TelemetryText";
 import { getTelemetry, saveTelemetry, type TelemetryStatus, type TelemetryView } from "../../lib/api";
@@ -47,7 +48,13 @@ function statusText(v: TelemetryView): string {
 
 // Account page, "mebot project": consent to register, contact e-mail, status and the
 // literal data that is sent.
+// Hosted mode: telemetry is the platform's (one heartbeat), so tenants don't see it.
 export default function TelemetrySection() {
+  const { hosted } = useSetup();
+  return hosted ? null : <TelemetrySettings />;
+}
+
+function TelemetrySettings() {
   const { toast } = useAdmin();
   const [view, setView] = useState<TelemetryView | null>(null);
   const [error, setError] = useState<string | null>(null);
