@@ -1,0 +1,35 @@
+{
+  "description": "Shared Ed25519 signing vectors. registry/ verifies them; mebot signs them. Do not edit by hand: regenerate.",
+  "private_seed_hex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "public_key_b64": "ebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ=",
+  "install_id": "65b60673d6ed884bf01c2c222d82ada0",
+  "cases": [
+    {
+      "method": "POST",
+      "path": "/v1/heartbeat",
+      "timestamp": "1760700000",
+      "body": "{\"install_id\":\"65b60673d6ed884bf01c2c222d82ada0\",\"public_key\":\"ebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ=\",\"version\":\"0.9.0\",\"mode\":\"single\"}",
+      "body_sha256": "91c9b3ecaa955724b419cca75a53bf2cc363a4150f3722c78d27e3647710474b",
+      "canonical": "POST\n/v1/heartbeat\n1760700000\n91c9b3ecaa955724b419cca75a53bf2cc363a4150f3722c78d27e3647710474b",
+      "signature_b64": "0cbd6OKZy1CeZaUx/lwrGdgig1acamK++gi4RI+siG6qZUwWREKSgQCYr1mbZmrQRkzZYhPn/+xpJzfNSeF4Dg=="
+    },
+    {
+      "method": "POST",
+      "path": "/v1/register",
+      "timestamp": "1760700123",
+      "body": "{\"email\":\"priya@acme.dev\",\"site_url\":\"https://priya.dev\"}",
+      "body_sha256": "9b75cc87cc8a6481f137bf5111eb74dd9db2363c00b7dc0750ab5d5bcc2d4127",
+      "canonical": "POST\n/v1/register\n1760700123\n9b75cc87cc8a6481f137bf5111eb74dd9db2363c00b7dc0750ab5d5bcc2d4127",
+      "signature_b64": "A0RJ8fzydozlKpq+uQmsIrBejWl6+c4htsOvLVh9sLn95tn41yAhfNo5aFR75yViYkYgutWvEB657ur7kzFoAQ=="
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/register",
+      "timestamp": "1760700456",
+      "body": "",
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonical": "DELETE\n/v1/register\n1760700456\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "signature_b64": "HYtvvdV2MU7Wk5wGX00pNBbtpWMeone51Ubo2v0m5DRBf6xuIv2Odn0MCP6x9WApR8lPqJpeRdCWb82b/EynAQ=="
+    }
+  ]
+}
