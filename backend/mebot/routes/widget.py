@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from mebot import persona, turnstile
 from mebot.db import get_db
-from mebot.deps import client_ip, get_current_admin
+from mebot.deps import client_ip, get_current_admin, get_current_bot
 from mebot.errors import ApiError
 from mebot.models import AccessLog, Bot, WidgetSettings
 from mebot.profile.data import load_profile
@@ -26,22 +26,34 @@ router = APIRouter()
 LOADER_CACHE = "public, max-age=86400"
 
 
-def resolve(db: Session, slug: str) -> tuple[Bot, WidgetSettings] | None:
-    """The bot behind an embed slug, while setup is done and its widget is enabled.
+def embed_ref(bot: Bot, hosted: bool) -> str:
+    """What data-bot / /embed/{ref} carry: the slug in single mode, the opaque public key
+    in hosted mode (renaming the slug doesn't break embeds)."""
+    return bot.public_key if hosted else bot.slug
 
-    Single mode serves one bot, so any other slug is unknown."""
-    if not admins.exists(db):
-        return None
-    bot = bots.get_primary(db)
-    if bot.slug != slug:
-        return None
+
+def resolve(db: Session, slug: str, hosted: bool = False) -> tuple[Bot, WidgetSettings] | None:
+    """The bot behind an embed ref, while it is live and its widget is enabled.
+
+    Single mode serves one bot, so any other slug is unknown. Hosted mode only accepts
+    public keys."""
+    if hosted:
+        bot = bots.get_live_by_public_key(db, slug)
+        if bot is None:
+            return None
+    else:
+        if not admins.exists(db):
+            return None
+        bot = bots.get_primary(db)
+        if bot.slug != slug:
+            return None
     row = widget_repo.get_or_create(db, bot.id)
     return (bot, row) if row.enabled else None
 
 
 @router.get("/embed/{slug}", response_class=HTMLResponse)
-def embed_page(slug: str, db: Session = Depends(get_db)):
-    found = resolve(db, slug)
+def embed_page(slug: str, request: Request, db: Session = Depends(get_db)):
+    found = resolve(db, slug, request.app.state.settings.hosted)
     if found is None:
         return HTMLResponse(
             UNAVAILABLE_HTML,
@@ -74,7 +86,7 @@ def loader_alias():
 @router.get("/api/public/widget/{slug}")
 def public_widget(slug: str, request: Request, db: Session = Depends(get_db)):
     """What the embed needs to render. Never the allowed-sites list."""
-    found = resolve(db, slug)
+    found = resolve(db, slug, request.app.state.settings.hosted)
     if found is None:
         raise ApiError(404, "WIDGET_UNAVAILABLE", "This chat is unavailable")
     bot, row = found
@@ -108,7 +120,7 @@ def launcher_settings(slug: str, request: Request, db: Session = Depends(get_db)
 
     The only cross-origin read in the widget: CORS is granted to allowed sites only (no
     credentials), so a site that may not frame the chat gets no launcher either."""
-    found = resolve(db, slug)
+    found = resolve(db, slug, request.app.state.settings.hosted)
     if found is None:
         raise ApiError(404, "WIDGET_UNAVAILABLE", "This chat is unavailable")
     bot, row = found
@@ -148,7 +160,7 @@ def widget_opened(slug: str, req: OpenedIn, request: Request, db: Session = Depe
 
     The origin comes from the loader's host-info message, so it is only stored when it
     is one the owner allowed. Always 204: callers learn nothing about the list."""
-    found = resolve(db, slug)
+    found = resolve(db, slug, request.app.state.settings.hosted)
     if found is None:
         raise ApiError(404, "WIDGET_UNAVAILABLE", "This chat is unavailable")
     bot, row = found
@@ -207,9 +219,9 @@ def widget_test(
     request: Request,
     db: Session = Depends(get_db),
     _admin=Depends(get_current_admin),
+    bot: Bot = Depends(get_current_bot),
 ):
-    bot = bots.get_primary(db)
-    attrs = [f'data-bot="{escape(bot.slug)}"']
+    attrs = [f'data-bot="{escape(embed_ref(bot, request.app.state.settings.hosted))}"']
     q = request.query_params
     if _TEST_COLOR.match(q.get("color", "")):
         attrs.append(f'data-color="{q["color"].lower()}"')

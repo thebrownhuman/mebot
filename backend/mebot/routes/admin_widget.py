@@ -98,10 +98,17 @@ class WidgetIn(BaseModel):
         return list(dict.fromkeys(v))
 
 
-def _out(row: WidgetSettings, bot: Bot) -> dict:
+def _ref(bot: Bot, request: Request) -> str:
+    from mebot.routes.widget import embed_ref
+
+    return embed_ref(bot, request.app.state.settings.hosted)
+
+
+def _out(row: WidgetSettings, bot: Bot, request: Request) -> dict:
     allowed = widget_repo.origins(row)
     return {
         "slug": bot.slug,
+        "embed_ref": _ref(bot, request),
         "enabled": row.enabled,
         "allowed_origins": allowed,
         "allow_any_origin": row.allow_any_origin,
@@ -120,12 +127,19 @@ def _out(row: WidgetSettings, bot: Bot) -> dict:
 
 
 @router.get("/widget")
-def get_widget(db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
-    return _out(widget_repo.get_or_create(db, bot.id), bot)
+def get_widget(
+    request: Request, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)
+):
+    return _out(widget_repo.get_or_create(db, bot.id), bot, request)
 
 
 @router.put("/widget")
-def put_widget(req: WidgetIn, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
+def put_widget(
+    req: WidgetIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    bot: Bot = Depends(get_current_bot),
+):
     values = req.model_dump(exclude_unset=True)
     confirm = values.pop("confirm_any_origin", False)
     row = widget_repo.get_or_create(db, bot.id)
@@ -153,7 +167,7 @@ def put_widget(req: WidgetIn, db: Session = Depends(get_db), bot: Bot = Depends(
         logs.add(db, bot.id, None, "WIDGET_ANY_ORIGIN_ON")
     logs.add(db, bot.id, None, "widget_updated", detail=",".join(sorted(values)))
     db.commit()
-    return _out(row, bot)
+    return _out(row, bot, request)
 
 
 def base_url(request: Request) -> str:
@@ -163,7 +177,7 @@ def base_url(request: Request) -> str:
 @router.get("/widget/snippets")
 def snippets(request: Request, db: Session = Depends(get_db), bot: Bot = Depends(get_current_bot)):
     base = escape(base_url(request))
-    slug = escape(bot.slug)
+    slug = escape(_ref(bot, request))
     first = escape(persona.display_name(load_profile(db, bot.id).identity, bot.name))
     loader = f'<script src="{base}/widget/v1.js" data-bot="{slug}"'
     return {
