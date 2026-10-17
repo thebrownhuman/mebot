@@ -1117,3 +1117,60 @@ export async function saveGithubToken(token: string): Promise<GithubTokenView> {
 export async function deleteGithubToken(): Promise<void> {
   await send(GH_TOKEN, { method: "DELETE", ...admin });
 }
+
+// --- admin: mebot project (install registry) -------------------------------------
+
+export type TelemetryStatus =
+  | "off"
+  | "unavailable"
+  | "not_registered"
+  | "waiting_for_public_url"
+  | "pending"
+  | "registered"
+  | "unregister_pending";
+
+export interface HeartbeatPayload {
+  install_id: string;
+  public_key: string;
+  version: string;
+  mode: string;
+}
+
+export interface TelemetryView {
+  telemetry: "on" | "off";
+  registry_url: string;
+  consent: boolean;
+  status: TelemetryStatus;
+  registered_at: string | null;
+  last_register_error: string | null;
+  install_id_prefix: string | null;
+  update_contact_email: string | null;
+  effective_email: string | null;
+  public_url: string | null;
+  last_heartbeat: { sent_at: string; payload: HeartbeatPayload } | null;
+  payload_preview: HeartbeatPayload | null;
+  last_check_at: string | null;
+  update: {
+    current: string;
+    latest: string | null;
+    available: boolean;
+    dismissed: boolean;
+    unsupported: boolean;
+    advisory: { id: string; severity: string; title: string; url: string | null } | null;
+  };
+}
+
+export async function getTelemetry(): Promise<TelemetryView> {
+  return json("/api/admin/telemetry", admin);
+}
+
+export async function saveTelemetry(body: {
+  consent?: boolean;
+  update_contact_email?: string | null;
+}): Promise<TelemetryView> {
+  return json("/api/admin/telemetry", { method: "PUT", body, ...admin });
+}
+
+export async function dismissUpdate(version: string): Promise<void> {
+  await send("/api/admin/telemetry/dismiss-update", { method: "POST", body: { version }, ...admin });
+}

@@ -149,6 +149,18 @@ def test_status_off_by_server_setting(admin_client, app):
     assert put(admin_client, consent=True).status_code == 200  # stored, but inert
 
 
+def test_old_update_info_is_hidden_when_telemetry_is_off(admin_client, app):
+    seed_state(
+        app,
+        latest_version="0.10.1",
+        advisories=json.dumps([{"id": "A", "affected": "<0.10.1", "title": "t"}]),
+    )
+    assert admin_client.get(URL).json()["update"]["advisory"]["id"] == "A"
+    app.state.settings.telemetry = "off"
+    u = admin_client.get(URL).json()["update"]
+    assert u["available"] is False and u["advisory"] is None
+
+
 def test_last_heartbeat_and_error_are_shown(admin_client, app):
     payload = {"install_id": "x" * 32, "public_key": "k", "version": "0.9.0", "mode": "single"}
     seed_state(

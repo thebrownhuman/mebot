@@ -11,6 +11,7 @@ import LlmForm, {
   type TestState,
 } from "../components/LlmForm";
 import { useSetup } from "../components/SetupGate";
+import { TELEMETRY_DOCS, WhatIsSent } from "../components/admin/TelemetryText";
 import {
   ApiError,
   cleanLlm,
@@ -24,8 +25,6 @@ import {
 const SLUG_RE = /^[a-z0-9-]{3,40}$/;
 const RESERVED = new Set(["admin", "setup", "api", "widget", "assets"]);
 const MIN_PASSWORD = 10;
-// TODO: point at the public repo once it exists (README "Telemetry & registration").
-const TELEMETRY_DOCS = "https://github.com/shivansh-ge/mebot#telemetry--registration";
 const STEPS = ["account", "AI provider", "your bot"] as const;
 
 export function slugify(name: string): string {
@@ -67,6 +66,7 @@ export default function SetupPage() {
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [showSent, setShowSent] = useState(false);
   const [botErrors, setBotErrors] = useState<BotErrors>({});
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -294,7 +294,7 @@ export default function SetupPage() {
               setSlug(e.target.value);
             }}
           />
-          <div className="flex gap-2 items-start mb-4">
+          <div className="flex gap-2 items-start mb-2">
             <input
               id="setup-consent"
               type="checkbox"
@@ -304,16 +304,32 @@ export default function SetupPage() {
             />
             <label htmlFor="setup-consent" className="text-xs text-term-fg leading-relaxed">
               Register this install with the mebot project (sends your email, site URL and version)
-              to get security alerts and updates.{" "}
-              <a
-                href={TELEMETRY_DOCS}
-                target="_blank"
-                rel="noreferrer"
-                className="text-term-bright underline"
-              >
-                What is sent?
-              </a>
+              to get security alerts and updates.
             </label>
+          </div>
+          <div className="mb-4 text-xs">
+            <button
+              type="button"
+              aria-expanded={showSent}
+              aria-controls="setup-sent"
+              onClick={() => setShowSent((v) => !v)}
+              className="text-term-bright underline"
+            >
+              What's sent?
+            </button>
+            {showSent && (
+              <div id="setup-sent" className="mt-2 border border-term-line2 rounded p-3">
+                <WhatIsSent />
+                <a
+                  href={TELEMETRY_DOCS}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-term-bright underline block mt-2"
+                >
+                  Read the details in the README
+                </a>
+              </div>
+            )}
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(1)} className={ghostBtn}>

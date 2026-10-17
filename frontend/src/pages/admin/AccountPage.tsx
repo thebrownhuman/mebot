@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Field, FormError, SubmitButton } from "../../components/AuthForm";
 import { AdminSection, useAdmin } from "../../components/admin/AdminLayout";
 import { inputCls } from "../../components/admin/fields";
+import TelemetrySection from "../../components/admin/TelemetrySection";
 import {
   changePassword,
   conversationExportUrl,
@@ -291,6 +292,7 @@ export default function AccountPage() {
     <AdminSection title="Account" intro={`Signed in as ${me.email}.`}>
       <Settings />
       <YourData />
+      <TelemetrySection />
       <form onSubmit={submit} className="max-w-sm">
         <h2 className="text-term-fg text-sm mb-3">Change password</h2>
         <FormError message={error} />
