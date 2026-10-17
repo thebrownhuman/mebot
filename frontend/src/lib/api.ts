@@ -1293,8 +1293,8 @@ export async function getHostedConfig(): Promise<HostedConfig> {
   return json(`${H}/config`);
 }
 
-export async function signup(req: SignupReq): Promise<void> {
-  await send(`${H}/signup`, { method: "POST", body: req });
+export async function signup(req: SignupReq): Promise<{ approval_required?: boolean }> {
+  return json(`${H}/signup`, { method: "POST", body: req });
 }
 
 export async function verifyEmail(token: string): Promise<void> {
@@ -1332,4 +1332,94 @@ export const hostedExportUrl = `${H}/account/export`;
 
 export async function deleteHostedAccount(password: string): Promise<void> {
   await send(`${H}/account/delete`, { method: "POST", body: { password }, ...admin });
+}
+
+// --- hosted mode: platform operator ---------------------------------------------
+
+export interface PlatformTenant {
+  id: string;
+  slug: string;
+  owner_email: string | null;
+  email_verified: boolean;
+  created_at: string;
+  status: "active" | "suspended" | "deleted" | "pending";
+  status_reason: string | null;
+  plan: string;
+  setup_done: boolean;
+  messages_7d: number;
+  messages_30d: number;
+  tokens_30d: number;
+  last_active_at: string | null;
+  deletion_requested_at: string | null;
+}
+
+export interface PlatformInvite {
+  id: string;
+  note: string | null;
+  created_at: string;
+  expires_at: string | null;
+  used_at: string | null;
+}
+
+export interface PlatformAuditEntry {
+  at: string;
+  actor: string | null;
+  action: string;
+  tenant: string | null;
+  detail: string | null;
+}
+
+const P_ = "/api/platform";
+
+export async function platformLogin(email: string, password: string): Promise<void> {
+  await send(`${P_}/auth/login`, { method: "POST", body: { email, password } });
+}
+
+export async function platformLogout(): Promise<void> {
+  await send(`${P_}/auth/logout`, { method: "POST" });
+}
+
+export async function platformMe(): Promise<{ email: string }> {
+  return json(`${P_}/auth/me`);
+}
+
+export async function platformTenants(): Promise<PlatformTenant[]> {
+  return (await json<{ items: PlatformTenant[] }>(`${P_}/tenants`)).items;
+}
+
+export async function platformSignups(): Promise<PlatformTenant[]> {
+  return (await json<{ items: PlatformTenant[] }>(`${P_}/signups`)).items;
+}
+
+export type TenantAction = "approve" | "suspend" | "unsuspend" | "delete" | "resend-verification";
+
+export async function platformTenantAction(
+  id: string,
+  action: TenantAction,
+  reason?: string,
+): Promise<void> {
+  await send(`${P_}/tenants/${encodeURIComponent(id)}/${action}`, {
+    method: "POST",
+    body: reason === undefined ? undefined : { reason },
+  });
+}
+
+export async function platformInvites(): Promise<PlatformInvite[]> {
+  return (await json<{ items: PlatformInvite[] }>(`${P_}/invites`)).items;
+}
+
+export async function platformCreateInvite(note: string, days: number): Promise<string> {
+  const d = await json<{ code: string }>(`${P_}/invites`, {
+    method: "POST",
+    body: { note: note || null, days },
+  });
+  return d.code;
+}
+
+export async function platformRevokeInvite(id: string): Promise<void> {
+  await send(`${P_}/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function platformAudit(): Promise<PlatformAuditEntry[]> {
+  return (await json<{ items: PlatformAuditEntry[] }>(`${P_}/audit`)).items;
 }

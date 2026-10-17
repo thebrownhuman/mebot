@@ -39,6 +39,7 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [queued, setQueued] = useState(false);
 
   useEffect(() => {
     getHostedConfig()
@@ -79,8 +80,10 @@ export default function SignupPage() {
     return (
       <CenteredCard title="// sign up" heading="Check your e-mail">
         <p className="text-term-fg text-sm">
-          We sent a link to <strong>{email}</strong>. Open it to confirm your address, then log
-          in to set up your assistant.
+          We sent a link to <strong>{email}</strong>. Open it to confirm your address
+          {queued
+            ? ". Your sign-up also needs approval; we'll e-mail you once it's approved."
+            : ", then log in to set up your assistant."}
         </p>
       </CenteredCard>
     );
@@ -93,7 +96,6 @@ export default function SignupPage() {
     if (!name.trim()) e.bot_name = "Enter your name.";
     const sp = slugProblem(slug);
     if (sp) e.slug = sp;
-    if (cfg?.signup_mode === "invite" && !invite.trim()) e.invite_code = "An invite code is needed.";
     return e;
   }
 
@@ -109,7 +111,7 @@ export default function SignupPage() {
     }
     setBusy(true);
     try {
-      await signup({
+      const res = await signup({
         email,
         password,
         bot_name: name.trim(),
@@ -117,6 +119,7 @@ export default function SignupPage() {
         invite_code: invite.trim() || undefined,
         turnstile_token: token,
       });
+      setQueued(Boolean(res?.approval_required));
       setDone(true);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -179,7 +182,8 @@ export default function SignupPage() {
         {cfg.signup_mode === "invite" && (
           <Field
             id="su-invite"
-            label="invite code"
+            label="invite code (optional)"
+            hint="Without one, your sign-up waits for approval."
             value={invite}
             error={errors.invite_code}
             onChange={(e) => setInvite(e.target.value)}

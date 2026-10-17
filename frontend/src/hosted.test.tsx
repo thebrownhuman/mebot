@@ -92,6 +92,21 @@ describe("signup", () => {
     expect(await screen.findByText(/that address is taken/i)).toBeTruthy();
   });
 
+  it("invite mode without a code says approval is needed", async () => {
+    hosted({
+      "GET /api/hosted/config": () => jsonResponse({ ...CFG, signup_mode: "invite" }),
+      "POST /api/hosted/signup": () => jsonResponse({ status: "ok", approval_required: true }, 202),
+    });
+    renderAt("/signup");
+    await screen.findByLabelText(/invite code/i);
+    type(/your name/i, "Queued Person");
+    type(/e-mail/i, "q@example.com");
+    type(/^password/i, "longenough1");
+    fireEvent.click(screen.getByRole("button", { name: /bot check/i }));
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    expect(await screen.findByText(/needs approval/i)).toBeTruthy();
+  });
+
   it("asks for an invite code in invite mode and is closed in closed mode", async () => {
     hosted({ "GET /api/hosted/config": () => jsonResponse({ ...CFG, signup_mode: "invite" }) });
     renderAt("/signup");
