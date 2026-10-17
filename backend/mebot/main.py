@@ -15,6 +15,7 @@ from mebot import retention
 from mebot.config import ConfigError, Settings, ensure_data_dir, resolve_secret_key
 from mebot.db import make_session_factory, run_migrations
 from mebot.errors import error_body, install_error_handlers
+from mebot.hosted.tenant import TenantMiddleware
 from mebot.imports import github_import, linkedin, pipelines, resume  # noqa: F401 - importing registers the runner
 from mebot.limits import counters
 from mebot.limits.memory import LoginLimiter, SlidingWindowLimiter
@@ -114,6 +115,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     retention.purge_all_bots(app.state.session_factory)
     install_error_handlers(app)
     app.add_exception_handler(RequestValidationError, _validation_error)
+    # Inside CORS: rewrites /b/{ref}/... and picks the tenant (hosted mode).
+    app.add_middleware(
+        TenantMiddleware, settings=settings, session_factory=app.state.session_factory
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

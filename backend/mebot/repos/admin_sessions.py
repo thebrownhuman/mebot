@@ -23,6 +23,7 @@ def create(
     ip_hash: str | None = None,
     user_agent: str | None = None,
     now: datetime | None = None,
+    bot_id: str | None = None,
 ) -> str:
     now = now or utcnow()
     token = secrets.token_urlsafe(32)
@@ -30,6 +31,7 @@ def create(
         AdminSession(
             id=hash_token(token),
             admin_id=admin_id,
+            bot_id=bot_id,
             created_at=now,
             expires_at=now + TTL,
             last_seen_at=now,
@@ -77,3 +79,8 @@ def purge_expired(db: Session, now: datetime | None = None) -> int:
     result = db.execute(delete(AdminSession).where(AdminSession.expires_at <= (now or utcnow())))
     db.commit()
     return result.rowcount
+
+
+def revoke_for_bot(db: Session, bot_id: str) -> None:
+    """Log out every session of a tenant (suspension, deletion)."""
+    db.execute(delete(AdminSession).where(AdminSession.bot_id == bot_id))

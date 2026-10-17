@@ -3,11 +3,68 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from mebot.legacy import DEFAULT_NAME, DEFAULT_SLUG
-from mebot.models import Admin, Bot, utcnow
+from mebot.models import Admin, Bot, SlugRedirect, utcnow
 
 
 def get_by_slug(db: Session, slug: str) -> Bot | None:
     return db.scalar(select(Bot).where(Bot.slug == slug, Bot.deleted_at.is_(None)))
+
+
+def get(db: Session, bot_id: str) -> Bot | None:
+    return db.scalar(select(Bot).where(Bot.id == bot_id, Bot.deleted_at.is_(None)))
+
+
+def _live(db: Session, bot: Bot | None) -> Bot | None:
+    """bot if it may answer the public: active, set up, owner e-mail verified."""
+    if bot is None or bot.status != "active" or bot.deletion_requested_at is not None:
+        return None
+    if bot.setup_completed_at is None:
+        return None
+    owner = db.scalar(
+        select(Admin).where(
+            Admin.bot_id == bot.id,
+            Admin.deleted_at.is_(None),
+            Admin.email_verified_at.is_not(None),
+        )
+    )
+    return bot if owner is not None else None
+
+
+def get_live_by_slug(db: Session, slug: str) -> Bot | None:
+    return _live(db, get_by_slug(db, slug))
+
+
+def get_live_by_public_key(db: Session, key: str) -> Bot | None:
+    bot = db.scalar(select(Bot).where(Bot.public_key == key, Bot.deleted_at.is_(None)))
+    return _live(db, bot)
+
+
+def redirect_target(db: Session, old_slug: str, now=None) -> Bot | None:
+    """Bot an old slug still points to (kept for 30 days after a rename)."""
+    row = db.scalar(
+        select(SlugRedirect).where(
+            SlugRedirect.old_slug == old_slug, SlugRedirect.expires_at > (now or utcnow())
+        )
+    )
+    return get_live_by_slug_id(db, row.bot_id) if row else None
+
+
+def get_live_by_slug_id(db: Session, bot_id: str) -> Bot | None:
+    return _live(db, get(db, bot_id))
+
+
+def slug_taken(db: Session, slug: str, now=None) -> bool:
+    """Taken by a bot (any status, so a suspended tenant keeps it) or a live redirect."""
+    if db.scalar(select(Bot.id).where(Bot.slug == slug).limit(1)) is not None:
+        return True
+    return (
+        db.scalar(
+            select(SlugRedirect.id).where(
+                SlugRedirect.old_slug == slug, SlugRedirect.expires_at > (now or utcnow())
+            )
+        )
+        is not None
+    )
 
 
 def create(db: Session, slug: str, name: str) -> Bot:

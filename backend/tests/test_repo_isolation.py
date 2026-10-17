@@ -34,6 +34,7 @@ TENANT_MODELS = {
     and "bot_id" in obj.__table__.c
     and obj.__tablename__ != "admin_sessions"  # keyed by admin; see test below
     and obj.__tablename__ != "admins"  # login looks admins up by e-mail, before any bot
+    and obj.__tablename__ != "slug_redirects"  # looked up by old slug, before any bot
 }
 
 QUERY_CALLS = {"select", "update", "delete", "exists"}

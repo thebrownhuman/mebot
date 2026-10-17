@@ -62,6 +62,7 @@ def login(
         admin.id,
         ip_hash=counters.stored_ip_hash(request.app.state.secret_key, ip),
         user_agent=request.headers.get("user-agent"),
+        bot_id=admin.bot_id,
     )
     db.commit()
     set_login_cookies(response, request, settings, token)
