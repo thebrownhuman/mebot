@@ -130,6 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.import_day_limiter = SlidingWindowLimiter(limit=10, window_seconds=86400)
     app.state.mailer = make_mailer(settings)
     # Paid plans: empty unless MODE=hosted and BILLING_PROVIDERS is set (tests swap them).
+    app.state.billing_tasks = set()  # fire-and-forget owner mails
     app.state.billing_providers = {
         name: billing_providers.make(name, settings) for name in settings.billing_provider_list
     }

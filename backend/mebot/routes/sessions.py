@@ -88,7 +88,7 @@ async def start_session(
 ):
     ip = client_ip(request)
     settings = request.app.state.settings
-    limits = caps.clamp(limits_repo.get_or_create(db, bot.id), settings)
+    limits = caps.effective(db, settings, bot.id, limits_repo.get_or_create(db, bot.id))
     limiter = request.app.state.chat_limiter
     wait = limiter.session_start_wait(limits, ip)
     if wait is not None:

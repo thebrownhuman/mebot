@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from mebot import turnstile
 from mebot.auth import passwords
 from mebot.auth.csrf import require_csrf
+from mebot.billing import service as billing
 from mebot.config import Settings
 from mebot.db import get_db
 from mebot.deps import client_ip, get_settings
@@ -44,6 +45,8 @@ class SignupReq(BaseModel):
     slug: str = Field(max_length=40)
     invite_code: str | None = Field(default=None, max_length=100)
     turnstile_token: str | None = Field(default=None, max_length=4096)
+    # Terms of service + privacy policy (required when paid plans are on).
+    accept_terms: bool = False
 
     @field_validator("bot_name")
     @classmethod
@@ -109,6 +112,10 @@ def config(settings: Settings = Depends(get_settings)):
         "signup_mode": settings.signup_mode,
         "turnstile_site_key": settings.turnstile_site_key,
         "hosted_domain": settings.hosted_domain,
+        "billing_enabled": settings.billing_enabled,
+        "terms_version": settings.terms_version,
+        "trial_days": settings.trial_days,
+        "trial_messages": settings.trial_messages,
     }
 
 
@@ -122,6 +129,11 @@ async def signup(
 ):
     if settings.signup_mode == "closed":
         raise ApiError(403, "SIGNUP_CLOSED", "Sign-up is closed.")
+    if settings.billing_enabled and not req.accept_terms:
+        raise ApiError(
+            422, "VALIDATION_ERROR", "Invalid request",
+            [{"field": "accept_terms", "message": "Please accept the terms and privacy policy"}],
+        )  # fmt: skip
     _limit(request, "signup")
     await _turnstile(request, settings, req.turnstile_token)
     # Invite mode: a valid code goes live; no code joins the operator's approval queue.
@@ -158,6 +170,11 @@ async def signup(
         ):
             db.rollback()
             raise ApiError(400, "INVITE_INVALID", "That invite code isn't valid.")
+        if req.accept_terms:
+            admin.terms_version = settings.terms_version
+            admin.terms_accepted_at = utcnow()
+        if not queued:  # live at once: the trial starts now (queued ones at approval)
+            billing.start_trial(db, settings, request.app.state.secret_key, bot.id, admin.email)
         token = account_tokens.issue(db, "verify", admin.id)
         db.commit()
     except IntegrityError:  # concurrent sign-up took the slug or e-mail

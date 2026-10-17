@@ -8,7 +8,8 @@ works the same without the prefix.
 
 Only public paths may carry a tenant: admin and account APIs always use the logged-in
 owner's bot (see deps.get_current_bot), so ``/b/{other}/api/admin/...`` is a 404.
-Unknown, suspended, deleted or not-yet-live bots are all the same neutral 404.
+Unknown, suspended, deleted, not-yet-live and (with paid plans) unpaid bots are all the
+same neutral 404.
 In single mode ``/b/...`` is always a 404.
 """
 
@@ -18,6 +19,7 @@ import anyio
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from mebot.billing import service as billing
 from mebot.errors import error_body
 from mebot.repos import bots
 
@@ -104,9 +106,12 @@ class TenantMiddleware:
         with self.session_factory() as db:
             if ref.startswith("pk_"):
                 bot = bots.get_live_by_public_key(db, ref)
-                return (bot.id if bot else None), None
+                return (bot.id if self._serving(db, bot) else None), None
             bot = bots.get_live_by_slug(db, ref)
             if bot is not None:
-                return bot.id, None
+                return (bot.id if self._serving(db, bot) else None), None
             moved = bots.redirect_target(db, ref)
             return None, (moved.slug if moved else None)
+
+    def _serving(self, db, bot) -> bool:
+        return bot is not None and billing.is_serving(db, self.settings, bot.id)
