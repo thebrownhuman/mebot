@@ -32,3 +32,10 @@ install.key
 registry/data/*
 !registry/data/.gitkeep
 registry/releases.local.json
+
+# hosted compose runtime state
+deploy/hosted/postgres/
+deploy/hosted/data/
+deploy/hosted/caddy-data/
+deploy/hosted/caddy-config/
+deploy/hosted/.env

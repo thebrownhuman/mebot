@@ -1,0 +1,15 @@
+# HTTPS for the platform domain. mebot trusts X-Forwarded-* from Caddy (TRUST_PROXY=true),
+# so mebot itself must only be reachable through this proxy (it only `expose`s 8000).
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy mebot:8000
+}
+
+# Optional per-bot subdomains ({slug}.HOSTED_DOMAIN). Wildcard certificates need the DNS
+# challenge: build Caddy with your DNS provider's module (xcaddy) and uncomment, e.g.
+# *.{$HOSTED_DOMAIN} {
+# 	tls {
+# 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+# 	}
+# 	reverse_proxy mebot:8000
+# }

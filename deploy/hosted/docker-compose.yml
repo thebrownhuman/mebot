@@ -1,0 +1,55 @@
+# mebot in hosted mode: many owners on one deployment. Postgres + mebot + Caddy (HTTPS).
+#   cp .env.example .env    # fill in DOMAIN, SECRET_KEY, POSTGRES_PASSWORD, SMTP, Turnstile
+#   docker compose up -d
+#   docker compose exec mebot python -m mebot.cli platform-admin create you@example.com
+# Then open https://$DOMAIN/platform. See docs/deploy/hosted.md.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mebot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: mebot
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mebot -d mebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mebot:
+    image: ghcr.io/${MEBOT_OWNER:-OWNER}/mebot:${MEBOT_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      MODE: hosted
+      DATABASE_URL: postgresql+psycopg://mebot:${POSTGRES_PASSWORD}@postgres:5432/mebot
+      PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}
+      CORS_ORIGINS: https://${DOMAIN}
+      TRUST_PROXY: "true"
+      COOKIE_SECURE: "true"
+    volumes:
+      # install.key (telemetry identity) lives here; everything else is in Postgres.
+      - ./data:/data
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on: [mebot]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      HOSTED_DOMAIN: ${HOSTED_DOMAIN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-data:/data
+      - ./caddy-config:/config

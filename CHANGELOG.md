@@ -6,6 +6,13 @@ All notable changes to mebot are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Hosted mode** (`MODE=hosted`, Postgres): sign-up with verification and Turnstile, per-tenant
+  setup, public pages at `/b/{slug}`, embeds by public key, per-tenant caps, webhook-only
+  Telegram, account export and deletion, and an operator console at `/platform` with an audit
+  log. See docs/deploy/hosted.md.
+
 ## [0.9.0] - 2026-10-17
 
 First public release.

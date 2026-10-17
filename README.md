@@ -142,6 +142,7 @@ Downgrades aren't supported. Coming from the old two-container compose:
 [Troubleshooting](docs/troubleshooting.md) ·
 [FAQ](docs/faq.md) ·
 [Homelab deploy](docs/deploy/homelab.md) ·
+[Hosted mode](docs/deploy/hosted.md) ·
 [Platform deploys](docs/deploy/platforms.md)
 
 ## Development
