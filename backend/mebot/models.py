@@ -776,6 +776,8 @@ class Subscription(Base):
     inactive_since: Mapped[datetime | None] = mapped_column(UTCDateTime)
     # Owner mails already sent (comma-separated keys), so each goes out once per trial.
     notices: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # Optional, entered by the owner for GST invoices (India).
+    owner_gstin: Mapped[str | None] = mapped_column(Text)
     updated_from_event_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)

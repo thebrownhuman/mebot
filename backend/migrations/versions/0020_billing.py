@@ -53,6 +53,7 @@ def upgrade() -> None:
         sa.Column("comp_until", TS),
         sa.Column("inactive_since", TS),
         sa.Column("notices", sa.Text, nullable=False, server_default=""),
+        sa.Column("owner_gstin", sa.Text),
         sa.Column("updated_from_event_at", TS),
         sa.Column("created_at", TS, nullable=False),
         sa.Column("updated_at", TS, nullable=False),
