@@ -9,16 +9,25 @@ from sqlalchemy.orm import Session
 
 from mebot.db import get_db
 from mebot.deps import csrf_on_mutation, get_current_admin, get_current_bot, require_setup_done
+from mebot.errors import ApiError
 from mebot.models import Bot
 from mebot.repos import logs
 from mebot.telemetry import identity, semver
 from mebot.telemetry.service import Telemetry, contact_email, get_state, update_info
+
+
+def _single_only(request: Request) -> None:
+    # Hosted: telemetry belongs to the platform (one heartbeat), not to any tenant.
+    if request.app.state.settings.hosted:
+        raise ApiError(404, "NOT_FOUND", "Not Found")
+
 
 router = APIRouter(
     prefix="/api/admin/telemetry",
     dependencies=[
         Depends(require_setup_done),
         Depends(get_current_admin),
+        Depends(_single_only),
         Depends(csrf_on_mutation),
     ],
 )
