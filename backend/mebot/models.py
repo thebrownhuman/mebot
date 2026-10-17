@@ -13,6 +13,7 @@ from sqlalchemy import (
     Float,
     Index,
     Integer,
+    LargeBinary,
     Text,
     TypeDecorator,
     false,
@@ -106,6 +107,8 @@ class Message(Base):
     from_owner: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False
     )
+    # JSON list of knowledge_chunks ids the model saw for this reply (retrieval mode, 0017).
+    chunk_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         Index("ix_messages_bot_id", "bot_id"),
         Index("ix_messages_session_id_created_at", "session_id", "created_at"),
@@ -581,3 +584,42 @@ class TelemetryState(Base):
     advisories: Mapped[str] = mapped_column(Text, default="[]", nullable=False)  # JSON
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+
+# --- retrieval (migration 0017) ------------------------------------------------------
+
+
+class KnowledgeChunk(Base):
+    """One retrievable item of the profile (see mebot.retrieval.chunker)."""
+
+    __tablename__ = "knowledge_chunks"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    section: Mapped[str] = mapped_column(Text, nullable=False)
+    item_key: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (
+        Index("ux_knowledge_chunks_bot_id_item_key", "bot_id", "item_key", unique=True),
+    )
+
+
+class RetrievalSettings(Base):
+    __tablename__ = "retrieval_settings"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(Text, default="auto", nullable=False)  # auto|always|off
+    embeddings_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    embedding_model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_indexed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    __table_args__ = (Index("ux_retrieval_settings_bot_id", "bot_id", unique=True),)
