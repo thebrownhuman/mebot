@@ -3,6 +3,7 @@
 Every tenant-owned table carries ``bot_id``; repos always filter on it.
 """
 
+import secrets
 import uuid
 from datetime import UTC, datetime
 
@@ -27,6 +28,11 @@ def utcnow() -> datetime:
 
 def new_id() -> str:
     return str(uuid.uuid4())
+
+
+def new_public_key() -> str:
+    """Opaque bot id for widget embeds. Slugs can't contain "_", so the two never clash."""
+    return "pk_" + secrets.token_hex(12)
 
 
 class UTCDateTime(TypeDecorator):
@@ -75,6 +81,19 @@ class Bot(Base):
     update_contact_email: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Update banner the owner dismissed (shown again for any newer version).
     dismissed_update_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Hosted mode (0018). Embeds address the bot by public_key, not slug.
+    public_key: Mapped[str] = mapped_column(Text, default=new_public_key, nullable=False)
+    # active | suspended | deleted. Only active bots answer the public.
+    status: Mapped[str] = mapped_column(
+        Text, default="active", server_default="active", nullable=False
+    )
+    # Operator-only note on a suspension; never shown publicly.
+    status_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Billing hook for #16; unused until then.
+    plan: Mapped[str] = mapped_column(Text, default="free", server_default="free", nullable=False)
+    # Owner asked for deletion: offline now, hard purge after the grace period.
+    deletion_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    __table_args__ = (Index("ux_bots_public_key", "public_key", unique=True),)
 
 
 class ChatSession(Base):
@@ -134,7 +153,8 @@ class Admin(Base):
     id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
     email: Mapped[str] = mapped_column(Text, nullable=False)  # stored lowercased
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    bot_id: Mapped[str | None] = mapped_column(Text, nullable=True)  # hosted mode, later
+    bot_id: Mapped[str | None] = mapped_column(Text, nullable=True)  # required in hosted mode
+    email_verified_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -145,6 +165,8 @@ class AdminSession(Base):
     __tablename__ = "admin_sessions"
     id: Mapped[str] = mapped_column(Text, primary_key=True)  # sha256(token) hex
     admin_id: Mapped[str] = mapped_column(Text, nullable=False)
+    # Tenant the session was created for (hosted); a mismatch with admins.bot_id is invalid.
+    bot_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
@@ -581,3 +603,50 @@ class TelemetryState(Base):
     advisories: Mapped[str] = mapped_column(Text, default="[]", nullable=False)  # JSON
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+
+# --- Hosted accounts (0018). Platform tables: no bot_id, keyed by admin or global. ---
+
+
+class _AccountToken:
+    id: Mapped[str] = mapped_column(Text, primary_key=True)  # sha256(token) hex
+    admin_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class PasswordReset(_AccountToken, Base):
+    __tablename__ = "password_resets"
+    __table_args__ = (Index("ix_password_resets_admin_id", "admin_id"),)
+
+
+class EmailVerification(_AccountToken, Base):
+    __tablename__ = "email_verifications"
+    __table_args__ = (Index("ix_email_verifications_admin_id", "admin_id"),)
+
+
+class Invite(Base):
+    __tablename__ = "invites"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    code_hash: Mapped[str] = mapped_column(Text, nullable=False)  # sha256(code) hex
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    used_by_admin_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    __table_args__ = (Index("ux_invites_code_hash", "code_hash", unique=True),)
+
+
+class SlugRedirect(Base):
+    __tablename__ = "slug_redirects"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    old_slug: Mapped[str] = mapped_column(Text, nullable=False)
+    bot_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    __table_args__ = (
+        Index("ux_slug_redirects_old_slug", "old_slug", unique=True),
+        Index("ix_slug_redirects_bot_id", "bot_id"),
+    )
