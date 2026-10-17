@@ -5,9 +5,12 @@ prompts, profiles, contacts or conversations; tests/test_platform.py enumerates 
 routes and asserts that. Every state-changing action is written to the audit log.
 """
 
+import json
+from typing import Literal
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,7 +25,7 @@ from mebot.deps import client_ip, get_settings
 from mebot.errors import ApiError
 from mebot.hosted import mailer
 from mebot.hosted import operator as op
-from mebot.models import Admin, Bot, Invite, PlatformAdmin, utcnow
+from mebot.models import Admin, Bot, Invite, Plan, PlatformAdmin, utcnow
 from mebot.repos import account_tokens, admin_sessions, bots, invites
 from mebot.routes.hosted_accounts import require_hosted
 
@@ -295,3 +298,108 @@ def revoke_invite(
 @router.get("/audit", dependencies=[Depends(current_operator)])
 def audit_log(db: Session = Depends(get_db)):
     return {"items": op.audit_page(db)}
+
+
+# --- billing (paid plans) ------------------------------------------------------------------
+
+
+class CompReq(BaseModel):
+    days: int = Field(ge=1, le=365)
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class PriceIn(BaseModel):
+    amount_minor: int = Field(ge=0, le=100_000_000)
+    provider: Literal["razorpay", "stripe"]
+    provider_plan_id: str = Field(min_length=1, max_length=100)
+
+
+class PlanIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    active: bool | None = None
+    prices: dict[str, PriceIn] | None = None
+    limits: dict[str, int] | None = None
+
+    @field_validator("prices")
+    @classmethod
+    def _prices(cls, v):
+        for cur, price in (v or {}).items():
+            if len(cur) != 3 or not cur.isalpha() or not cur.isupper():
+                raise ValueError(f"{cur!r} is not a currency code like INR or USD")
+            want = "razorpay" if cur == "INR" else "stripe"
+            if price.provider != want:
+                raise ValueError(f"{cur} is sold through {want}")
+        return v
+
+    @field_validator("limits")
+    @classmethod
+    def _limits(cls, v):
+        for k, n in (v or {}).items():
+            if k not in billing.LIMIT_KEYS:
+                raise ValueError(f"unknown limit {k!r}")
+            if n < 1:
+                raise ValueError(f"{k} must be at least 1")
+        return v
+
+
+def _require_billing(request: Request) -> None:
+    if not billing.enabled(request.app.state.settings):
+        raise ApiError(404, "NOT_FOUND", "Paid plans are off on this server.")
+
+
+@router.get("/billing", dependencies=[Depends(current_operator)])
+def billing_overview(request: Request, db: Session = Depends(get_db)):
+    return {
+        "enabled": billing.enabled(request.app.state.settings),
+        **op.billing_summary(db),
+        "plans": [billing.plan_view(p) for p in billing.plans(db)],
+    }
+
+
+@router.post("/billing/reconcile", dependencies=[*operator_only, Depends(_require_billing)])
+async def billing_reconcile(request: Request, actor: PlatformAdmin = Depends(current_operator)):
+    out = await billing_jobs.reconcile(request.app, actor_id=actor.id)
+    with request.app.state.session_factory() as db:
+        op.audit(db, actor.id, "billing_reconcile", None, json.dumps(out))
+        db.commit()
+    return out
+
+
+@router.post("/tenants/{bot_id}/comp", dependencies=[*operator_only, Depends(_require_billing)])
+def comp_tenant(
+    bot_id: str,
+    req: CompReq,
+    db: Session = Depends(get_db),
+    actor: PlatformAdmin = Depends(current_operator),
+):
+    """Grant N free days (serving regardless of payment), with a reason, audited."""
+    bot = _tenant(db, bot_id)
+    sub = billing.comp(db, bot.id, req.days)
+    op.audit(db, actor.id, "billing_comp", bot.id, f"+{req.days}d: {req.reason.strip()}")
+    db.commit()
+    return {"comp_until": sub.comp_until.isoformat()}
+
+
+@router.put("/plans/{code}", dependencies=operator_only)
+def update_plan(
+    code: str,
+    req: PlanIn,
+    db: Session = Depends(get_db),
+    actor: PlatformAdmin = Depends(current_operator),
+):
+    plan = db.get(Plan, code)
+    if plan is None:
+        raise ApiError(404, "NOT_FOUND", "Plan not found")
+    values = req.model_dump(exclude_unset=True)
+    if "name" in values:
+        plan.name = req.name
+    if "active" in values:
+        plan.active = req.active
+    if req.prices is not None:
+        plan.prices = json.dumps({k: v.model_dump() for k, v in req.prices.items()})
+    if req.limits is not None:
+        plan.limits = json.dumps(req.limits)
+    plan.updated_at = utcnow()
+    op.audit(db, actor.id, "plan_updated", None, f"{code}: {', '.join(sorted(values))}")
+    db.commit()
+    return billing.plan_view(plan)

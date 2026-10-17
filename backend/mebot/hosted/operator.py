@@ -20,6 +20,7 @@ from mebot.models import (
     PlatformAdmin,
     PlatformAudit,
     PlatformSession,
+    Subscription,
     UsageCounter,
     utcnow,
 )
@@ -143,6 +144,12 @@ def tenants(db: Session, now: datetime | None = None) -> list[dict]:
             select(Message.bot_id, func.max(Message.created_at)).group_by(Message.bot_id)
         ).all()
     )
+    subs = {
+        b: (status, plan)
+        for b, status, plan in db.execute(
+            select(Subscription.bot_id, Subscription.status, Subscription.plan_code)
+        ).all()
+    }
     rows = db.execute(
         select(Bot, Admin.email, Admin.email_verified_at)
         .outerjoin(Admin, Admin.bot_id == Bot.id)
@@ -162,6 +169,8 @@ def tenants(db: Session, now: datetime | None = None) -> list[dict]:
                 "status": bot.status,
                 "status_reason": bot.status_reason,
                 "plan": bot.plan,
+                "billing_status": subs.get(bot.id, (None, None))[0],
+                "billing_plan": subs.get(bot.id, (None, None))[1],
                 "setup_done": bot.setup_completed_at is not None,
                 "messages_7d": int(m7.get(bot.id) or 0),
                 "messages_30d": int(m30.get(bot.id) or 0),
@@ -173,6 +182,43 @@ def tenants(db: Session, now: datetime | None = None) -> list[dict]:
             }
         )
     return out
+
+
+# --- billing (counts and money only) ---------------------------------------------------
+
+
+def billing_summary(db: Session, now: datetime | None = None) -> dict:
+    """MRR by currency (serving paid subscriptions x their plan price), status counts and
+    the past-due list."""
+    import json
+
+    from mebot.billing import service, state
+    from mebot.models import Plan
+
+    now = now or utcnow()
+    prices = {p.code: json.loads(p.prices or "{}") for p in db.scalars(select(Plan))}
+    mrr: dict[str, int] = {}
+    counts: dict[str, int] = {}
+    past_due = []
+    rows = db.execute(
+        select(Subscription, Bot.slug).outerjoin(Bot, Bot.id == Subscription.bot_id)
+    ).all()
+    for sub, slug in rows:
+        counts[sub.status] = counts.get(sub.status, 0) + 1
+        paid = sub.status in ("active", "past_due", "cancelled")
+        if paid and sub.currency and state.serving(service.sub_state(sub), now):
+            price = prices.get(sub.plan_code or "", {}).get(sub.currency) or {}
+            mrr[sub.currency] = mrr.get(sub.currency, 0) + int(price.get("amount_minor") or 0)
+        if sub.status == "past_due":
+            past_due.append(
+                {
+                    "bot_id": sub.bot_id,
+                    "slug": slug,
+                    "provider": sub.provider,
+                    "grace_until": sub.grace_until.isoformat() if sub.grace_until else None,
+                }
+            )
+    return {"mrr": mrr, "counts": counts, "past_due": past_due}
 
 
 # --- maintainer pings ----------------------------------------------------------------
