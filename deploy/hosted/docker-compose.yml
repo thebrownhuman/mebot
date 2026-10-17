@@ -20,7 +20,7 @@ services:
       retries: 20
 
   mebot:
-    image: ghcr.io/${MEBOT_OWNER:-OWNER}/mebot:${MEBOT_VERSION:-latest}
+    image: ghcr.io/${MEBOT_OWNER:-thebrownhuman}/mebot:${MEBOT_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       postgres:

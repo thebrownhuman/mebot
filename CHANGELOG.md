@@ -70,5 +70,5 @@ First public release.
   digits (the phone-number mask ran first). Canaries are now letters only.
 - The registry missed `releases.json` edits that landed within one filesystem mtime tick.
 
-[Unreleased]: https://github.com/OWNER/mebot/compare/v0.9.0...HEAD
-[0.9.0]: https://github.com/OWNER/mebot/releases/tag/v0.9.0
+[Unreleased]: https://github.com/thebrownhuman/mebot/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/thebrownhuman/mebot/releases/tag/v0.9.0
