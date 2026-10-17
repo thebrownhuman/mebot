@@ -71,6 +71,10 @@ class Bot(Base):
     timezone: Mapped[str] = mapped_column(Text, default="UTC", server_default="UTC", nullable=False)
     # Conversations older than this many days are hard-deleted; NULL keeps them forever.
     retention_days: Mapped[int | None] = mapped_column(Integer, default=180, nullable=True)
+    # Contact e-mail for mebot updates when it should differ from the admin login (0015).
+    update_contact_email: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Update banner the owner dismissed (shown again for any newer version).
+    dismissed_update_version: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ChatSession(Base):
@@ -551,3 +555,29 @@ class IntegrationToken(Base):
     __table_args__ = (
         Index("ux_integration_tokens_bot_provider", "bot_id", "provider", unique=True),
     )
+
+
+# --- install registry / telemetry (migration 0015) -----------------------------------
+
+
+class TelemetryState(Base):
+    """One row: what this install last told the registry and what it heard back."""
+
+    __tablename__ = "telemetry_state"
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=new_id)
+    registered_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # "email|site|major" as last registered, to notice when a re-register is due.
+    registered_fingerprint: Mapped[str | None] = mapped_column(Text)
+    # Consent was withdrawn but the registry hasn't confirmed the deletion yet.
+    unregister_pending: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    last_register_error: Mapped[str | None] = mapped_column(Text)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_heartbeat_payload: Mapped[str | None] = mapped_column(Text)  # JSON, as sent
+    last_check_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    latest_version: Mapped[str | None] = mapped_column(Text)
+    min_supported: Mapped[str | None] = mapped_column(Text)
+    advisories: Mapped[str] = mapped_column(Text, default="[]", nullable=False)  # JSON
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
