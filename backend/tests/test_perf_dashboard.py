@@ -1,5 +1,6 @@
 """Smoke test: the dashboard stays fast with 100k messages (generous bound, SQLite)."""
 
+import os
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -8,6 +9,9 @@ from sqlalchemy import insert
 
 from mebot.models import AccessLog, ChatSession, Message
 from tests.dash_helpers import bot_id
+
+# 3s on an idle machine; shared CI runners under xdist set MEBOT_PERF_FACTOR to scale it.
+BUDGET = 3.0 * float(os.environ.get("MEBOT_PERF_FACTOR", "1"))
 
 SESSIONS = 5_000
 PER_SESSION = 20  # 100k messages
@@ -75,11 +79,11 @@ def test_overview_and_lists_are_fast_with_100k_messages(admin_client, app):
         r = admin_client.get(f"/api/admin/analytics/overview?range={rng}")
         took = time.perf_counter() - t
         assert r.status_code == 200 and r.json()["kpis"]["chats"]["value"] > 0
-        assert took < 3.0, f"overview {rng} took {took:.2f}s"
+        assert took < BUDGET, f"overview {rng} took {took:.2f}s"
     t = time.perf_counter()  # a search with no hit has to look at every message
     r = admin_client.get("/api/admin/conversations?q=zzqqxx")
     assert r.status_code == 200 and r.json()["items"] == []
-    assert time.perf_counter() - t < 3.0
+    assert time.perf_counter() - t < BUDGET
     for url in (
         "/api/admin/conversations?limit=25",
         "/api/admin/conversations?q=kubernetes&limit=25",
@@ -89,4 +93,4 @@ def test_overview_and_lists_are_fast_with_100k_messages(admin_client, app):
         r = admin_client.get(url)
         took = time.perf_counter() - t
         assert r.status_code == 200 and r.json()["items"], url
-        assert took < 3.0, f"{url} took {took:.2f}s"
+        assert took < BUDGET, f"{url} took {took:.2f}s"

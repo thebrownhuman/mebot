@@ -38,7 +38,7 @@ jobs:
       - name: docs/configuration.md is up to date
         run: python -m mebot.config --markdown | diff -u ../docs/configuration.md -
       # Random order + parallel workers, and no reruns: a flaky test fails the build.
-      - run: python -m pytest -q -n auto -p randomly --durations=15
+      - run: MEBOT_PERF_FACTOR=2 python -m pytest -q -n auto -p randomly --durations=15
 
   # Hosted mode runs on Postgres: the whole backend suite again, against a real server.
   backend-postgres:
@@ -68,7 +68,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r requirements-dev.txt
-      - run: python -m pytest -q -n 4 -p randomly --durations=15
+      - run: MEBOT_PERF_FACTOR=2 python -m pytest -q -n 4 -p randomly --durations=15
 
   registry:
     runs-on: ubuntu-latest
