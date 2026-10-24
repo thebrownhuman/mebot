@@ -4,4 +4,4 @@ pytest-asyncio>=0.23
 ruff>=0.4
 respx>=0.21
 pytest-xdist>=3.6
-pytest-randomly>=3.15
+pytest-randomly>=5.0.0
