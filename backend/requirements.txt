@@ -1,17 +1,17 @@
 # Runtime deps, pinned for reproducible images. Dependabot bumps these weekly.
-fastapi==0.143.0
+fastapi==0.156.4
 uvicorn[standard]==0.54.0
 httpx==0.28.1
-sqlalchemy==2.1.4
+sqlalchemy==2.1.5
 alembic==1.20.0
-pydantic-settings==2.15.0
+pydantic-settings==2.16.1
 argon2-cffi==25.1.0
 email-validator==2.3.0
 cryptography==50.0.2
 pyyaml==6.0.3
 # IANA timezones for the Telegram daily digest (Windows has no system tz database)
 tzdata==2026.5
-pypdf==6.21.0
+pypdf==6.21.1
 python-docx==1.2.0
 python-multipart==0.0.32
 # Postgres driver (MODE=hosted)
